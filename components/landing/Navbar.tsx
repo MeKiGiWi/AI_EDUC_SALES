@@ -52,9 +52,10 @@ export function Navbar({ links }: NavbarProps) {
             <div className="hidden items-center gap-3 md:flex">
               <a
                 href="/login"
-                className="inline-flex min-h-11 items-center justify-center rounded-pill border border-vc-border bg-white px-5 text-sm font-semibold text-vc-body transition hover:border-vc-blue/40 hover:text-vc-ink"
+                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-pill border border-[#3F73FF] bg-white/90 px-6 text-sm font-semibold tracking-[-0.015em] text-[#3F73FF] shadow-[0_12px_32px_rgba(50,72,120,0.08)] transition hover:-translate-y-0.5 hover:bg-[#F3F8FF] sm:text-base lg:min-h-16 lg:px-7"
               >
                 Войти
+                <span aria-hidden="true">↗</span>
               </a>
               <PillButton href="/demo">Записаться на демо</PillButton>
             </div>
@@ -76,9 +77,10 @@ export function Navbar({ links }: NavbarProps) {
                 <a
                   href="/login"
                   onClick={() => setIsOpen(false)}
-                  className="mt-2 inline-flex min-h-12 items-center justify-center rounded-pill border border-vc-border bg-white px-5 text-sm font-semibold text-vc-ink"
+                  className="mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-[#3F73FF] bg-white/90 px-5 text-sm font-semibold tracking-[-0.015em] text-[#3F73FF] transition hover:bg-[#F3F8FF]"
                 >
                   Войти
+                  <span aria-hidden="true">↗</span>
                 </a>
                 <PillButton href="/demo" className="mt-2" ariaLabel="Записаться на демо">
                   Записаться на демо

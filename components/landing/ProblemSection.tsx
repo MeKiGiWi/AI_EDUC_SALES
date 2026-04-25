@@ -27,7 +27,7 @@ export function ProblemSection({ items, quote }: ProblemSectionProps) {
         </div>
 
         <SurfaceCard className="mt-8 p-7 sm:mt-10 sm:p-9">
-          <p className="max-w-[780px] text-[28px] font-[800] leading-[1.08] tracking-[-0.05em] text-vc-ink sm:text-[42px]">
+          <p className="max-w-[820px] text-[28px] font-[800] leading-[1.12] tracking-[-0.025em] text-vc-ink sm:text-[42px]">
             {quote}
           </p>
         </SurfaceCard>

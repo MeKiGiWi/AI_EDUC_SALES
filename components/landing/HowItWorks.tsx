@@ -24,10 +24,10 @@ export function HowItWorks({ steps }: { steps: Step[] }) {
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">0{index + 1}</span>
                   <span className="rounded-pill border border-vc-blue/15 bg-vc-blue/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-vc-blue">
-                    stage
+                    этап
                   </span>
                 </div>
-                <h3 className="mt-6 text-[24px] font-[800] leading-[1.02] tracking-[-0.05em] text-vc-ink">{step.title}</h3>
+                <h3 className="mt-6 text-[24px] font-[800] leading-[1.08] tracking-[-0.025em] text-vc-ink">{step.title}</h3>
                 <p className="mt-4 text-sm leading-7 text-vc-body sm:text-[15px]">{step.description}</p>
               </SurfaceCard>
               {index < steps.length - 1 ? (

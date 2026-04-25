@@ -35,7 +35,7 @@ export function FeatureGrid({ items }: { items: FeatureItem[] }) {
                 <span className="inline-flex rounded-[20px] border border-vc-blue/15 bg-vc-blue/10 p-3 text-vc-blue">
                   <Icon className="h-5 w-5" />
                 </span>
-                <h3 className="mt-5 text-[24px] font-[800] leading-[1.04] tracking-[-0.05em] text-vc-ink">{item.title}</h3>
+                <h3 className="mt-5 text-[24px] font-[800] leading-[1.08] tracking-[-0.025em] text-vc-ink">{item.title}</h3>
                 <p className="mt-3 text-sm leading-7 text-vc-body">{item.description}</p>
               </SurfaceCard>
             );

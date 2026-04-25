@@ -14,8 +14,8 @@ export function AiTrainerSection({ items }: { items: TrainerFeature[] }) {
           <div>
             <SectionIntro
               eyebrow="ИИ-тренажёр"
-              title="ИИ-тренажёр, который имитирует реальные диалоги с клиентами"
-              description="Менеджер тренируется в безопасной среде, получает структурированную обратную связь и видит, как растут конкретные компетенции от сценария к сценарию."
+              title="ИИ-тренажёр для отработки реальных продаж"
+              description="Менеджеры тренируются в безопасной среде, получают обратную связь после каждого диалога, а руководитель видит прогресс по навыкам и KPI."
             />
             <div className="mt-8 space-y-4">
               {items.map((item) => (
@@ -35,7 +35,7 @@ export function AiTrainerSection({ items }: { items: TrainerFeature[] }) {
             <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
               <div className="rounded-[28px] border border-vc-border bg-white/90 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">Mock dialogue</p>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">Симуляция переговоров</p>
                   <MessagesSquare className="h-4 w-4 text-vc-blue" />
                 </div>
                 <div className="mt-4 space-y-3">
@@ -53,8 +53,8 @@ export function AiTrainerSection({ items }: { items: TrainerFeature[] }) {
                       <Gauge className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">Scorecard</p>
-                      <p className="mt-1 text-2xl font-[850] tracking-[-0.06em] text-vc-ink">Навык продаж: 86%</p>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">Оценка навыка</p>
+                      <p className="mt-1 text-2xl font-[850] tracking-[-0.025em] text-vc-ink">Навык продаж: 86%</p>
                     </div>
                   </div>
                 </SurfaceCard>
@@ -65,7 +65,7 @@ export function AiTrainerSection({ items }: { items: TrainerFeature[] }) {
                       <Bot className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">AI feedback</p>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">Обратная связь AI coach</p>
                       <p className="mt-1 text-sm leading-6 text-vc-body">Сильная диагностика боли, нужно усилить фиксацию следующего шага и работу с риском бездействия.</p>
                     </div>
                   </div>

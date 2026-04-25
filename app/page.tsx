@@ -6,7 +6,6 @@ import { FinalCta } from "@/components/landing/FinalCta";
 import { Footer } from "@/components/landing/Footer";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
-import { MetricCards } from "@/components/landing/MetricCards";
 import { Navbar } from "@/components/landing/Navbar";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { ProblemSection } from "@/components/landing/ProblemSection";
@@ -18,13 +17,6 @@ const navLinks = [
   { label: "Для кого", href: "#audience" },
   { label: "Тарифы", href: "#pricing" },
   { label: "FAQ", href: "#faq" }
-];
-
-const metrics = [
-  { value: "до 30%", label: "рост выручки", description: "Когда команда закрепляет стандарты продаж в регулярной практике и быстрее переносит знания в сделки." },
-  { value: "до 40%", label: "быстрее выход новичка на результат", description: "Новые сотрудники проходят контент, тренируются на сценариях и быстрее выходят в живую работу." },
-  { value: "до 25%", label: "рост конверсии в сделки", description: "Практика диалогов и разборы возражений повышают качество каждого касания с клиентом." },
-  { value: "2–3 месяца", label: "окупаемость академии", description: "Платформа помогает связать программу развития с KPI и быстрее увидеть управляемый финансовый эффект." }
 ];
 
 const problemItems = [
@@ -133,8 +125,6 @@ export default function Home() {
           description="Платформа обучения sales-команд: база знаний, ИИ-тренажёр, практика диалогов, оценка навыков и аналитика KPI в одном контуре."
         />
       </div>
-
-      <MetricCards items={metrics} />
       <ProblemSection items={problemItems} quote="Продавец не должен тренироваться на клиентах." />
       <HowItWorks steps={howItWorksSteps} />
       <AiTrainerSection items={trainerItems} />

@@ -9,7 +9,7 @@ export function FinalCta() {
           <div className="absolute bottom-[-60px] left-[-10px] h-44 w-44 rounded-full bg-vc-lilac/20 blur-3xl" aria-hidden="true" />
           <div className="relative z-10 max-w-[860px]">
             <p className="font-mono text-[12px] uppercase tracking-eyebrow text-vc-muted">Demo session</p>
-            <h2 className="mt-5 font-display text-[clamp(38px,11vw,76px)] font-[850] leading-[0.95] tracking-hero text-vc-ink">
+            <h2 className="mt-5 max-w-[12ch] font-display text-[clamp(38px,11vw,76px)] font-[850] leading-[1.02] tracking-[-0.025em] text-vc-ink">
               Покажем, как обучение продавцов может влиять на выручку
             </h2>
             <p className="mt-5 max-w-[680px] text-base leading-7 text-vc-body sm:text-lg sm:leading-8">

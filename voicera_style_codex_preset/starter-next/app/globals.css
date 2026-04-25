@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --vc-canvas: #FBFCFF;
+  --vc-ink: #111227;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--vc-canvas);
+  color: var(--vc-ink);
+  font-family: Inter, Geist, Satoshi, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+::selection {
+  background: rgba(71, 139, 255, 0.18);
+}
+
+@keyframes vc-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--r, 0deg)); }
+  50% { transform: translate3d(8px, -14px, 0) rotate(calc(var(--r, 0deg) + 2deg)); }
+}
+
+.vc-drift {
+  animation: vc-drift 9s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}

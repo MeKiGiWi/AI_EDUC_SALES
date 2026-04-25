@@ -1,0 +1,128 @@
+:root {
+  --vc-canvas: #FBFCFF;
+  --vc-canvas-warm: #FDFDFB;
+  --vc-surface: #FFFFFF;
+  --vc-surface-translucent: rgba(255, 255, 255, 0.82);
+
+  --vc-ink: #111227;
+  --vc-ink-2: #1C1E35;
+  --vc-body: #4F536C;
+  --vc-muted: #6F7389;
+  --vc-faint: #A8ABB7;
+  --vc-ghost: #C8CDD8;
+
+  --vc-border: #DDE6F5;
+  --vc-border-soft: #EBF0FA;
+
+  --vc-blue: #478BFF;
+  --vc-blue-deep: #2F65FF;
+  --vc-blue-soft: #8AB6FF;
+  --vc-blue-pale: #CFE2FF;
+  --vc-lilac: #D7C9FF;
+  --vc-success: #42C99B;
+  --vc-warning: #F4B75B;
+
+  --vc-font-sans: Inter, Geist, Satoshi, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --vc-font-display: Inter, Geist, Satoshi, ui-sans-serif, system-ui, sans-serif;
+  --vc-font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  --vc-container: 1200px;
+  --vc-gutter: clamp(20px, 4vw, 64px);
+  --vc-section-y: clamp(104px, 14vw, 184px);
+  --vc-section-y-tight: clamp(72px, 10vw, 128px);
+  --vc-card-padding: clamp(28px, 4vw, 56px);
+
+  --vc-radius-card: 32px;
+  --vc-radius-panel: 40px;
+  --vc-radius-pill: 999px;
+
+  --vc-shadow-soft: 0 24px 80px rgba(50, 72, 120, 0.10);
+  --vc-shadow-card: 0 32px 90px rgba(39, 61, 103, 0.12);
+  --vc-glow-blue: 0 0 60px rgba(71, 139, 255, 0.28);
+}
+
+.ethereal-ai-light {
+  color: var(--vc-ink);
+  background:
+    radial-gradient(circle at 78% 14%, rgba(120, 164, 255, 0.10), transparent 28%),
+    radial-gradient(circle at 6% 36%, rgba(71, 139, 255, 0.08), transparent 22%),
+    var(--vc-canvas);
+  font-family: var(--vc-font-sans);
+}
+
+.vc-container {
+  width: min(var(--vc-container), calc(100% - var(--vc-gutter) * 2));
+  margin-inline: auto;
+}
+
+.vc-eyebrow {
+  font-family: var(--vc-font-mono);
+  font-size: clamp(12px, 1.1vw, 15px);
+  line-height: 1.1;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--vc-muted);
+}
+
+.vc-hero-title {
+  font-family: var(--vc-font-display);
+  font-size: clamp(56px, 9vw, 112px);
+  line-height: 0.94;
+  letter-spacing: -0.06em;
+  font-weight: 850;
+  color: var(--vc-ink);
+}
+
+.vc-section-title {
+  font-family: var(--vc-font-display);
+  font-size: clamp(42px, 5.6vw, 76px);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+  font-weight: 850;
+  color: var(--vc-ink);
+}
+
+.vc-body-large {
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.55;
+  letter-spacing: -0.02em;
+  color: var(--vc-body);
+}
+
+.vc-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.74));
+  border: 1px solid rgba(166, 190, 230, 0.48);
+  border-radius: var(--vc-radius-card);
+  box-shadow: var(--vc-shadow-card);
+}
+
+.vc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--vc-radius-pill);
+  border: 1px solid rgba(166, 190, 230, 0.52);
+  background: rgba(255,255,255,0.78);
+  box-shadow: 0 12px 36px rgba(39, 61, 103, 0.08);
+}
+
+.vc-orbit-line {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid rgba(71,139,255,0.16);
+  border-color: rgba(71,139,255,0.18) transparent transparent transparent;
+  border-radius: 999px;
+  transform: rotate(var(--rotate, -14deg));
+}
+
+.vc-crystal {
+  position: absolute;
+  width: var(--w, 44px);
+  height: var(--h, 96px);
+  clip-path: polygon(50% 0%, 88% 18%, 78% 88%, 50% 100%, 20% 88%, 12% 18%);
+  background: linear-gradient(135deg, rgba(239,245,255,0.95), rgba(111,154,255,0.62) 52%, rgba(255,255,255,0.55));
+  border: 1px solid rgba(75, 129, 255, 0.38);
+  box-shadow: 0 0 22px rgba(71,139,255,0.48), 0 0 70px rgba(71,139,255,0.26);
+  filter: drop-shadow(0 20px 28px rgba(71,139,255,0.18));
+  opacity: var(--opacity, 0.82);
+}

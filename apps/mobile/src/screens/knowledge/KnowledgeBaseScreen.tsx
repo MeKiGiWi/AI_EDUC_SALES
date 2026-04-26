@@ -9,6 +9,7 @@ import { AppButton } from "../../components/ui/AppButton";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
 import type {
   KnowledgeCategoryId,
@@ -46,6 +47,7 @@ export function KnowledgeBaseScreen({
   onNavigate
 }: KnowledgeBaseScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const [activeCategoryId, setActiveCategoryId] = useState<KnowledgeCategoryId>(
     initialCategoryId ?? sections[0]?.categoryId ?? "product"
   );
@@ -103,6 +105,7 @@ export function KnowledgeBaseScreen({
   };
 
   const selectedSection = filteredSections[0];
+  const materialWidth = layout.isWide ? "48%" : layout.isDesktop ? "48%" : "100%";
 
   return (
     <>
@@ -170,25 +173,28 @@ export function KnowledgeBaseScreen({
           onAction={() => setQuery("")}
         />
       ) : (
-        visibleMaterials.map((material) => (
-          <MaterialCard
-            key={material.id}
-            material={material}
-            onOpen={() => setSheetState({ kind: "material", material })}
-            onExplainSimply={() => setSheetState({ kind: "simple", material })}
-            onGiveAnswerExample={() => setSheetState({ kind: "example", material })}
-            onAddToPlan={() => {
-              addMaterialToPlan(material);
-              setSheetState({ kind: "plan", material });
-            }}
-            onStartTraining={() =>
-              onNavigate("Simulator", {
-                materialId: material.id,
-                scenarioId: material.id === "mat-4" ? "scn-2" : "scn-1"
-              })
-            }
-          />
-        ))
+        <View style={[styles.materialGrid, (layout.isTablet || layout.isDesktop) && styles.materialGridWrap]}>
+          {visibleMaterials.map((material) => (
+            <View key={material.id} style={{ width: materialWidth }}>
+              <MaterialCard
+                material={material}
+                onOpen={() => setSheetState({ kind: "material", material })}
+                onExplainSimply={() => setSheetState({ kind: "simple", material })}
+                onGiveAnswerExample={() => setSheetState({ kind: "example", material })}
+                onAddToPlan={() => {
+                  addMaterialToPlan(material);
+                  setSheetState({ kind: "plan", material });
+                }}
+                onStartTraining={() =>
+                  onNavigate("Simulator", {
+                    materialId: material.id,
+                    scenarioId: material.id === "mat-4" ? "scn-2" : "scn-1"
+                  })
+                }
+              />
+            </View>
+          ))}
+        </View>
       )}
 
       <AppBottomSheet
@@ -288,6 +294,13 @@ const styles = StyleSheet.create({
   filterRow: {
     gap: 8,
     paddingRight: 12
+  },
+  materialGrid: {
+    gap: 12
+  },
+  materialGridWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap"
   },
   searchInput: {
     borderWidth: 1,

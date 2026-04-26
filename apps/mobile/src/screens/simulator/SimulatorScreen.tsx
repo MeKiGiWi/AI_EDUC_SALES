@@ -9,6 +9,7 @@ import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import {
   simulatorEvaluationByScenarioId
 } from "../../data/mockAcademyData";
@@ -42,6 +43,7 @@ export function SimulatorScreen({
   onNavigate
 }: SimulatorScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const defaultScenarioId = activeScenarioId ?? scenarios[0]?.id ?? "";
   const [selectedScenarioId, setSelectedScenarioId] = useState(defaultScenarioId);
   const [messages, setMessages] = useState<ScenarioMessage[]>([]);
@@ -155,102 +157,108 @@ export function SimulatorScreen({
         </AppCard>
       ) : null}
 
-      <AppCard tone="mint">
-        <View style={styles.rowBetween}>
-          <View style={styles.flexBlock}>
-            <StatusPill label={`${difficulty} · ${selectedScenario.channel}`} tone="success" />
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{selectedScenario.title}</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{selectedScenario.goal}</Text>
-          </View>
-          {activeMaterialId ? <StatusPill label={`Материал: ${activeMaterialId}`} tone="neutral" /> : null}
-        </View>
-        <View style={styles.buttonRow}>
-          <AppButton label="Начать сценарий" onPress={startScenario} tone="primary" />
-          <AppButton
-            label="Сменить уровень сложности"
-            onPress={() => {
-              const currentIndex = difficultyOptions.indexOf(difficulty);
-              setDifficulty(difficultyOptions[(currentIndex + 1) % difficultyOptions.length]);
-            }}
-            tone="secondary"
-          />
-          <AppButton
-            label="Показать подсказку"
-            onPress={() =>
-              setSheetState({
-                kind: "hint",
-                title: "Подсказка по сценарию",
-                items: selectedScenario.suggestedActions
-              })
-            }
-            tone="ghost"
-          />
-        </View>
-      </AppCard>
+      <View style={[styles.simulatorLayout, layout.isDesktop && styles.simulatorLayoutDesktop]}>
+        <View style={styles.simulatorSidebar}>
+          <AppCard tone="mint">
+            <View style={styles.rowBetween}>
+              <View style={styles.flexBlock}>
+                <StatusPill label={`${difficulty} · ${selectedScenario.channel}`} tone="success" />
+                <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{selectedScenario.title}</Text>
+                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{selectedScenario.goal}</Text>
+              </View>
+              {activeMaterialId ? <StatusPill label={`Материал: ${activeMaterialId}`} tone="neutral" /> : null}
+            </View>
+            <View style={styles.buttonRow}>
+              <AppButton label="Начать сценарий" onPress={startScenario} tone="primary" />
+              <AppButton
+                label="Сменить уровень сложности"
+                onPress={() => {
+                  const currentIndex = difficultyOptions.indexOf(difficulty);
+                  setDifficulty(difficultyOptions[(currentIndex + 1) % difficultyOptions.length]);
+                }}
+                tone="secondary"
+              />
+              <AppButton
+                label="Показать подсказку"
+                onPress={() =>
+                  setSheetState({
+                    kind: "hint",
+                    title: "Подсказка по сценарию",
+                    items: selectedScenario.suggestedActions
+                  })
+                }
+                tone="ghost"
+              />
+            </View>
+          </AppCard>
 
-      <AppCard>
-        <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Карточка клиента</Text>
-        <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-          {selectedScenario.persona.name}, {selectedScenario.persona.roleTitle} в {selectedScenario.persona.company}
-        </Text>
-        <Text style={[styles.body, { color: theme.semantic.textPrimary }]}>
-          Настрой: {selectedScenario.persona.mood}
-        </Text>
-        {selectedScenario.persona.painPoints.map((painPoint) => (
-          <Text key={painPoint} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-            • {painPoint}
-          </Text>
-        ))}
-      </AppCard>
+          <AppCard>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Карточка клиента</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {selectedScenario.persona.name}, {selectedScenario.persona.roleTitle} в {selectedScenario.persona.company}
+            </Text>
+            <Text style={[styles.body, { color: theme.semantic.textPrimary }]}>
+              Настрой: {selectedScenario.persona.mood}
+            </Text>
+            {selectedScenario.persona.painPoints.map((painPoint) => (
+              <Text key={painPoint} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
+                • {painPoint}
+              </Text>
+            ))}
+          </AppCard>
+        </View>
 
-      <AppCard>
-        <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Диалог</Text>
-        <View style={styles.chatArea}>
-          {messages.map((message) => (
-            <ChatBubble key={message.id} message={message} />
-          ))}
+        <View style={styles.simulatorMain}>
+          <AppCard>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Диалог</Text>
+            <View style={styles.chatArea}>
+              {messages.map((message) => (
+                <ChatBubble key={message.id} message={message} />
+              ))}
+            </View>
+            <Text style={[styles.metaLabel, { color: theme.semantic.textMuted }]}>Быстрые варианты ответа</Text>
+            <View style={styles.quickReplyRow}>
+              {selectedScenario.quickReplies.map((reply) => (
+                <AppButton key={reply} label={reply} onPress={() => sendReply(reply)} tone="ghost" />
+              ))}
+            </View>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Введите ваш ответ клиенту"
+              placeholderTextColor={theme.semantic.textMuted}
+              multiline
+              style={[
+                styles.input,
+                {
+                  borderColor: theme.semantic.border,
+                  backgroundColor: theme.semantic.cardSubtle,
+                  color: theme.semantic.textPrimary
+                }
+              ]}
+            />
+            <View style={styles.buttonRow}>
+              <AppButton label="Отправить" onPress={() => sendReply(draft)} tone="primary" />
+              <AppButton
+                label="Завершить и оценить"
+                onPress={() => {
+                  if (learnerTurnCount >= 2) {
+                    setSheetState({ kind: "evaluation", evaluation });
+                  } else {
+                    setSuccessMessage("Сделай еще минимум 2 реплики, чтобы получить оценку.");
+                  }
+                }}
+                tone="secondary"
+              />
+              <AppButton
+                label="Повторить сценарий"
+                onPress={() => resetScenario(true)}
+                tone="ghost"
+              />
+            </View>
+          </AppCard>
         </View>
-        <Text style={[styles.metaLabel, { color: theme.semantic.textMuted }]}>Быстрые варианты ответа</Text>
-        <View style={styles.quickReplyRow}>
-          {selectedScenario.quickReplies.map((reply) => (
-            <AppButton key={reply} label={reply} onPress={() => sendReply(reply)} tone="ghost" />
-          ))}
-        </View>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Введите ваш ответ клиенту"
-          placeholderTextColor={theme.semantic.textMuted}
-          multiline
-          style={[
-            styles.input,
-            {
-              borderColor: theme.semantic.border,
-              backgroundColor: theme.semantic.cardSubtle,
-              color: theme.semantic.textPrimary
-            }
-          ]}
-        />
-        <View style={styles.buttonRow}>
-          <AppButton label="Отправить" onPress={() => sendReply(draft)} tone="primary" />
-          <AppButton
-            label="Завершить и оценить"
-            onPress={() => {
-              if (learnerTurnCount >= 2) {
-                setSheetState({ kind: "evaluation", evaluation });
-              } else {
-                setSuccessMessage("Сделай еще минимум 2 реплики, чтобы получить оценку.");
-              }
-            }}
-            tone="secondary"
-          />
-          <AppButton
-            label="Повторить сценарий"
-            onPress={() => resetScenario(true)}
-            tone="ghost"
-          />
-        </View>
-      </AppCard>
+      </View>
 
       <AppBottomSheet
         visible={sheetState !== null}
@@ -367,12 +375,27 @@ const styles = StyleSheet.create({
     lineHeight: 20
   },
   chatArea: {
-    gap: 10
+    gap: 10,
+    minHeight: 240
   },
   quickReplyRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8
+  },
+  simulatorLayout: {
+    gap: 14
+  },
+  simulatorLayoutDesktop: {
+    flexDirection: "row",
+    alignItems: "flex-start"
+  },
+  simulatorSidebar: {
+    flex: 0.85,
+    gap: 14
+  },
+  simulatorMain: {
+    flex: 1.15
   },
   input: {
     borderWidth: 1,

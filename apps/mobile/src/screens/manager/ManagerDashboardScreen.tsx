@@ -16,6 +16,7 @@ import { MetricCard } from "../../components/ui/MetricCard";
 import { ProgressBar } from "../../components/ui/ProgressBar";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
 
 interface ManagerDashboardScreenProps {
@@ -36,6 +37,7 @@ export function ManagerDashboardScreen({
   onNavigate
 }: ManagerDashboardScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const [focusOnlyRisk, setFocusOnlyRisk] = useState(false);
   const [sheetState, setSheetState] = useState<ManagerSheetState>(null);
   const [sentRecommendationIds, setSentRecommendationIds] = useState<string[]>([]);
@@ -48,6 +50,8 @@ export function ManagerDashboardScreen({
         : dashboard.teamMembers,
     [dashboard.teamMembers, focusOnlyRisk]
   );
+  const metricWidth = layout.isWide ? "23.5%" : layout.isDesktop ? "31.5%" : layout.isTablet ? "48%" : "100%";
+  const memberWidth = layout.isDesktop ? "48%" : "100%";
 
   return (
     <>
@@ -57,9 +61,11 @@ export function ManagerDashboardScreen({
         description="Кабинет руководителя собран под быстрый phone-first контроль: увидеть summary команды, открыть проблемный диалог и сразу назначить следующую тренировку."
       />
 
-      <View style={styles.metricGrid}>
+      <View style={[styles.metricGrid, (layout.isTablet || layout.isDesktop) && styles.wrapGrid]}>
         {dashboard.metrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
+          <View key={metric.id} style={{ width: metricWidth }}>
+            <MetricCard metric={metric} />
+          </View>
         ))}
       </View>
 
@@ -141,38 +147,42 @@ export function ManagerDashboardScreen({
             tone="ghost"
           />
         </View>
-        {visibleMembers.map((member) => (
-          <AppCard key={member.id} style={styles.innerCard}>
-            <View style={styles.rowBetween}>
-              <View style={styles.flexBlock}>
-                <Text style={[styles.label, { color: theme.semantic.textPrimary }]}>{member.fullName}</Text>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                  {member.roleTitle} · Фокус: {member.focusArea}
-                </Text>
-              </View>
-              <StatusPill
-                label={`Риск: ${member.riskLabel}`}
-                tone={member.riskLabel === "Низкий" ? "success" : "warning"}
-              />
+        <View style={[styles.wrapGrid, styles.memberGrid]}>
+          {visibleMembers.map((member) => (
+            <View key={member.id} style={{ width: memberWidth }}>
+              <AppCard style={styles.innerCard}>
+                <View style={styles.rowBetween}>
+                  <View style={styles.flexBlock}>
+                    <Text style={[styles.label, { color: theme.semantic.textPrimary }]}>{member.fullName}</Text>
+                    <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+                      {member.roleTitle} · Фокус: {member.focusArea}
+                    </Text>
+                  </View>
+                  <StatusPill
+                    label={`Риск: ${member.riskLabel}`}
+                    tone={member.riskLabel === "Низкий" ? "success" : "warning"}
+                  />
+                </View>
+                <ProgressBar
+                  value={member.progressPercent}
+                  label={`Последний score ${member.latestScore}/100`}
+                />
+                <View style={styles.buttonRow}>
+                  <AppButton
+                    label="Открыть профиль ученика"
+                    onPress={() => setSheetState({ kind: "profile", member })}
+                    tone="secondary"
+                  />
+                  <AppButton
+                    label="Назначить тренировку"
+                    onPress={() => setSheetState({ kind: "training", member })}
+                    tone="ghost"
+                  />
+                </View>
+              </AppCard>
             </View>
-            <ProgressBar
-              value={member.progressPercent}
-              label={`Последний score ${member.latestScore}/100`}
-            />
-            <View style={styles.buttonRow}>
-              <AppButton
-                label="Открыть профиль ученика"
-                onPress={() => setSheetState({ kind: "profile", member })}
-                tone="secondary"
-              />
-              <AppButton
-                label="Назначить тренировку"
-                onPress={() => setSheetState({ kind: "training", member })}
-                tone="ghost"
-              />
-            </View>
-          </AppCard>
-        ))}
+          ))}
+        </View>
       </AppCard>
 
       <AppCard>
@@ -344,6 +354,11 @@ const styles = StyleSheet.create({
   metricGrid: {
     gap: 12
   },
+  wrapGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12
+  },
   title: {
     fontSize: 18,
     lineHeight: 24,
@@ -386,6 +401,9 @@ const styles = StyleSheet.create({
   },
   innerCard: {
     padding: 14
+  },
+  memberGrid: {
+    alignItems: "stretch"
   },
   successText: {
     fontSize: 14,

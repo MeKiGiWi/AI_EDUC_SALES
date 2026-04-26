@@ -1,6 +1,7 @@
 import type { KnowledgeCategoryId, UserRole } from "../types/academy";
 
 export type RootStackParamList = {
+  Landing: undefined;
   StudentHome: undefined;
   KnowledgeBase: { materialId?: string; categoryId?: KnowledgeCategoryId } | undefined;
   Simulator: { scenarioId?: string; materialId?: string } | undefined;
@@ -19,6 +20,11 @@ export interface RouteConfigItem {
 }
 
 export const routeConfig: Record<RouteName, RouteConfigItem> = {
+  Landing: {
+    route: "Landing",
+    title: "AI Sales Academy",
+    description: "Лендинг и вход в демо-приложение"
+  },
   StudentHome: {
     route: "StudentHome",
     title: "Кабинет ученика",
@@ -54,6 +60,13 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
     title: "Отчеты",
     description: "Выгрузки, PDF и scheduled rules"
   }
+};
+
+export const routeRoleMap: Partial<Record<RouteName, UserRole>> = {
+  StudentHome: "student",
+  ManagerDashboard: "manager",
+  HrDashboard: "hr",
+  Admin: "admin"
 };
 
 export const roleHomeRoute: Record<UserRole, RouteName> = {

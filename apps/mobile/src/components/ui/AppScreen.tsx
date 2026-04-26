@@ -2,43 +2,77 @@ import React, { ReactNode } from "react";
 import { ScrollView, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
 
 interface AppScreenProps {
   children: ReactNode;
   footer?: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  variant?: "app" | "landing";
+  disableBottomPadding?: boolean;
+  sidebar?: ReactNode;
 }
 
-export function AppScreen({ children, footer, contentContainerStyle }: AppScreenProps) {
+export function AppScreen({
+  children,
+  footer,
+  contentContainerStyle,
+  variant = "app",
+  disableBottomPadding = false,
+  sidebar
+}: AppScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
+  const hasDesktopSidebar = layout.isDesktop && Boolean(sidebar);
+  const maxWidth =
+    variant === "landing"
+      ? layout.isWide
+        ? 1280
+        : layout.isDesktop
+          ? 1220
+          : layout.contentMaxWidth
+      : layout.isWide
+        ? 1180
+        : layout.isDesktop
+          ? 1120
+          : layout.contentMaxWidth;
+  const bottomPadding = disableBottomPadding
+    ? theme.spacing.screenBottom
+    : footer && !layout.isDesktop
+      ? theme.spacing.screenBottom + 92
+      : theme.spacing.screenBottom + 24;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.semantic.background }]}>
-      <View style={styles.wrapper}>
-        <ScrollView
-          contentContainerStyle={[
-            {
-              paddingTop: theme.spacing.screenTop,
-              paddingBottom: theme.spacing.screenBottom + 92
-            }
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View
-            style={[
-              styles.content,
+      <View style={[styles.wrapper, hasDesktopSidebar && styles.desktopWrapper]}>
+        {hasDesktopSidebar ? <View style={styles.sidebar}>{sidebar}</View> : null}
+        <View style={styles.main}>
+          <ScrollView
+            contentContainerStyle={[
               {
-                paddingHorizontal: theme.spacing.screenHorizontal
-              },
-              contentContainerStyle
+                paddingTop: theme.spacing.screenTop,
+                paddingBottom: bottomPadding
+              }
             ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {children}
-          </View>
-        </ScrollView>
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
+            <View
+              style={[
+                styles.content,
+                {
+                  maxWidth,
+                  paddingHorizontal: layout.screenPadding
+                },
+                contentContainerStyle
+              ]}
+            >
+              {children}
+            </View>
+          </ScrollView>
+          {footer && !layout.isDesktop ? <View style={styles.footer}>{footer}</View> : null}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -51,9 +85,17 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1
   },
+  desktopWrapper: {
+    flexDirection: "row"
+  },
+  sidebar: {
+    width: 288
+  },
+  main: {
+    flex: 1
+  },
   content: {
     width: "100%",
-    maxWidth: 760,
     alignSelf: "center",
     gap: 18
   },

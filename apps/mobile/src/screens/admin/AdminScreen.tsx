@@ -14,6 +14,7 @@ import { AppCard } from "../../components/ui/AppCard";
 import { MetricCard } from "../../components/ui/MetricCard";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
 
 interface AdminScreenProps {
@@ -38,6 +39,7 @@ const nextRoleMap: Record<UserAccessSetting["role"], UserAccessSetting["role"]> 
 
 export function AdminScreen({ settings, onNavigate }: AdminScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const [enabledMap, setEnabledMap] = useState<Record<string, boolean>>(
     Object.fromEntries(settings.settings.map((item) => [item.id, item.enabled]))
   );
@@ -46,6 +48,7 @@ export function AdminScreen({ settings, onNavigate }: AdminScreenProps) {
   );
   const [sheetState, setSheetState] = useState<AdminSheetState>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const metricWidth = layout.isWide ? "23.5%" : layout.isDesktop ? "31.5%" : layout.isTablet ? "48%" : "100%";
 
   return (
     <>
@@ -55,9 +58,11 @@ export function AdminScreen({ settings, onNavigate }: AdminScreenProps) {
         description="Mobile-first админка для управления ролями, доступами, знаниями, сценариями и отправкой отчетов без backend-интеграции."
       />
 
-      <View style={styles.metricGrid}>
+      <View style={[styles.metricGrid, (layout.isTablet || layout.isDesktop) && styles.wrapGrid]}>
         {settings.metrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
+          <View key={metric.id} style={{ width: metricWidth }}>
+            <MetricCard metric={metric} />
+          </View>
         ))}
       </View>
 
@@ -318,6 +323,11 @@ export function AdminScreen({ settings, onNavigate }: AdminScreenProps) {
 
 const styles = StyleSheet.create({
   metricGrid: {
+    gap: 12
+  },
+  wrapGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12
   },
   title: {

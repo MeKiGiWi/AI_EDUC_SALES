@@ -4,14 +4,17 @@ import { StyleSheet, Text, View } from "react-native";
 import type { AcademyUser } from "../../types/academy";
 import { useTheme } from "../../theme/useTheme";
 import { AppCard } from "../ui/AppCard";
+import { AppButton } from "../ui/AppButton";
 
 interface MobileHeaderProps {
   title: string;
   subtitle: string;
   user: AcademyUser;
+  actionLabel?: string;
+  onActionPress?: () => void;
 }
 
-export function MobileHeader({ title, subtitle, user }: MobileHeaderProps) {
+export function MobileHeader({ title, subtitle, user, actionLabel, onActionPress }: MobileHeaderProps) {
   const theme = useTheme();
 
   return (
@@ -28,6 +31,11 @@ export function MobileHeader({ title, subtitle, user }: MobileHeaderProps) {
       <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
         {user.fullName} · {user.title} · {user.lastActiveAt}
       </Text>
+      {actionLabel && onActionPress ? (
+        <View style={styles.actionRow}>
+          <AppButton label={actionLabel} onPress={onActionPress} tone="ghost" />
+        </View>
+      ) : null}
     </AppCard>
   );
 }
@@ -69,5 +77,8 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
     fontWeight: "600"
+  },
+  actionRow: {
+    alignItems: "flex-start"
   }
 });

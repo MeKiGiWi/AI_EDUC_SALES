@@ -6,7 +6,9 @@ import {
   scheduledReportRules
 } from "../data/mockAcademyData";
 import { academyMockService } from "../services/academyMockService";
+import { DesktopSidebar } from "../components/layout/DesktopSidebar";
 import { useTheme } from "../theme/useTheme";
+import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
 import type {
   AcademyUser,
   AdminSettings,
@@ -24,11 +26,13 @@ import { RoleSwitcher } from "../components/layout/RoleSwitcher";
 import { AppScreen } from "../components/ui/AppScreen";
 import {
   roleHomeRoute,
+  routeRoleMap,
   routeConfig,
   tabsByRole,
   type RootStackParamList,
   type RouteName
 } from "./routes";
+import { LandingScreen } from "../screens/landing/LandingScreen";
 import { StudentHomeScreen } from "../screens/student/StudentHomeScreen";
 import { KnowledgeBaseScreen } from "../screens/knowledge/KnowledgeBaseScreen";
 import { SimulatorScreen } from "../screens/simulator/SimulatorScreen";
@@ -44,8 +48,9 @@ type RouteState = {
 
 export function AppNavigator() {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const [activeRole, setActiveRole] = useState<UserRole>("student");
-  const [routeState, setRouteState] = useState<RouteState>({ name: "StudentHome" });
+  const [routeState, setRouteState] = useState<RouteState>({ name: "Landing" });
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<AcademyUser | null>(null);
   const [studentDashboard, setStudentDashboard] = useState<StudentDashboard | null>(null);
@@ -93,23 +98,32 @@ export function AppNavigator() {
 
   useEffect(() => {
     academyMockService.getCurrentUser(activeRole).then(setCurrentUser);
-    setRouteState({ name: roleHomeRoute[activeRole] });
   }, [activeRole]);
 
+  function navigate<T extends RouteName>(route: T, params?: RootStackParamList[T]) {
+    const routeRole = routeRoleMap[route];
+    if (routeRole && routeRole !== activeRole) {
+      setActiveRole(routeRole);
+    }
+
+    setRouteState({ name: route, params });
+  }
+
   const footer = useMemo(
-    () => (
-      <BottomTabs
-        routes={tabsByRole[activeRole]}
-        activeRoute={routeState.name}
-        onNavigate={(route) => setRouteState({ name: route })}
-      />
-    ),
-    [activeRole, routeState.name]
+    () =>
+      routeState.name === "Landing" || layout.isDesktop ? null : (
+        <BottomTabs
+          routes={tabsByRole[activeRole]}
+          activeRoute={routeState.name}
+          onNavigate={(route) => navigate(route)}
+        />
+      ),
+    [activeRole, layout.isDesktop, routeState.name]
   );
 
   if (loading || !currentUser || !studentDashboard || !managerDashboard || !hrDashboard || !adminSettings) {
     return (
-      <AppScreen>
+      <AppScreen variant="app">
         <View style={styles.loader}>
           <ActivityIndicator size="large" color={theme.semantic.actionPrimary} />
           <Text style={[styles.loaderText, { color: theme.semantic.textSecondary }]}>
@@ -133,16 +147,56 @@ export function AppNavigator() {
     routeState.name === "Reports"
       ? (routeState.params as RootStackParamList["Reports"] | undefined)
       : undefined;
+  const isLanding = routeState.name === "Landing";
+  const desktopRoutes: RouteName[] = [
+    "Landing",
+    "StudentHome",
+    "KnowledgeBase",
+    "Simulator",
+    "ManagerDashboard",
+    "HrDashboard",
+    "Admin",
+    "Reports"
+  ];
 
   return (
-    <AppScreen footer={footer}>
-      <MobileHeader title={currentRouteConfig.title} subtitle={currentRouteConfig.description} user={currentUser} />
-      <RoleSwitcher activeRole={activeRole} onChangeRole={setActiveRole} />
+    <AppScreen
+      footer={footer ?? undefined}
+      variant={isLanding ? "landing" : "app"}
+      disableBottomPadding={isLanding && layout.isDesktop}
+      sidebar={
+        !isLanding ? (
+          <DesktopSidebar
+            activeRole={activeRole}
+            activeRoute={routeState.name}
+            user={currentUser}
+            routes={desktopRoutes}
+            onNavigate={navigate}
+            onChangeRole={(role) => navigate(roleHomeRoute[role])}
+          />
+        ) : undefined
+      }
+    >
+      {isLanding ? <LandingScreen onNavigate={navigate} /> : null}
+
+      {!isLanding ? (
+        <MobileHeader
+          title={currentRouteConfig.title}
+          subtitle={currentRouteConfig.description}
+          user={currentUser}
+          actionLabel="Лендинг"
+          onActionPress={() => navigate("Landing")}
+        />
+      ) : null}
+
+      {!isLanding && !layout.isDesktop ? (
+        <RoleSwitcher activeRole={activeRole} onChangeRole={(role) => navigate(roleHomeRoute[role])} />
+      ) : null}
 
       {routeState.name === "StudentHome" ? (
         <StudentHomeScreen
           dashboard={studentDashboard}
-          onNavigate={(route, params) => setRouteState({ name: route, params })}
+          onNavigate={navigate}
         />
       ) : null}
 
@@ -151,7 +205,7 @@ export function AppNavigator() {
           sections={knowledgeSections}
           initialCategoryId={knowledgeParams?.categoryId}
           initialMaterialId={knowledgeParams?.materialId}
-          onNavigate={(route, params) => setRouteState({ name: route, params })}
+          onNavigate={navigate}
         />
       ) : null}
 
@@ -160,28 +214,28 @@ export function AppNavigator() {
           scenarios={scenarios}
           activeScenarioId={simulatorParams?.scenarioId}
           activeMaterialId={simulatorParams?.materialId}
-          onNavigate={(route, params) => setRouteState({ name: route, params })}
+          onNavigate={navigate}
         />
       ) : null}
 
       {routeState.name === "ManagerDashboard" ? (
         <ManagerDashboardScreen
           dashboard={managerDashboard}
-          onNavigate={(route, params) => setRouteState({ name: route, params })}
+          onNavigate={navigate}
         />
       ) : null}
 
       {routeState.name === "HrDashboard" ? (
         <HrDashboardScreen
           dashboard={hrDashboardDataOverride(hrDashboard)}
-          onNavigate={(route, params) => setRouteState({ name: route, params })}
+          onNavigate={navigate}
         />
       ) : null}
 
       {routeState.name === "Admin" ? (
         <AdminScreen
           settings={adminSettings}
-          onNavigate={(route, params) => setRouteState({ name: route, params })}
+          onNavigate={navigate}
         />
       ) : null}
 

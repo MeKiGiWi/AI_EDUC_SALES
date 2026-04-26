@@ -11,6 +11,7 @@ import { MetricCard } from "../../components/ui/MetricCard";
 import { ProgressBar } from "../../components/ui/ProgressBar";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
 
 interface StudentHomeScreenProps {
@@ -27,6 +28,7 @@ type StudentSheetState =
 
 export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const [sheetState, setSheetState] = useState<StudentSheetState>(null);
   const [plannedRecommendations, setPlannedRecommendations] = useState<string[]>([]);
   const [selectedModuleId, setSelectedModuleId] = useState(dashboard.modules[1]?.id ?? dashboard.modules[0]?.id ?? "");
@@ -62,6 +64,8 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
       : sheetState?.kind === "feedback"
         ? "Разбор сильных сторон, зоны роста и конкретных действий на следующую практику."
         : sheetState?.description ?? "";
+  const metricWidth = layout.isWide ? "23.5%" : layout.isDesktop ? "31.5%" : layout.isTablet ? "48%" : "100%";
+  const moduleWidth = layout.isDesktop ? "48%" : "100%";
 
   return (
     <>
@@ -117,9 +121,11 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
         </AppCard>
       ) : null}
 
-      <View style={styles.metricGrid}>
+      <View style={[styles.metricGrid, (layout.isTablet || layout.isDesktop) && styles.wrapGrid]}>
         {dashboard.metrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
+          <View key={metric.id} style={{ width: metricWidth }}>
+            <MetricCard metric={metric} />
+          </View>
         ))}
       </View>
 
@@ -142,20 +148,22 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
           <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>Активные модули</Text>
           <StatusPill label={`${dashboard.modules.length} в работе`} tone="neutral" />
         </View>
-        {dashboard.modules.slice(0, 3).map((module) => (
-          <View key={module.id} style={styles.moduleRow}>
-            <View style={styles.flexBlock}>
-              <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>{module.title}</Text>
-              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{module.description}</Text>
-              <ProgressBar value={module.completedPercent} label={module.nextStep} />
+        <View style={[styles.wrapGrid, styles.moduleGrid]}>
+          {dashboard.modules.slice(0, 3).map((module) => (
+            <View key={module.id} style={[styles.moduleRow, { width: moduleWidth }]}>
+              <View style={styles.flexBlock}>
+                <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>{module.title}</Text>
+                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{module.description}</Text>
+                <ProgressBar value={module.completedPercent} label={module.nextStep} />
+              </View>
+              <AppButton
+                label="Продолжить обучение"
+                onPress={() => openModuleSheet(module)}
+                tone="secondary"
+              />
             </View>
-            <AppButton
-              label="Продолжить обучение"
-              onPress={() => openModuleSheet(module)}
-              tone="secondary"
-            />
-          </View>
-        ))}
+          ))}
+        </View>
       </AppCard>
 
       <AppCard>
@@ -311,6 +319,14 @@ const styles = StyleSheet.create({
   },
   metricGrid: {
     gap: 12
+  },
+  wrapGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12
+  },
+  moduleGrid: {
+    alignItems: "stretch"
   },
   rowBetween: {
     flexDirection: "row",

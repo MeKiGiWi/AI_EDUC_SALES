@@ -10,6 +10,7 @@ import { MetricCard } from "../../components/ui/MetricCard";
 import { ProgressBar } from "../../components/ui/ProgressBar";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
 
 interface HrDashboardScreenProps {
@@ -25,6 +26,7 @@ type HrSheetState =
 
 export function HrDashboardScreen({ dashboard, onNavigate }: HrDashboardScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const [comparisonEnabled, setComparisonEnabled] = useState(false);
   const [sheetState, setSheetState] = useState<HrSheetState>(null);
   const [assignedTrackIds, setAssignedTrackIds] = useState<string[]>([]);
@@ -36,6 +38,7 @@ export function HrDashboardScreen({ dashboard, onNavigate }: HrDashboardScreenPr
       dashboard.groupProgress[0],
     [dashboard.groupProgress]
   );
+  const metricWidth = layout.isWide ? "23.5%" : layout.isDesktop ? "31.5%" : layout.isTablet ? "48%" : "100%";
 
   return (
     <>
@@ -45,9 +48,11 @@ export function HrDashboardScreen({ dashboard, onNavigate }: HrDashboardScreenPr
         description="Экран для HR/L&D показывает доходимость, динамику оценки, риски по группам и помогает быстро подготовить выгрузку или назначить трек развития."
       />
 
-      <View style={styles.metricGrid}>
+      <View style={[styles.metricGrid, (layout.isTablet || layout.isDesktop) && styles.wrapGrid]}>
         {dashboard.metrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
+          <View key={metric.id} style={{ width: metricWidth }}>
+            <MetricCard metric={metric} />
+          </View>
         ))}
       </View>
 
@@ -245,6 +250,11 @@ export function HrDashboardScreen({ dashboard, onNavigate }: HrDashboardScreenPr
 
 const styles = StyleSheet.create({
   metricGrid: {
+    gap: 12
+  },
+  wrapGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12
   },
   title: {

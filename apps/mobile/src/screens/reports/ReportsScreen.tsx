@@ -8,6 +8,7 @@ import { AppCard } from "../../components/ui/AppCard";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
 
 interface ReportsScreenProps {
@@ -24,6 +25,7 @@ type ReportsSheetState =
 
 export function ReportsScreen({ reports, rules, highlightReportId }: ReportsScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const [selectedReportId, setSelectedReportId] = useState(highlightReportId ?? reports[0]?.id ?? "");
   const [sheetState, setSheetState] = useState<ReportsSheetState>(null);
   const [sendLog, setSendLog] = useState<string[]>([]);
@@ -34,6 +36,7 @@ export function ReportsScreen({ reports, rules, highlightReportId }: ReportsScre
     () => reports.find((item) => item.id === selectedReportId) ?? reports[0] ?? null,
     [reports, selectedReportId]
   );
+  const reportWidth = layout.isDesktop ? "48%" : "100%";
 
   return (
     <>
@@ -63,93 +66,97 @@ export function ReportsScreen({ reports, rules, highlightReportId }: ReportsScre
           }
         />
       ) : (
-        reports.map((report) => (
-          <AppCard key={report.id} tone={report.id === selectedReportId ? "mint" : "default"}>
-            <View style={styles.rowBetween}>
-              <View style={styles.flexBlock}>
-                <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{report.summary}</Text>
+        <View style={[styles.reportsGrid, layout.isDesktop && styles.reportsGridDesktop]}>
+          {reports.map((report) => (
+            <View key={report.id} style={{ width: reportWidth }}>
+              <AppCard tone={report.id === selectedReportId ? "mint" : "default"}>
+                <View style={styles.rowBetween}>
+                  <View style={styles.flexBlock}>
+                    <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
+                    <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{report.summary}</Text>
+                    <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+                      {report.ownerLabel} · {report.updatedAt}
+                    </Text>
+                  </View>
+                  <StatusPill label={report.format.toUpperCase()} tone="success" />
+                </View>
                 <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-                  {report.ownerLabel} · {report.updatedAt}
+                  Доступные форматы: {report.availableFormats.map((item) => item.toUpperCase()).join(", ")}
                 </Text>
-              </View>
-              <StatusPill label={report.format.toUpperCase()} tone="success" />
+                <View style={styles.buttonRow}>
+                  <AppButton label="Предпросмотр" onPress={() => setSheetState({ kind: "preview", report })} tone="primary" />
+                  <AppButton
+                    label="Скачать PDF"
+                    onPress={() =>
+                      setSheetState({
+                        kind: "export",
+                        title: "PDF подготовлен",
+                        lines: [
+                          `Отчет: ${report.title}`,
+                          "Формат: PDF",
+                          "Статус: mock export подготовлен"
+                        ]
+                      })
+                    }
+                    tone="secondary"
+                  />
+                  <AppButton
+                    label="Скачать CSV"
+                    onPress={() =>
+                      setSheetState({
+                        kind: "export",
+                        title: "CSV подготовлен",
+                        lines: [
+                          `Отчет: ${report.title}`,
+                          "Формат: CSV",
+                          "Файл в RN-окружении не сохраняем без доп. библиотек, поэтому показываем понятный success state."
+                        ]
+                      })
+                    }
+                    tone="ghost"
+                  />
+                </View>
+                <View style={styles.buttonRow}>
+                  <AppButton
+                    label="Отправить руководителю"
+                    onPress={() => {
+                      setSendLog((current) => [...current, `${report.title} → руководителю`]);
+                      setSuccessMessage(`Отчет "${report.title}" отправлен руководителю.`);
+                    }}
+                    tone="secondary"
+                  />
+                  <AppButton
+                    label="Отправить HR/L&D"
+                    onPress={() => {
+                      setSendLog((current) => [...current, `${report.title} → HR/L&D`]);
+                      setSuccessMessage(`Отчет "${report.title}" отправлен HR/L&D.`);
+                    }}
+                    tone="ghost"
+                  />
+                  <AppButton
+                    label="Настроить регулярность"
+                    onPress={() =>
+                      setSheetState({
+                        kind: "schedule",
+                        title: "Настроить регулярность",
+                        lines: [
+                          `Текущий режим: ${scheduleMode === "weekly" ? "еженедельно" : "ежемесячно"}`,
+                          "Следующее нажатие переключит local schedule mode."
+                        ]
+                      })
+                    }
+                    tone="ghost"
+                  />
+                </View>
+                <AppButton
+                  label="Выбрать отчет"
+                  onPress={() => setSelectedReportId(report.id)}
+                  tone="ghost"
+                />
+              </AppCard>
             </View>
-            <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-              Доступные форматы: {report.availableFormats.map((item) => item.toUpperCase()).join(", ")}
-            </Text>
-            <View style={styles.buttonRow}>
-              <AppButton label="Предпросмотр" onPress={() => setSheetState({ kind: "preview", report })} tone="primary" />
-              <AppButton
-                label="Скачать PDF"
-                onPress={() =>
-                  setSheetState({
-                    kind: "export",
-                    title: "PDF подготовлен",
-                    lines: [
-                      `Отчет: ${report.title}`,
-                      "Формат: PDF",
-                      "Статус: mock export подготовлен"
-                    ]
-                  })
-                }
-                tone="secondary"
-              />
-              <AppButton
-                label="Скачать CSV"
-                onPress={() =>
-                  setSheetState({
-                    kind: "export",
-                    title: "CSV подготовлен",
-                    lines: [
-                      `Отчет: ${report.title}`,
-                      "Формат: CSV",
-                      "Файл в RN-окружении не сохраняем без доп. библиотек, поэтому показываем понятный success state."
-                    ]
-                  })
-                }
-                tone="ghost"
-              />
-            </View>
-            <View style={styles.buttonRow}>
-              <AppButton
-                label="Отправить руководителю"
-                onPress={() => {
-                  setSendLog((current) => [...current, `${report.title} → руководителю`]);
-                  setSuccessMessage(`Отчет "${report.title}" отправлен руководителю.`);
-                }}
-                tone="secondary"
-              />
-              <AppButton
-                label="Отправить HR/L&D"
-                onPress={() => {
-                  setSendLog((current) => [...current, `${report.title} → HR/L&D`]);
-                  setSuccessMessage(`Отчет "${report.title}" отправлен HR/L&D.`);
-                }}
-                tone="ghost"
-              />
-              <AppButton
-                label="Настроить регулярность"
-                onPress={() =>
-                  setSheetState({
-                    kind: "schedule",
-                    title: "Настроить регулярность",
-                    lines: [
-                      `Текущий режим: ${scheduleMode === "weekly" ? "еженедельно" : "ежемесячно"}`,
-                      "Следующее нажатие переключит local schedule mode."
-                    ]
-                  })
-                }
-                tone="ghost"
-              />
-            </View>
-            <AppButton
-              label="Выбрать отчет"
-              onPress={() => setSelectedReportId(report.id)}
-              tone="ghost"
-            />
-          </AppCard>
-        ))
+          ))}
+        </View>
       )}
 
       {selectedReport ? (
@@ -274,6 +281,13 @@ const styles = StyleSheet.create({
   },
   blockRow: {
     gap: 8
+  },
+  reportsGrid: {
+    gap: 12
+  },
+  reportsGridDesktop: {
+    flexDirection: "row",
+    flexWrap: "wrap"
   },
   successText: {
     fontSize: 14,

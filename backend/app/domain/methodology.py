@@ -54,7 +54,7 @@ class BuyerAgentContext(BaseModel):
     persona_name: str
     company_context: str
     current_situation: str
-    disclosure_sequence: list[str] = Field(default_factory=list)
+    customer_memory: dict | None = None
     hidden_methodology_notes: list[str] = Field(default_factory=list)
 
 
@@ -74,7 +74,7 @@ class ScenarioDefinition(BaseModel):
     status: str
     customer: ScenarioCustomerPublicConfig
     introduction: str
-    hidden_summary: str
+    opening_message: str
     target_competencies: list[str]
     criteria: list[str] = Field(default_factory=list)
     suggested_actions: list[str] = Field(default_factory=list)

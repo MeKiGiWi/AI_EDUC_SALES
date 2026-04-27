@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app.domain.methodology import ScenarioDefinition
 from app.llm.base import LLMClient
 
-_PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "buyer_agent_v1.md"
+_PROMPT_PATH_V2 = Path(__file__).resolve().parent.parent / "prompts" / "buyer_agent_v2.md"
 _MARKDOWN_HEADING_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+\S")
 _JSON_OBJECT_RE = re.compile(r"^\s*\{.*\}\s*$", re.DOTALL)
 
@@ -42,7 +42,7 @@ class BuyerAgentTraceResult:
 class BuyerAgent:
     def __init__(self, llm_client: LLMClient) -> None:
         self.llm_client = llm_client
-        self.system_prompt = _PROMPT_PATH.read_text(encoding="utf-8").strip()
+        self.system_prompt = _PROMPT_PATH_V2.read_text(encoding="utf-8").strip()
 
     async def generate_reply(self, payload: BuyerAgentInput) -> str:
         result = await self.generate_reply_with_trace(payload)
@@ -87,22 +87,56 @@ class BuyerAgent:
         )
 
     def _build_prompt(self, payload: BuyerAgentInput) -> str:
-        dialog_lines = [
-            f"{turn.role}: {turn.text.strip()}" for turn in payload.dialog_history if turn.text.strip()
+        # Collect recent customer replies for repetition protection
+        previous_customer_replies = [
+            turn.text.strip()
+            for turn in payload.dialog_history
+            if turn.role == "customer" and turn.text.strip()
         ]
-        history_text = "\n".join(dialog_lines) if dialog_lines else "Диалог только начинается."
+        forbidden_replies = previous_customer_replies[-3:] if previous_customer_replies else []
+
+        # Build normalized transcript with human-readable roles
+        recent_transcript = []
+        for turn in payload.dialog_history:
+            if not turn.text.strip():
+                continue
+            if turn.role == "system":
+                continue  # Do not send system messages to Buyer Agent
+            role_label = "Менеджер" if turn.role in ("learner", "manager") else turn.role.capitalize()
+            if turn.role == "customer":
+                role_label = "Клиент"
+            recent_transcript.append(f"{role_label}: {turn.text.strip()}")
+
+        history_text = "\n".join(recent_transcript) if recent_transcript else "Диалог только начинается."
+
         private_context = payload.scenario_private_context
+        buyer_ctx = private_context.buyer_agent_context
+
+        # Compact JSON without meta-anchors, includes customer_memory for factual answers
         prompt_payload = {
-            "public_context": payload.public_context,
-            "current_stage": payload.current_stage,
-            "dialog_history": history_text,
-            "edge_case_flags": payload.edge_case_flags,
-            "buyer_persona": {
-                "persona_name": private_context.buyer_agent_context.persona_name,
-                "company_context": private_context.buyer_agent_context.company_context,
-                "current_situation": private_context.buyer_agent_context.current_situation,
-                "disclosure_sequence": private_context.buyer_agent_context.disclosure_sequence,
-                "hidden_summary": private_context.hidden_summary,
+            "customer_profile": {
+                "name": buyer_ctx.persona_name,
+                "company_context": buyer_ctx.company_context,
+                "current_situation": buyer_ctx.current_situation,
+            },
+            "customer_memory": buyer_ctx.customer_memory or {},
+            "hidden_objections": buyer_ctx.hidden_methodology_notes,
+            "decision_context": {
+                "current_stage": payload.current_stage,
+                "edge_case_flags": payload.edge_case_flags,
+            },
+            "last_manager_message": (
+                next(
+                    (turn.text.strip() for turn in reversed(payload.dialog_history) if turn.role in ("learner", "manager") and turn.text.strip()),
+                    None,
+                )
+            ),
+            "recent_transcript": recent_transcript,
+            "previous_customer_replies": previous_customer_replies,
+            "forbidden_replies": forbidden_replies,
+            "dialogue_signals": {
+                "should_not_repeat_previous_replies": True,
+                "should_not_ask_same_question_twice": True,
             },
         }
         return json.dumps(prompt_payload, ensure_ascii=False, indent=2)

@@ -132,3 +132,92 @@ async def test_buyer_output_is_not_evaluated_during_send_message() -> None:
     assert result.get("evaluation_result") is None
     assert result.get("report_payload") is None
     assert "competencies" not in result
+
+
+@pytest.mark.asyncio
+async def test_invalid_buyer_reply_returns_graph_error() -> None:
+    graph, _ = build_graph(['{"criteria":["leak"]}', '# leaked heading'])
+    started = await graph.ainvoke(
+        {
+            "action": "start",
+            "scenario_id": "production-cooling",
+            "user_id": "user-1",
+            "tenant_id": "tenant-1",
+        }
+    )
+
+    result = await graph.ainvoke(
+        {
+            "action": "send_message",
+            "session_id": started["session_id"],
+            "learner_message": "Что сейчас мешает вам двигаться дальше по проекту?",
+        }
+    )
+
+    assert result["status"] == "error"
+    assert result["error"] == "buyer_reply_invalid"
+    assert result["error_node"] == "validate_buyer_reply"
+    assert result["error_detail"]["raw_output"] == "# leaked heading"
+
+
+@pytest.mark.asyncio
+async def test_debug_disabled_does_not_collect_debug_steps() -> None:
+    graph, _ = build_graph(["Сейчас для нас важно понять, как это повлияет на сроки производства."])
+    started = await graph.ainvoke(
+        {
+            "action": "start",
+            "scenario_id": "production-cooling",
+            "user_id": "user-1",
+            "tenant_id": "tenant-1",
+            "debug_enabled": False,
+            "debug_steps": [],
+        }
+    )
+
+    result = await graph.ainvoke(
+        {
+            "action": "send_message",
+            "session_id": started["session_id"],
+            "learner_message": "Что сейчас для вас главный риск по этому проекту?",
+            "debug_enabled": False,
+            "debug_steps": [],
+        }
+    )
+
+    assert result.get("debug_steps") in (None, [])
+
+
+@pytest.mark.asyncio
+async def test_debug_enabled_collects_buyer_agent_trace_on_send_message() -> None:
+    graph, _ = build_graph(["Сейчас для нас важно понять, как это повлияет на сроки производства."])
+    started = await graph.ainvoke(
+        {
+            "action": "start",
+            "scenario_id": "production-cooling",
+            "user_id": "user-1",
+            "tenant_id": "tenant-1",
+            "debug_enabled": True,
+            "debug_steps": [],
+        }
+    )
+
+    result = await graph.ainvoke(
+        {
+            "action": "send_message",
+            "session_id": started["session_id"],
+            "learner_message": "Что сейчас для вас главный риск по этому проекту?",
+            "debug_enabled": True,
+            "debug_steps": [],
+        }
+    )
+
+    debug_steps = result["debug_steps"]
+    buyer_step = next(step for step in debug_steps if step["node"] == "run_buyer_agent")
+    assert buyer_step["agent"] == "buyer_agent"
+    assert buyer_step["status"] == "completed"
+    assert buyer_step["prompt"]
+    assert buyer_step["system_prompt"]
+    assert buyer_step["raw_output"] == "Сейчас для нас важно понять, как это повлияет на сроки производства."
+    assert buyer_step["parsed_output"]["validated_output"] == (
+        "Сейчас для нас важно понять, как это повлияет на сроки производства."
+    )

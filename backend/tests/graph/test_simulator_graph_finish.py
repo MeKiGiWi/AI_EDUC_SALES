@@ -203,3 +203,34 @@ async def test_finish_after_min_turns_calls_evaluation_agent_and_report_builder(
     assert result["evaluation_result"].overall_level == "Middle"
     assert result["report_payload"].type == "simulator_report"
     assert session_id in deps.report_repo.saved
+
+
+@pytest.mark.asyncio
+async def test_finish_debug_trace_includes_evaluation_and_report_steps() -> None:
+    llm_responses = [
+        "Пока для нас главный риск - не сорвать график производства.",
+        "Да, риск простоев для нас очень чувствителен.",
+        "Короткую встречу можно обсудить, если она будет предметной.",
+        valid_evaluation_json(),
+    ]
+    graph, _ = build_graph(llm_responses)
+    session_id = await _start_and_send_three_turns(graph)
+
+    result = await graph.ainvoke(
+        {
+            "action": "finish",
+            "session_id": session_id,
+            "debug_enabled": True,
+            "debug_steps": [],
+        }
+    )
+
+    debug_steps = result["debug_steps"]
+    evaluation_step = next(step for step in debug_steps if step["node"] == "run_evaluation_agent")
+    validation_step = next(step for step in debug_steps if step["node"] == "validate_evaluation_json")
+    report_step = next(step for step in debug_steps if step["node"] == "build_report_json")
+
+    assert evaluation_step["prompt"]
+    assert evaluation_step["raw_output"] == valid_evaluation_json()
+    assert validation_step["parsed_output"]["overall_level"] == "Middle"
+    assert report_step["parsed_output"]["type"] == "simulator_report"

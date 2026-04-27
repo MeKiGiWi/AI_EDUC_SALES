@@ -86,7 +86,13 @@ def transport():
     yield ASGITransport(app=app)
 
 
-def configure_runtime(monkeypatch: pytest.MonkeyPatch, llm_responses: list[str], min_turns: int = 3) -> None:
+def configure_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    llm_responses: list[str],
+    min_turns: int = 3,
+    simulator_debug_trace: bool = False,
+    app_env: str = "development",
+) -> None:
     llm_client = FakeLLMClient(queued_text_responses=llm_responses)
     session_repo = simulator_api.InMemorySessionRepository()
     report_repo = simulator_api.InMemoryReportRepository()
@@ -108,12 +114,15 @@ def configure_runtime(monkeypatch: pytest.MonkeyPatch, llm_responses: list[str],
         return create_simulator_graph(deps)
 
     monkeypatch.setattr(simulator_api, "build_simulator_graph", _build_graph)
-    app.dependency_overrides[get_settings] = lambda: Settings(MIN_MANAGER_TURNS=min_turns)
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        MIN_MANAGER_TURNS=min_turns,
+        SIMULATOR_DEBUG_TRACE=simulator_debug_trace,
+        APP_ENV=app_env,
+    )
 
-
-async def start_session(client: AsyncClient) -> str:
+async def start_session(client: AsyncClient, debug: bool = False) -> str:
     response = await client.post(
-        "/api/v1/simulator/sessions",
+        f"/api/v1/simulator/sessions{'?debug=true' if debug else ''}",
         json={"scenario_id": "production-cooling", "difficulty": "medium"},
     )
     assert response.status_code == 201
@@ -133,6 +142,8 @@ async def test_scenario_catalog_hides_competencies(
     payload = response.json()
     assert payload["items"]
     first = payload["items"][0]
+    assert first["customer"]["name"] == "Игорь Соколов"
+    assert first["customer"]["roleTitle"] == "Руководитель производства"
     assert "target_competencies" not in first
     assert "criteria" not in first
     assert "suggestedActions" not in first
@@ -273,4 +284,119 @@ async def test_report_endpoint_returns_saved_report(
     payload = response.json()
     assert payload["type"] == "simulator_report"
     assert payload["metadata"]["session_id"] == session_id
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_runtime_api_without_llm_key_returns_503(
+    transport: ASGITransport,
+) -> None:
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        LLM_PROVIDER="fake",
+        LLM_API_KEY="",
+        MIN_MANAGER_TURNS=3,
+    )
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/simulator/sessions",
+            json={"scenario_id": "production-cooling", "difficulty": "medium"},
+        )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "LLM provider is not configured. Set LLM_PROVIDER=openrouter and LLM_API_KEY."
+    )
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_send_message_returns_502_with_graph_error_detail(
+    transport: ASGITransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configure_runtime(monkeypatch, ['{"criteria":["leak"]}', "# leaked heading"])
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        session_id = await start_session(client)
+        response = await client.post(
+            f"/api/v1/simulator/sessions/{session_id}/messages",
+            json={"text": "Что сейчас мешает вам двигаться дальше по проекту?"},
+        )
+
+    assert response.status_code == 502
+    payload = response.json()["detail"]
+    assert payload["code"] == "buyer_reply_invalid"
+    assert payload["node"] == "validate_buyer_reply"
+    assert payload["raw_output"] == "# leaked heading"
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_finish_returns_502_when_evaluation_json_remains_invalid(
+    transport: ASGITransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configure_runtime(
+        monkeypatch,
+        [
+            "Для нас критично не сорвать производственный график.",
+            "Да, риск простоев для нас очень чувствителен.",
+            "Короткую встречу можно обсудить, если она будет предметной.",
+            '{"bad_json": true}',
+            '{"still_bad_json": true}',
+        ],
+    )
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        session_id = await start_session(client)
+        for text in (
+            "Что сейчас мешает вам двигаться дальше по проекту?",
+            "Какой риск для производства самый чувствительный?",
+            "Давайте согласуем короткую встречу на следующей неделе.",
+        ):
+            await client.post(
+                f"/api/v1/simulator/sessions/{session_id}/messages",
+                json={"text": text},
+            )
+        response = await client.post(f"/api/v1/simulator/sessions/{session_id}/finish")
+
+    assert response.status_code == 502
+    payload = response.json()["detail"]
+    assert payload["code"] == "evaluation_json_invalid"
+    assert payload["node"] == "validate_evaluation_json"
+    assert payload["raw_output"] == '{"still_bad_json": true}'
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_debug_query_returns_debug_steps_when_runtime_debug_enabled(
+    transport: ASGITransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configure_runtime(monkeypatch, [], simulator_debug_trace=True)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/simulator/sessions?debug=true",
+            json={"scenario_id": "production-cooling", "difficulty": "medium"},
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["debug_steps"]
+    assert any(step["node"] == "create_opening_message" for step in payload["debug_steps"])
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_without_debug_query_response_does_not_include_debug_steps(
+    transport: ASGITransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configure_runtime(monkeypatch, [], simulator_debug_trace=True)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/simulator/sessions",
+            json={"scenario_id": "production-cooling", "difficulty": "medium"},
+        )
+
+    assert response.status_code == 201
+    assert "debug_steps" not in response.json()
     app.dependency_overrides.clear()

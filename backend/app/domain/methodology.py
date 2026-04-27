@@ -58,6 +58,13 @@ class BuyerAgentContext(BaseModel):
     hidden_methodology_notes: list[str] = Field(default_factory=list)
 
 
+class ScenarioCustomerPublicConfig(BaseModel):
+    name: str
+    role_title: str
+    company: str | None = None
+    mood: str | None = None
+
+
 class ScenarioDefinition(BaseModel):
     id: str
     title: str
@@ -65,6 +72,7 @@ class ScenarioDefinition(BaseModel):
     difficulty: str
     channel: str
     status: str
+    customer: ScenarioCustomerPublicConfig
     introduction: str
     hidden_summary: str
     target_competencies: list[str]
@@ -100,4 +108,3 @@ class MethodologyBundle(BaseModel):
     scenarios: list[ScenarioDefinition]
     edge_cases: list[EdgeCaseRule]
     report_template: ReportTemplateDefinition
-

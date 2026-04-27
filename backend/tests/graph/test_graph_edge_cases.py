@@ -175,6 +175,27 @@ async def test_invalid_evaluation_json_routes_through_repair() -> None:
 
 
 @pytest.mark.asyncio
+async def test_invalid_evaluation_json_after_repair_returns_error_without_fallback_report() -> None:
+    llm_responses = [
+        "Сейчас для нас важны сроки внедрения.",
+        "Да, риск простоев чувствителен.",
+        "Короткую встречу можно обсудить.",
+        '{"bad_json": true}',
+        '{"still_bad_json": true}',
+    ]
+    graph, _ = build_graph(llm_responses)
+    session_id = await _prepare_ready_session(graph)
+
+    result = await graph.ainvoke({"action": "finish", "session_id": session_id})
+
+    assert result["status"] == "error"
+    assert result["error"] == "evaluation_json_invalid"
+    assert result["error_node"] == "validate_evaluation_json"
+    assert result.get("report_payload") is None
+    assert result["error_detail"]["raw_output"] == '{"still_bad_json": true}'
+
+
+@pytest.mark.asyncio
 async def test_graph_never_returns_competencies_before_finish() -> None:
     graph, _ = build_graph(
         ["Нам важно понять, как это повлияет на производственный график."]

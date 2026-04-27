@@ -6,18 +6,20 @@ import { ScenarioPicker } from "../../components/simulator/ScenarioPicker";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
-import { simulatorEvaluationByScenarioId } from "../../data/academyData";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
-import { simulatorApiService } from "../../services/simulatorApiService";
+import {
+  type SimulatorApiErrorDetail,
+  SimulatorApiError,
+  simulatorApiService
+} from "../../services/simulatorApiService";
 import { useTheme } from "../../theme/useTheme";
 import type {
+  AgentDebugStepDto,
   LearningModule,
   Scenario,
   ScenarioMessage,
   SimulatorApiMessageDto,
-  SimulatorEvaluation,
-  SimulatorPublicScenarioDto,
-  SimulatorReportPayloadDto
+  SimulatorPublicScenarioDto
 } from "../../types/academy";
 
 interface SimulatorScreenProps {
@@ -50,7 +52,7 @@ export function SimulatorScreen({
   const layout = useResponsiveLayout();
   const apiEnabled = simulatorApiService.isEnabled();
   const [apiScenarios, setApiScenarios] = useState<Scenario[]>([]);
-  const catalogScenarios = apiEnabled && apiScenarios.length > 0 ? apiScenarios : scenarios;
+  const catalogScenarios = apiEnabled ? apiScenarios : scenarios;
   const initialScenario = useMemo(
     () => catalogScenarios.find((scenario) => scenario.id === activeScenarioId) ?? catalogScenarios[0],
     [activeScenarioId, catalogScenarios]
@@ -104,11 +106,6 @@ export function SimulatorScreen({
     return [companyLabel, painPointsLabel, moodLabel, objectionStyleLabel].filter(Boolean);
   }, [selectedScenario]);
 
-  const evaluation = selectedScenario && !apiEnabled
-    ? simulatorEvaluationByScenarioId[selectedScenario.id] ?? simulatorEvaluationByScenarioId["scn-1"]
-    : undefined;
-  const learnerTurnCount = messages.filter((message) => message.speakerRole === "learner").length;
-
   useEffect(() => {
     let isMounted = true;
 
@@ -124,12 +121,12 @@ export function SimulatorScreen({
         }
         const defaultModuleId = modules[0]?.id ?? "mod-simulator-api";
         setApiScenarios(items.map((item) => mapApiScenarioToScenario(item, defaultModuleId)));
-      } catch (_error) {
+      } catch (error) {
         if (!isMounted) {
           return;
         }
-        setSuccessMessage("Backend симулятора недоступен. Используем локальный mock-режим.");
         setApiScenarios([]);
+        appendSystemErrorMessage("fetchSimulatorScenarios", error);
       }
     }
 
@@ -177,26 +174,124 @@ export function SimulatorScreen({
       return;
     }
 
-    setMessages([]);
-    setDraft("");
-    setSheetState(null);
-  }, [selectedScenario?.id]);
-
-  function baseTranscript() {
-    if (apiEnabled) {
-      return [];
+    if (!apiEnabled) {
+      setMessages([createSystemMessage(buildMissingApiUrlText())]);
+    } else {
+      setMessages((current) => current.filter((message) => message.speakerRole === "system"));
     }
-    return selectedScenario?.transcript.filter((message) => message.speakerRole !== "coach") ?? [];
-  }
-
-  function resetScenario(clearSuccess: boolean) {
-    setMessages(baseTranscript());
     setDraft("");
     setSheetState(null);
     setSessionId(null);
     setManagerTurnCount(0);
     setCanFinish(false);
-    setMinManagerTurns(apiEnabled ? 10 : 2);
+  }, [apiEnabled, selectedScenario?.id]);
+
+  function createSystemMessage(text: string): ScenarioMessage {
+    return {
+      id: `system-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      speakerName: "Система",
+      speakerRole: "system",
+      text,
+      timestampLabel: formatTimestamp(new Date().toISOString())
+    };
+  }
+
+  function buildMissingApiUrlText(): string {
+    return "Ошибка конфигурации: EXPO_PUBLIC_SIMULATOR_API_URL не задан. Тренажер работает только через backend.";
+  }
+
+  function formatSystemErrorText(operation: string, error: unknown): string {
+    if (typeof error === "string") {
+      return `ERROR [${operation}]: ${error}`;
+    }
+
+    if (error instanceof SimulatorApiError) {
+      const detailObject =
+        error.detail && typeof error.detail === "object"
+          ? { ...(error.detail as Record<string, unknown>) }
+          : null;
+      if (detailObject && "debug_steps" in detailObject) {
+        delete detailObject.debug_steps;
+      }
+      const detailText =
+        typeof error.detail === "string"
+          ? error.detail
+          : detailObject !== null
+            ? JSON.stringify(detailObject)
+            : error.detail !== undefined
+              ? JSON.stringify(error.detail)
+            : "";
+      const payloadText = detailText || error.body || error.message;
+      const segments = [
+        error.status ? `${error.status}` : "",
+        payloadText
+      ].filter(Boolean);
+      return `ERROR [${operation}]: ${segments.join(" ")}`;
+    }
+
+    if (error instanceof Error) {
+      return `ERROR [${operation}]: ${error.message}`;
+    }
+
+    return `ERROR [${operation}]: ${String(error)}`;
+  }
+
+  function appendSystemErrorMessage(operation: string, error: unknown): void {
+    const text = formatSystemErrorText(operation, error);
+    const debugMessages = mapDebugStepsToSystemMessages(extractDebugStepsFromError(error));
+    setMessages((current) => [...current, createSystemMessage(text), ...debugMessages]);
+    setSuccessMessage(null);
+  }
+
+  function extractDebugStepsFromError(error: unknown): AgentDebugStepDto[] {
+    if (!simulatorApiService.isDebugEnabled() || !(error instanceof SimulatorApiError)) {
+      return [];
+    }
+
+    const detail = error.detail;
+    if (!detail || typeof detail !== "object") {
+      return [];
+    }
+
+    const typedDetail = detail as SimulatorApiErrorDetail;
+    return Array.isArray(typedDetail.debug_steps) ? typedDetail.debug_steps : [];
+  }
+
+  function mapDebugStepToSystemMessage(step: AgentDebugStepDto): ScenarioMessage {
+    const payload = {
+      ...(step.input_summary !== undefined && step.input_summary !== null ? { input_summary: step.input_summary } : {}),
+      ...(step.prompt ? { prompt: step.prompt } : {}),
+      ...(step.system_prompt ? { system_prompt: step.system_prompt } : {}),
+      ...(step.raw_output ? { raw_output: step.raw_output } : {}),
+      ...(step.parsed_output ? { parsed_output: step.parsed_output } : {}),
+      ...(step.error ? { error: step.error } : {}),
+      ...(Object.keys(step.metadata ?? {}).length > 0 ? { metadata: step.metadata } : {})
+    };
+
+    return {
+      id: `debug-${step.step_id}`,
+      speakerName: "Система",
+      speakerRole: "system",
+      text: `DEBUG ${step.node} / ${step.agent} / ${step.status}\n${JSON.stringify(payload, null, 2)}`,
+      timestampLabel: formatTimestamp(step.ts)
+    };
+  }
+
+  function mapDebugStepsToSystemMessages(debugSteps?: AgentDebugStepDto[]): ScenarioMessage[] {
+    if (!simulatorApiService.isDebugEnabled() || !debugSteps || debugSteps.length === 0) {
+      return [];
+    }
+    return debugSteps.map(mapDebugStepToSystemMessage);
+  }
+
+  function resetScenario(clearSuccess: boolean) {
+    setMessages(apiEnabled ? [] : [createSystemMessage(buildMissingApiUrlText())]);
+    setDraft("");
+    setSheetState(null);
+    setSessionId(null);
+    setManagerTurnCount(0);
+    setCanFinish(false);
+    setMinManagerTurns(10);
     if (clearSuccess) {
       setSuccessMessage(null);
     }
@@ -209,8 +304,7 @@ export function SimulatorScreen({
     }
 
     if (!apiEnabled) {
-      setMessages(baseTranscript());
-      setSuccessMessage(`Сценарий "${selectedScenario.title}" готов к тренировке.`);
+      appendSystemErrorMessage("startScenario", new Error(buildMissingApiUrlText()));
       return;
     }
 
@@ -221,14 +315,17 @@ export function SimulatorScreen({
         backendDifficultyMap[difficulty]
       );
       setSessionId(response.session_id);
-      setMessages([mapApiMessageToChatMessage(response.message, selectedScenario)]);
+      setMessages([
+        mapApiMessageToChatMessage(response.message, selectedScenario),
+        ...mapDebugStepsToSystemMessages(response.debug_steps)
+      ]);
       setManagerTurnCount(response.manager_turn_count);
       setMinManagerTurns(response.min_manager_turns);
       setCanFinish(response.can_finish);
       setDraft("");
       setSuccessMessage(`Сценарий "${selectedScenario.title}" запущен.`);
-    } catch (_error) {
-      setSuccessMessage("Не удалось запустить сценарий через backend.");
+    } catch (error) {
+      appendSystemErrorMessage("startScenario", error);
     } finally {
       setIsBusy(false);
     }
@@ -246,55 +343,35 @@ export function SimulatorScreen({
       return;
     }
 
-    if (apiEnabled) {
-      if (!sessionId) {
-        setSuccessMessage("Сначала запустите сценарий.");
-        return;
-      }
-
-      try {
-        setIsBusy(true);
-        const response = await simulatorApiService.sendDialogueMessage(sessionId, trimmedText);
-        setMessages((current) => [
-          ...current,
-          ...response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario))
-        ]);
-        setManagerTurnCount(response.manager_turn_count);
-        setMinManagerTurns(response.min_manager_turns);
-        setCanFinish(response.can_finish);
-        setDraft("");
-        setSuccessMessage("Реплика отправлена.");
-      } catch (_error) {
-        setSuccessMessage("Не удалось отправить реплику в backend.");
-      } finally {
-        setIsBusy(false);
-      }
+    if (!apiEnabled) {
+      appendSystemErrorMessage("sendReply", new Error(buildMissingApiUrlText()));
       return;
     }
 
-    const baseIndex = learnerTurnCount;
-    const learnerMessage: ScenarioMessage = {
-      id: `learner-${selectedScenario.id}-${Date.now()}`,
-      speakerName: "Вы",
-      speakerRole: "learner",
-      text: trimmedText,
-      timestampLabel: `00:${20 + baseIndex * 12}`
-    };
-    const customerReplyText =
-      selectedScenario.customerReplies[
-        Math.min(baseIndex, selectedScenario.customerReplies.length - 1)
-      ] ?? "Клиент просит конкретнее объяснить эффект и следующий шаг.";
-    const customerMessage: ScenarioMessage = {
-      id: `customer-${selectedScenario.id}-${Date.now() + 1}`,
-      speakerName: selectedScenario.persona.name,
-      speakerRole: "customer",
-      text: customerReplyText,
-      timestampLabel: `00:${26 + baseIndex * 12}`
-    };
+    if (!sessionId) {
+      appendSystemErrorMessage("sendReply", new Error("Сначала запустите сценарий."));
+      return;
+    }
 
-    setMessages((current) => [...current, learnerMessage, customerMessage]);
-    setDraft("");
-    setSuccessMessage("Реплика отправлена.");
+    try {
+      setIsBusy(true);
+      const response = await simulatorApiService.sendDialogueMessage(sessionId, trimmedText);
+      const debugMessages = mapDebugStepsToSystemMessages(response.debug_steps);
+      setMessages((current) => [
+        ...current,
+        ...response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario)),
+        ...debugMessages
+      ]);
+      setManagerTurnCount(response.manager_turn_count);
+      setMinManagerTurns(response.min_manager_turns);
+      setCanFinish(response.can_finish);
+      setDraft("");
+      setSuccessMessage("Реплика отправлена.");
+    } catch (error) {
+      appendSystemErrorMessage("sendReply", error);
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   async function finishScenario() {
@@ -302,48 +379,44 @@ export function SimulatorScreen({
       return;
     }
 
-    if (apiEnabled) {
-      if (!sessionId) {
-        setSuccessMessage("Сначала запустите сценарий.");
+    if (!apiEnabled) {
+      appendSystemErrorMessage("finishScenario", new Error(buildMissingApiUrlText()));
+      return;
+    }
+
+    if (!sessionId) {
+      appendSystemErrorMessage("finishScenario", new Error("Сначала запустите сценарий."));
+      return;
+    }
+
+    try {
+      setIsBusy(true);
+      const response = await simulatorApiService.finishDialogueSession(sessionId);
+      if (response.status === "needs_more_dialogue") {
+        const debugMessages = mapDebugStepsToSystemMessages(response.debug_steps);
+        if (debugMessages.length > 0) {
+          setMessages((current) => [...current, ...debugMessages]);
+        }
+        setManagerTurnCount(response.manager_turn_count);
+        setMinManagerTurns(response.min_manager_turns);
+        setCanFinish(false);
+        setSuccessMessage(response.message);
         return;
       }
 
-      try {
-        setIsBusy(true);
-        const response = await simulatorApiService.finishDialogueSession(sessionId);
-        if (response.status === "needs_more_dialogue") {
-          setManagerTurnCount(response.manager_turn_count);
-          setMinManagerTurns(response.min_manager_turns);
-          setCanFinish(false);
-          setSuccessMessage(response.message);
-          return;
-        }
-
-        setSheetState({
-          kind: "report",
-          reportJson: JSON.stringify(response.report, null, 2)
-        });
-        setSuccessMessage("Отчет получен из backend.");
-      } catch (_error) {
-        setSuccessMessage("Не удалось завершить сценарий через backend.");
-      } finally {
-        setIsBusy(false);
-      }
-      return;
-    }
-
-    if (!evaluation) {
-      return;
-    }
-
-    if (learnerTurnCount >= 2) {
       setSheetState({
         kind: "report",
-        reportJson: JSON.stringify(buildMockReportPayload(selectedScenario, evaluation), null, 2)
+        reportJson: JSON.stringify(response.report, null, 2)
       });
-      setSuccessMessage("Mock-отчет сформирован.");
-    } else {
-      setSuccessMessage("Сделайте еще минимум две реплики, чтобы получить отчет.");
+      const debugMessages = mapDebugStepsToSystemMessages(response.debug_steps);
+      if (debugMessages.length > 0) {
+        setMessages((current) => [...current, ...debugMessages]);
+      }
+      setSuccessMessage("Отчет получен из backend.");
+    } catch (error) {
+      appendSystemErrorMessage("finishScenario", error);
+    } finally {
+      setIsBusy(false);
     }
   }
 
@@ -396,7 +469,7 @@ export function SimulatorScreen({
                 label="Начать сценарий"
                 onPress={startScenario}
                 tone="primary"
-                disabled={!selectedScenario || isBusy}
+                disabled={!selectedScenario || isBusy || !apiEnabled}
               />
               <AppButton
                 label="Сменить уровень сложности"
@@ -474,7 +547,7 @@ export function SimulatorScreen({
                 placeholder="Введите ваш ответ клиенту"
                 placeholderTextColor={theme.semantic.textMuted}
                 multiline
-                editable={Boolean(selectedScenario)}
+                editable={Boolean(selectedScenario) && apiEnabled && !isBusy}
                 style={[
                   styles.input,
                   {
@@ -495,13 +568,13 @@ export function SimulatorScreen({
               label="Отправить"
               onPress={() => sendReply(draft)}
               tone="primary"
-              disabled={!selectedScenario || isBusy}
+              disabled={!selectedScenario || isBusy || !apiEnabled}
             />
             <AppButton
               label="Завершить"
               onPress={finishScenario}
               tone="secondary"
-              disabled={!selectedScenario || isBusy || (apiEnabled ? !sessionId : false)}
+              disabled={!selectedScenario || isBusy || !apiEnabled || !sessionId}
             />
             <AppButton
               label="Повторить сценарий"
@@ -515,7 +588,7 @@ export function SimulatorScreen({
               ? canFinish
                 ? `Реплик менеджера: ${managerTurnCount} из ${minManagerTurns}. Сценарий уже можно завершить.`
                 : `Реплик менеджера: ${managerTurnCount} из ${minManagerTurns} для итогового отчета.`
-              : `Реплик менеджера: ${learnerTurnCount}.`}
+              : "Тренажер недоступен: требуется backend-конфигурация."}
           </Text>
         </AppCard>
       </View>
@@ -550,10 +623,10 @@ function mapApiScenarioToScenario(item: SimulatorPublicScenarioDto, moduleId: st
     targetCompetencies: [],
     persona: {
       id: `persona-${item.id}`,
-      name: "Клиент",
-      company: "",
-      roleTitle: "B2B-клиент",
-      mood: "",
+      name: item.customer.name,
+      company: item.customer.company ?? "",
+      roleTitle: item.customer.roleTitle,
+      mood: item.customer.mood ?? "",
       painPoints: [],
       objectionStyle: ""
     },
@@ -587,66 +660,6 @@ function formatTimestamp(value: string): string {
   const hours = `${date.getHours()}`.padStart(2, "0");
   const minutes = `${date.getMinutes()}`.padStart(2, "0");
   return `${hours}:${minutes}`;
-}
-
-function buildMockReportPayload(
-  scenario: Scenario,
-  evaluation: SimulatorEvaluation
-): SimulatorReportPayloadDto {
-  return {
-    type: "simulator_report",
-    schema_version: "1.0",
-    visibility: "after_session_finish_only",
-    metadata: {
-      session_id: `mock-${scenario.id}`,
-      scenario_id: scenario.id,
-      scenario_title: scenario.title,
-      manager_name: "Вы",
-      prompt_version: "mock-evaluation",
-      methodology_version: "mock-v1",
-      evaluation_schema_version: "mock-v1"
-    },
-    overall_level: evaluation.overallScore >= 85 ? "Senior" : evaluation.overallScore >= 70 ? "Middle" : "Junior",
-    overall_comment: "Mock-отчет сформирован локально до подключения backend по feature flag.",
-    strengths: evaluation.competencyScores
-      .filter((score) => score.value >= 70)
-      .map((score) => ({
-        competency_id: score.id,
-        competency_name: score.label,
-        level: score.value >= 85 ? "Senior" : "Middle",
-        summary: score.summary
-      })),
-    development_zones:
-      evaluation.whatToImprove.length > 0
-        ? evaluation.whatToImprove.map((item, index) => ({
-            competency_id: `development-${index}`,
-            competency_name: `Зона роста ${index + 1}`,
-            level: "Junior" as const,
-            summary: item
-          }))
-        : [
-            {
-              competency_id: "stability",
-              competency_name: "Поддержание уровня",
-              level: "Middle" as const,
-              summary: "Поддерживать стабильность уровня и усложнять кейсы"
-            }
-          ],
-    overall_recommendations: evaluation.recommendations,
-    competencies: evaluation.competencyScores.map((score) => ({
-      id: score.id,
-      name: score.label,
-      level: score.value >= 85 ? "Senior" : score.value >= 70 ? "Middle" : "Junior",
-      argument: score.summary,
-      evidence_quotes: [score.summary],
-      missing_to_next_level: evaluation.whatToImprove[0] ?? "Продолжать развивать навык в следующей практике.",
-      recommendations: evaluation.recommendations.slice(0, 2)
-    })),
-    transcript_quotes: evaluation.competencyScores.map((score) => ({
-      competency_id: score.id,
-      quote: score.summary
-    }))
-  };
 }
 
 const styles = StyleSheet.create({

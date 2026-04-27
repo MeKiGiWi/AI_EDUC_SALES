@@ -197,6 +197,12 @@ export interface SimulatorPublicScenarioDto {
   difficulty: string;
   channel: string;
   status: "ready" | "active" | "completed";
+  customer: {
+    name: string;
+    roleTitle: string;
+    company?: string;
+    mood?: string;
+  };
 }
 
 export interface SimulatorCatalogResponseDto {
@@ -210,6 +216,21 @@ export interface SimulatorApiMessageDto {
   created_at: string;
 }
 
+export interface AgentDebugStepDto {
+  step_id: string;
+  ts: string;
+  node: string;
+  agent: "system" | "buyer_agent" | "evaluation_agent" | "report_builder" | "json_repair";
+  status: "started" | "completed" | "error" | "skipped";
+  input_summary?: Record<string, unknown> | string | null;
+  prompt?: string | null;
+  system_prompt?: string | null;
+  raw_output?: string | null;
+  parsed_output?: Record<string, unknown> | null;
+  error?: Record<string, unknown> | string | null;
+  metadata: Record<string, unknown>;
+}
+
 export interface SimulatorStartSessionResponseDto {
   session_id: string;
   status: "active";
@@ -217,6 +238,7 @@ export interface SimulatorStartSessionResponseDto {
   can_finish: boolean;
   manager_turn_count: number;
   min_manager_turns: number;
+  debug_steps?: AgentDebugStepDto[];
 }
 
 export interface SimulatorSendMessageResponseDto {
@@ -226,6 +248,7 @@ export interface SimulatorSendMessageResponseDto {
   can_finish: boolean;
   manager_turn_count: number;
   min_manager_turns: number;
+  debug_steps?: AgentDebugStepDto[];
 }
 
 export interface SimulatorReportPayloadDto {
@@ -277,12 +300,14 @@ export interface SimulatorFinishNeedsMoreDialogueResponseDto {
   message: string;
   manager_turn_count: number;
   min_manager_turns: number;
+  debug_steps?: AgentDebugStepDto[];
 }
 
 export interface SimulatorFinishEvaluatedResponseDto {
   session_id: string;
   status: "evaluated";
   report: SimulatorReportPayloadDto;
+  debug_steps?: AgentDebugStepDto[];
 }
 
 export type SimulatorFinishResponseDto =

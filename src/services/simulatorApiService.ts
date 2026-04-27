@@ -1,4 +1,5 @@
 import type {
+  AgentDebugStepDto,
   SimulatorCatalogResponseDto,
   SimulatorFinishResponseDto,
   SimulatorPublicScenarioDto,
@@ -7,9 +8,39 @@ import type {
 } from "../types/academy";
 
 const simulatorApiUrl = process.env.EXPO_PUBLIC_SIMULATOR_API_URL?.trim() ?? "";
+const simulatorDebugEnabled = process.env.EXPO_PUBLIC_SIMULATOR_DEBUG === "true";
+
+export interface SimulatorApiErrorDetail {
+  code?: string;
+  message?: string;
+  node?: string;
+  raw_output?: string;
+  debug_steps?: AgentDebugStepDto[];
+}
+
+export class SimulatorApiError extends Error {
+  status?: number;
+  body?: string;
+  detail?: unknown;
+
+  constructor(message: string, options?: { status?: number; body?: string; detail?: unknown }) {
+    super(message);
+    this.name = "SimulatorApiError";
+    this.status = options?.status;
+    this.body = options?.body;
+    this.detail = options?.detail;
+  }
+}
 
 function buildUrl(path: string) {
   return `${simulatorApiUrl.replace(/\/$/, "")}${path}`;
+}
+
+function withDebugQuery(path: string) {
+  if (!simulatorDebugEnabled) {
+    return path;
+  }
+  return path.includes("?") ? `${path}&debug=true` : `${path}?debug=true`;
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -23,8 +54,33 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "Не удалось выполнить запрос к backend симулятора.");
+    const rawBody = await response.text();
+    let parsedBody: unknown;
+    let detail: unknown;
+
+    if (rawBody) {
+      try {
+        parsedBody = JSON.parse(rawBody) as unknown;
+        if (parsedBody && typeof parsedBody === "object" && "detail" in parsedBody) {
+          detail = (parsedBody as { detail?: unknown }).detail;
+        }
+      } catch {
+        parsedBody = undefined;
+      }
+    }
+
+    const detailMessage =
+      typeof detail === "string"
+        ? detail
+        : detail !== undefined
+          ? JSON.stringify(detail)
+          : rawBody || "Не удалось выполнить запрос к backend симулятора.";
+
+    throw new SimulatorApiError(detailMessage, {
+      status: response.status,
+      body: rawBody,
+      detail: detail ?? parsedBody
+    });
   }
 
   return (await response.json()) as T;
@@ -33,6 +89,10 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 export const simulatorApiService = {
   isEnabled(): boolean {
     return simulatorApiUrl.length > 0;
+  },
+
+  isDebugEnabled(): boolean {
+    return simulatorDebugEnabled;
   },
 
   async fetchSimulatorScenarios(): Promise<SimulatorPublicScenarioDto[]> {
@@ -44,7 +104,7 @@ export const simulatorApiService = {
     scenarioId: string,
     difficulty: string
   ): Promise<SimulatorStartSessionResponseDto> {
-    return requestJson<SimulatorStartSessionResponseDto>("/api/v1/simulator/sessions", {
+    return requestJson<SimulatorStartSessionResponseDto>(withDebugQuery("/api/v1/simulator/sessions"), {
       method: "POST",
       body: JSON.stringify({
         scenario_id: scenarioId,
@@ -58,7 +118,7 @@ export const simulatorApiService = {
     text: string
   ): Promise<SimulatorSendMessageResponseDto> {
     return requestJson<SimulatorSendMessageResponseDto>(
-      `/api/v1/simulator/sessions/${sessionId}/messages`,
+      withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/messages`),
       {
         method: "POST",
         body: JSON.stringify({ text })
@@ -67,7 +127,7 @@ export const simulatorApiService = {
   },
 
   finishDialogueSession(sessionId: string): Promise<SimulatorFinishResponseDto> {
-    return requestJson<SimulatorFinishResponseDto>(`/api/v1/simulator/sessions/${sessionId}/finish`, {
+    return requestJson<SimulatorFinishResponseDto>(withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/finish`), {
       method: "POST"
     });
   }

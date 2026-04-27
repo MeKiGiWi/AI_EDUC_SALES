@@ -9,6 +9,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
+        extra="ignore",
     )
 
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_sales_academy"
@@ -19,6 +20,7 @@ class Settings(BaseSettings):
     OPENROUTER_SITE_URL: str = "http://localhost:8081"
     OPENROUTER_APP_NAME: str = "AI Sales Academy"
     MIN_MANAGER_TURNS: int = Field(default=10, ge=1)
+    SIMULATOR_DEBUG_TRACE: bool = False
     APP_ENV: str = "development"
 
 

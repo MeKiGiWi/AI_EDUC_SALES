@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from app.api.v1.schemas import ScenarioStatus, ScenarioSummaryDto
+from app.api.v1.schemas import ScenarioCustomerDto, ScenarioStatus, ScenarioSummaryDto
 from app.domain.methodology import (
     CompetencyModel,
     EdgeCaseRule,
@@ -65,6 +65,12 @@ def get_public_scenarios() -> list[ScenarioSummaryDto]:
             difficulty=scenario.difficulty,
             channel=scenario.channel,
             status=ScenarioStatus(scenario.status),
+            customer=ScenarioCustomerDto(
+                name=scenario.customer.name,
+                roleTitle=scenario.customer.role_title,
+                company=scenario.customer.company,
+                mood=scenario.customer.mood,
+            ),
         )
         for scenario in methodology.scenarios
     ]

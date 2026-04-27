@@ -9,6 +9,8 @@ def test_public_scenario_does_not_expose_competencies() -> None:
 
     assert scenarios
     dumped = scenarios[0].model_dump()
+    assert dumped["customer"]["name"] == "Игорь Соколов"
+    assert dumped["customer"]["roleTitle"] == "Руководитель производства"
     assert "target_competencies" not in dumped
     assert "criteria" not in dumped
     assert "suggested_actions" not in dumped

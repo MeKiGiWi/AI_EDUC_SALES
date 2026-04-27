@@ -52,7 +52,12 @@ class SimulatorGraphState(TypedDict, total=False):
     status: str
     warning_message: str
     error: str
+    error_message: str
+    error_node: str
+    error_detail: dict[str, Any]
     evaluation_input: dict[str, Any]
     evaluation_prompt: str
     evaluation_raw_output: str
     repair_attempt_count: int
+    debug_enabled: bool
+    debug_steps: list[dict[str, Any]]

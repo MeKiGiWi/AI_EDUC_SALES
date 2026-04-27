@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.domain.methodology import CompetencyLevel
+from app.domain.methodology import CompetencyLevel, CompetencyDefinition
 
 CompetencyId = Literal[
     "questioning",
@@ -36,7 +36,7 @@ class EvaluationValidity(BaseModel):
 
 
 class CompetencyEvaluation(BaseModel):
-    id: CompetencyId
+    id: str
     name: str
     level: Literal["Junior", "Middle", "Senior"]
     argument: str
@@ -46,9 +46,11 @@ class CompetencyEvaluation(BaseModel):
 
     @model_validator(mode="after")
     def validate_content(self) -> "CompetencyEvaluation":
-        expected_name = COMPETENCY_NAME_BY_ID[self.id]
+        from app.domain.evaluation import COMPETENCY_NAME_BY_ID
+
+        expected_name = COMPETENCY_NAME_BY_ID.get(self.id, self.id)
         if self.name != expected_name:
-            raise ValueError(f"Invalid competency name for '{self.id}'.")
+            raise ValueError(f"Invalid competency name for '{self.id}'. Expected '{expected_name}', got '{self.name}'.")
         if not any(quote.strip() for quote in self.evidence_quotes):
             raise ValueError("Each competency must contain at least one evidence quote.")
         if not 2 <= len(self.recommendations) <= 4:
@@ -66,6 +68,8 @@ class EvaluationResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_competencies(self) -> "EvaluationResult":
+        from app.domain.evaluation import COMPETENCY_NAME_BY_ID
+
         expected_ids = list(COMPETENCY_NAME_BY_ID.keys())
         actual_ids = [competency.id for competency in self.competencies]
         if len(self.competencies) != 5:
@@ -87,6 +91,7 @@ class EvaluationAgentInput(BaseModel):
     full_transcript: list[EvaluationTranscriptTurn]
     scenario_context: str
     competency_model_version: str
+    competency_rubrics: list[dict[str, Any]] = Field(default_factory=list)
     criteria: list[str] = Field(default_factory=list)
     edge_cases: list[str] = Field(default_factory=list)
     min_manager_turns: int = Field(ge=1)
@@ -106,3 +111,7 @@ class EvaluationAgentInput(BaseModel):
     @property
     def allowed_levels(self) -> list[str]:
         return [level.value for level in CompetencyLevel]
+
+    @staticmethod
+    def rubrics_from_competencies(competencies: list[CompetencyDefinition]) -> list[dict[str, Any]]:
+        return [comp.model_dump() for comp in competencies]

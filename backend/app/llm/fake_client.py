@@ -1,8 +1,4 @@
-from typing import Any
-
 from collections.abc import Sequence
-
-from app.api.v1.schemas import MessageRole, SessionMessageDto
 
 
 class FakeLLMClient:
@@ -22,17 +18,4 @@ class FakeLLMClient:
         return (
             "Сейчас для нас важнее понять, как внедрение повлияет на сроки "
             "и риски производства."
-        )
-
-    async def generate_customer_reply(
-        self,
-        session: Any,
-        message: str,
-    ) -> SessionMessageDto:
-        return SessionMessageDto(
-            role=MessageRole.CUSTOMER,
-            text=(
-                "Принял вашу мысль. Расскажите, пожалуйста, как это повлияет "
-                "на мои текущие показатели и сроки внедрения?"
-            ),
         )

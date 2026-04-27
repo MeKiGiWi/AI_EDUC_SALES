@@ -3,7 +3,6 @@ from pathlib import Path
 
 import yaml
 
-from app.api.v1.schemas import ScenarioCustomerDto, ScenarioStatus, ScenarioSummaryDto
 from app.domain.methodology import (
     CompetencyModel,
     EdgeCaseRule,
@@ -55,22 +54,7 @@ def get_scenario_definition(scenario_id: str) -> ScenarioDefinition:
     raise KeyError(f"Scenario '{scenario_id}' was not found.")
 
 
-def get_public_scenarios() -> list[ScenarioSummaryDto]:
+def get_scenarios_raw() -> list[ScenarioDefinition]:
+    """Return raw scenario definitions without DTO mapping."""
     methodology = load_active_methodology()
-    return [
-        ScenarioSummaryDto(
-            id=scenario.id,
-            title=scenario.title,
-            goal=scenario.goal,
-            difficulty=scenario.difficulty,
-            channel=scenario.channel,
-            status=ScenarioStatus(scenario.status),
-            customer=ScenarioCustomerDto(
-                name=scenario.customer.name,
-                roleTitle=scenario.customer.role_title,
-                company=scenario.customer.company,
-                mood=scenario.customer.mood,
-            ),
-        )
-        for scenario in methodology.scenarios
-    ]
+    return methodology.scenarios

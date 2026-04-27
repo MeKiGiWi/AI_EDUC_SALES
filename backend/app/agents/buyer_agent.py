@@ -9,6 +9,11 @@ from pydantic import BaseModel, Field
 
 from app.domain.methodology import ScenarioDefinition
 from app.llm.base import LLMClient
+from app.services.buyer_reply_validator import (
+    BuyerReplyValidationResult,
+    get_fallback_reply,
+    validate_buyer_reply,
+)
 
 _PROMPT_PATH_V2 = Path(__file__).resolve().parent.parent / "prompts" / "buyer_agent_v2.md"
 _MARKDOWN_HEADING_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+\S")
@@ -26,6 +31,7 @@ class BuyerAgentInput(BaseModel):
     current_stage: str
     dialog_history: list[BuyerDialogTurn] = Field(default_factory=list)
     edge_case_flags: list[str] = Field(default_factory=list)
+    dialogue_signals: dict | None = None
 
 
 @dataclass
@@ -34,6 +40,9 @@ class BuyerAgentTraceResult:
     system_prompt: str
     raw_output: str
     validated_output: str
+    validation_reasons: list[str] | None = None
+    used_fallback: bool = False
+    fallback_reason: str | None = None
     repaired_prompt: str | None = None
     repaired_raw_output: str | None = None
     repaired_validated_output: str | None = None
@@ -51,39 +60,49 @@ class BuyerAgent:
     async def generate_reply_with_trace(self, payload: BuyerAgentInput) -> BuyerAgentTraceResult:
         prompt = self._build_prompt(payload)
         reply = await self.llm_client.complete_text(prompt, system_prompt=self.system_prompt)
-        validated_reply = self._sanitize_reply(reply)
-        if validated_reply is not None:
+
+        # Collect forbidden replies for validation
+        previous_customer_replies = [
+            turn.text.strip()
+            for turn in payload.dialog_history
+            if turn.role == "customer" and turn.text.strip()
+        ]
+        forbidden_replies = previous_customer_replies[-3:] if previous_customer_replies else []
+
+        # Extract proposed_date_or_time from dialogue_signals if available
+        dialogue_signals = payload.dialogue_signals or {}
+        proposed_date_or_time = dialogue_signals.get("proposed_date_or_time")
+
+        # Validate using the new validator
+        validation_result = validate_buyer_reply(
+            raw_reply=reply,
+            forbidden_replies=forbidden_replies,
+            proposed_date_or_time=proposed_date_or_time,
+            dialogue_signals=dialogue_signals,
+        )
+
+        if validation_result.is_valid:
             return BuyerAgentTraceResult(
                 prompt=prompt,
                 system_prompt=self.system_prompt,
                 raw_output=reply,
-                validated_output=validated_reply,
+                validated_output=validation_result.normalized_reply,
+                validation_reasons=validation_result.reasons or None,
+                used_fallback=False,
+                fallback_reason=None,
             )
 
-        repaired_prompt = self._build_repair_prompt(prompt)
-        repaired_reply = await self.llm_client.complete_text(
-            repaired_prompt,
-            system_prompt=self.system_prompt,
-        )
-        repaired_validated_reply = self._sanitize_reply(repaired_reply)
-        if repaired_validated_reply is not None:
-            return BuyerAgentTraceResult(
-                prompt=prompt,
-                system_prompt=self.system_prompt,
-                raw_output=reply,
-                validated_output=repaired_validated_reply,
-                repaired_prompt=repaired_prompt,
-                repaired_raw_output=repaired_reply,
-                repaired_validated_output=repaired_validated_reply,
-            )
+        # If invalid, use deterministic fallback (no second LLM repair for Buyer Agent)
+        fallback_reply, fallback_reason = get_fallback_reply(dialogue_signals)
+
         return BuyerAgentTraceResult(
             prompt=prompt,
             system_prompt=self.system_prompt,
             raw_output=reply,
-            validated_output=repaired_reply.strip() or reply.strip(),
-            repaired_prompt=repaired_prompt,
-            repaired_raw_output=repaired_reply,
-            repaired_validated_output=None,
+            validated_output=fallback_reply,
+            validation_reasons=validation_result.reasons,
+            used_fallback=True,
+            fallback_reason=fallback_reason,
         )
 
     def _build_prompt(self, payload: BuyerAgentInput) -> str:

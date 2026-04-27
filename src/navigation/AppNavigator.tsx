@@ -22,6 +22,7 @@ import type {
   AdminSettings,
   HrDashboard,
   KnowledgeSection,
+  LearningModule,
   ManagerDashboard,
   ReportCard,
   Scenario,
@@ -52,6 +53,7 @@ export function AppNavigator() {
   const [studentDashboard, setStudentDashboard] = useState<StudentDashboard | null>(null);
   const [knowledgeSections, setKnowledgeSections] = useState<KnowledgeSection[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [learningModules, setLearningModules] = useState<LearningModule[]>([]);
   const [managerDashboard, setManagerDashboard] = useState<ManagerDashboard | null>(null);
   const [hrDashboard, setHrDashboard] = useState<HrDashboard | null>(null);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
@@ -80,6 +82,7 @@ export function AppNavigator() {
       ]);
 
       setStudentDashboard(studentData);
+      setLearningModules(studentData.modules);
       setKnowledgeSections(knowledgeData);
       setScenarios(scenarioData);
       setManagerDashboard(managerData);
@@ -207,9 +210,10 @@ export function AppNavigator() {
       {routeState.name === "Simulator" ? (
         <SimulatorScreen
           scenarios={scenarios}
+          modules={learningModules}
           activeScenarioId={simulatorParams?.scenarioId}
           activeMaterialId={simulatorParams?.materialId}
-          onNavigate={navigate}
+          onOpenMaterial={(materialId) => navigate("KnowledgeBase", materialId ? { materialId } : undefined)}
         />
       ) : null}
 

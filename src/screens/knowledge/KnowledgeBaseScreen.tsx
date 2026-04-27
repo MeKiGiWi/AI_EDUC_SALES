@@ -161,7 +161,7 @@ export function KnowledgeBaseScreen({
         <StatusPill label="Спросить ИИ по материалу" tone="success" />
         <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>Как использовать знания без перегруза</Text>
         <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-          Выбирай один материал на одну практику: сначала пойми суть, затем попроси простой ответ для клиента и сразу переходи к симуляции.
+          Выбирай один материал на одну практику: сначала пойми суть, затем попроси простой ответ для клиента и сразу переходи в тренажер.
         </Text>
       </AppCard>
 

@@ -74,7 +74,7 @@ export function ManagerDashboardScreen({
           Summary команды: {dashboard.teamSummary.groupName}
         </Text>
         <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-          Средний прогресс {dashboard.teamSummary.completionRate}% · средняя оценка {dashboard.teamSummary.averageScore}/100 · в риске {dashboard.teamSummary.riskCount} · активных симуляций {dashboard.teamSummary.activeSimulations}
+          Средний прогресс {dashboard.teamSummary.completionRate}% · средняя оценка {dashboard.teamSummary.averageScore}/100 · в риске {dashboard.teamSummary.riskCount} · активных тренировок {dashboard.teamSummary.activeSimulations}
         </Text>
         <View style={styles.buttonRow}>
           <AppButton

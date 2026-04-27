@@ -37,7 +37,7 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
   },
   Simulator: {
     route: "Simulator",
-    title: "Симулятор",
+    title: "Тренажер",
     description: "Живой диалог и разбор ответа"
   },
   ManagerDashboard: {

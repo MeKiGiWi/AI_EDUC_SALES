@@ -73,6 +73,7 @@ export interface ScenarioMessage {
 
 export interface Scenario {
   id: string;
+  moduleId: string;
   title: string;
   goal: string;
   difficulty: string;

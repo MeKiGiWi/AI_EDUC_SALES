@@ -229,7 +229,7 @@ export function HrDashboardScreen({ dashboard, onNavigate }: HrDashboardScreenPr
               Средняя оценка: {sheetState.group.averageScore}/100
             </Text>
             <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              Активных симуляций: {sheetState.group.activeSimulations} · Рискованных участников: {sheetState.group.riskCount}
+              Активных тренировок: {sheetState.group.activeSimulations} · Рискованных участников: {sheetState.group.riskCount}
             </Text>
           </>
         ) : null}

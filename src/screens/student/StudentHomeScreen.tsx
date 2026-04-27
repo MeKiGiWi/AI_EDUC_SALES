@@ -7,9 +7,7 @@ import { DevelopmentPlanCard } from "../../components/student/DevelopmentPlanCar
 import { AppCard } from "../../components/ui/AppCard";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
-import { MetricCard } from "../../components/ui/MetricCard";
 import { ProgressBar } from "../../components/ui/ProgressBar";
-import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
@@ -64,17 +62,10 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
       : sheetState?.kind === "feedback"
         ? "Разбор сильных сторон, зоны роста и конкретных действий на следующую практику."
         : sheetState?.description ?? "";
-  const metricWidth = layout.isWide ? "23.5%" : layout.isDesktop ? "31.5%" : layout.isTablet ? "48%" : "100%";
   const moduleWidth = layout.isDesktop ? "48%" : "100%";
 
   return (
     <>
-      <SectionHeader
-        eyebrow="Ученик"
-        title={`Привет, ${dashboard.user.fullName.split(" ")[0]}`}
-        description="Мобильный кабинет собран так, чтобы ты быстро понял текущий прогресс, выбрал одну практику и сразу перешел к следующему действию."
-      />
-
       <AppCard tone="mint">
         <StatusPill label={dashboard.level.currentLevel} tone="success" />
         <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>
@@ -94,7 +85,7 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
             tone="primary"
           />
           <AppButton
-            label="Начать симуляцию"
+            label="Открыть тренажер"
             onPress={() =>
               onNavigate("Simulator", {
                 scenarioId: dashboard.highlightedScenario.id
@@ -121,26 +112,29 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
         </AppCard>
       ) : null}
 
-      <View style={[styles.metricGrid, (layout.isTablet || layout.isDesktop) && styles.wrapGrid]}>
-        {dashboard.metrics.map((metric) => (
-          <View key={metric.id} style={{ width: metricWidth }}>
-            <MetricCard metric={metric} />
-          </View>
-        ))}
-      </View>
-
       <AppCard>
-        <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>Текущий уровень и общий прогресс</Text>
-        <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-          {dashboard.level.levelDescription}
-        </Text>
-        <ProgressBar
-          value={dashboard.overallProgressPercent}
-          label="Общий прогресс обучения"
-        />
-        <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-          Команда: {dashboard.user.teamName} · Последняя активность: {dashboard.user.lastActiveAt}
-        </Text>
+        <View style={styles.progressCardContent}>
+          <View style={styles.progressHeader}>
+            <View style={styles.flexBlock}>
+              <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>
+                Текущий уровень и общий прогресс
+              </Text>
+              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+                {dashboard.level.levelDescription}
+              </Text>
+            </View>
+            <Text style={[styles.progressPercent, { color: theme.semantic.textPrimary }]}>
+              {dashboard.overallProgressPercent}%
+            </Text>
+          </View>
+          <ProgressBar
+            value={dashboard.overallProgressPercent}
+            label="Общий прогресс обучения"
+          />
+          <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+            Команда: {dashboard.user.teamName} · Последняя активность: {dashboard.user.lastActiveAt}
+          </Text>
+        </View>
       </AppCard>
 
       <AppCard>
@@ -184,6 +178,14 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
             />
           </View>
         ))}
+        <View style={styles.textSection}>
+          <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
+          {dashboard.growthPoints.map((point) => (
+            <Text key={point} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
+              • {point}
+            </Text>
+          ))}
+        </View>
         <View style={styles.buttonRow}>
           <AppButton
             label="Посмотреть обратную связь"
@@ -201,28 +203,6 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
             tone="ghost"
           />
         </View>
-      </AppCard>
-
-      <AppCard>
-        <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
-        {dashboard.growthPoints.map((point) => (
-          <Text key={point} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-            • {point}
-          </Text>
-        ))}
-        <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>Рекомендации ИИ</Text>
-        {dashboard.aiRecommendations.map((recommendation) => (
-          <View key={recommendation} style={styles.aiRow}>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary, flex: 1 }]}>
-              {recommendation}
-            </Text>
-            <AppButton
-              label="Добавить в план"
-              onPress={() => addRecommendationToPlan(recommendation)}
-              tone="secondary"
-            />
-          </View>
-        ))}
       </AppCard>
 
       <DevelopmentPlanCard
@@ -271,12 +251,10 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
               Следующий шаг: {sheetState.module.nextStep}
             </Text>
             <AppButton
-              label="Начать симуляцию по модулю"
+              label="Начать тренировку"
               onPress={() => {
                 setSheetState(null);
-                onNavigate("Simulator", {
-                  scenarioId: dashboard.highlightedScenario.id
-                });
+                onNavigate("Simulator");
               }}
               tone="primary"
             />
@@ -317,9 +295,6 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontWeight: "800"
   },
-  metricGrid: {
-    gap: 12
-  },
   wrapGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -338,10 +313,29 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8
   },
+  progressCardContent: {
+    gap: 12
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12
+  },
+  progressPercent: {
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: "800"
+  },
   cardTitle: {
     fontSize: 18,
     lineHeight: 24,
     fontWeight: "800"
+  },
+  sectionTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "700"
   },
   body: {
     fontSize: 15,
@@ -370,12 +364,12 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 12
   },
+  textSection: {
+    gap: 8
+  },
   listItem: {
     fontSize: 14,
     lineHeight: 20
-  },
-  aiRow: {
-    gap: 10
   },
   successText: {
     fontSize: 14,

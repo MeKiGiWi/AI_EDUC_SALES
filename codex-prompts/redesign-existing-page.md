@@ -1,25 +1,23 @@
-# Prompt: Redesign Existing Page
+# Prompt: Refactor Existing UI Toward React Native Mobile MVP
 
 ```md
-Redesign the existing page in this repo using the Ethereal AI Light UI preset.
+Refactor the existing implementation so it moves toward the repo's React Native mobile-first product direction.
 
-Keep the product meaning and user-provided content, but update the visual system:
-- white airy canvas
-- huge bold editorial typography
-- pale blue/lilac glow decorations
-- thin orbit lines
-- rounded white cards with pale borders
-- API/signal/intelligence motifs where relevant
-- sparse enterprise AI tone
+Keep:
+- AI Sales Academy product meaning
+- green visual system
+- focus on training, dialogue simulation, feedback, and measurable growth
 
-Do not copy Voicera exact layout, assets, logo, or text.
+Move toward:
+- app-like mobile screens
+- typed mock data
+- reusable mobile components
+- Russian UX copy
+- green B2B academy style
 
-Steps:
-1. Inspect the current page/components.
-2. Identify reusable pieces to keep.
-3. Apply tokens from design-system/tokens.json.
-4. Replace generic UI with preset components.
-5. Improve mobile layout.
-6. Run build/lint.
-7. Review with design-system/qa-checklist.md.
+Do not:
+- preserve Next.js as the desired target architecture
+- add landing-first web sections as the main direction
+- introduce blue/purple accent presets
+- add backend code
 ```

@@ -1,40 +1,33 @@
-# Prompt: Build Homepage in Ethereal AI Light UI Style
-
-Use this prompt with Codex after adding `AGENTS.md` and `design-system/` to the repo.
+# Prompt: Build Mobile Screen Flow for Green AI Sales Academy
 
 ```md
-Build a polished homepage for my product using the Ethereal AI Light UI preset in AGENTS.md and design-system/.
+Build or extend a mobile-first product screen or screen flow for this repo.
 
-Do not copy Voicera exact text, logo, screenshots, SVGs, or layout. Use the reference only for visual grammar: white airy canvas, huge tight typography, pale blue glow crystals, thin orbit lines, soft rounded cards, API/pipeline visuals, muted enterprise AI tone.
+Read first:
+- AGENTS.md
+- docs/PROJECT_DIRECTION.md
+- docs/BOARD_MODEL.md
+- docs/FRONTEND_CONTRACT.md
+- src/theme/tokens.ts
 
-Tech stack:
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- Framer Motion if already installed; otherwise keep static CSS motion minimal
-- lucide-react if already installed; otherwise use inline SVG icons
+Context:
+- this repo is moving away from Next.js
+- target direction is React Native mobile MVP
+- backend is not implemented yet
+- all product data must come from typed mock data
 
-Content:
-[YOUR CONTENT HERE]
+Requirements:
+- React Native only
+- TypeScript only
+- UI should feel like a working app, not a landing page
+- Russian UX copy
+- reusable components
+- bottom sheets / modals preferred for mobile actions
+- every button must have a visible result
 
-Page structure:
-1. Navbar
-2. Hero with eyebrow, massive heading, muted paragraph, understated CTA, and abstract signal/crystal visual
-3. Pale trust/proof strip
-4. Big thesis section with one huge claim
-5. Problem/Solution/Delivery or How It Works section
-6. API/pipeline section with structured JSON output visual
-7. Use case statement or use-case cards
-8. FAQ
-9. Footer
-
-Implementation requirements:
-- Create reusable components for Container, Eyebrow, CrystalField, OrbitLines, Card, ApiPipelineCard.
-- Use tokens from design-system/tokens.json.
-- Prefer CSS/SVG decorations over image assets.
-- Keep sections spacious and minimal.
-- Make mobile responsive.
-- Run build/lint if available and fix issues.
-
-Self-review using design-system/qa-checklist.md before final response.
+Do not:
+- introduce Next.js patterns
+- add server actions or API routes
+- add Node backend code
+- use blue/purple SaaS styling
 ```

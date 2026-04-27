@@ -5,8 +5,8 @@ export function FinalCta() {
     <section id="demo" className="py-[88px] sm:py-[112px]">
       <Container>
         <SurfaceCard className="relative overflow-hidden px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-14">
-          <div className="absolute right-[-40px] top-[-30px] h-40 w-40 rounded-full bg-vc-blue/15 blur-3xl" aria-hidden="true" />
-          <div className="absolute bottom-[-60px] left-[-10px] h-44 w-44 rounded-full bg-vc-lilac/20 blur-3xl" aria-hidden="true" />
+          <div className="absolute right-[-40px] top-[-30px] h-40 w-40 rounded-full bg-vc-primary/15 blur-3xl" aria-hidden="true" />
+          <div className="absolute bottom-[-60px] left-[-10px] h-44 w-44 rounded-full bg-vc-mint/20 blur-3xl" aria-hidden="true" />
           <div className="relative z-10 max-w-[860px]">
             <p className="font-mono text-[12px] uppercase tracking-eyebrow text-vc-muted">Demo session</p>
             <h2 className="mt-5 max-w-[12ch] font-display text-[clamp(38px,11vw,76px)] font-[850] leading-[1.02] tracking-[-0.025em] text-vc-ink">

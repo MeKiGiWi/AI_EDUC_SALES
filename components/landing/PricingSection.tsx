@@ -27,14 +27,14 @@ export function PricingSection({ plans, enterpriseNote }: PricingSectionProps) {
 
         <div className="mt-10 grid gap-4 lg:mt-14 lg:grid-cols-3">
           {plans.map((plan) => (
-            <SurfaceCard key={plan.name} className={`flex h-full flex-col p-6 sm:p-7 ${plan.featured ? "border-vc-blue/35" : ""}`}>
+            <SurfaceCard key={plan.name} className={`flex h-full flex-col p-6 sm:p-7 ${plan.featured ? "border-vc-primary/35" : ""}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-[34px] font-[850] leading-none tracking-[-0.07em] text-vc-ink">{plan.name}</h3>
                   <p className="mt-3 text-sm leading-7 text-vc-body">{plan.caption}</p>
                 </div>
                 {plan.featured ? (
-                  <span className="rounded-pill border border-vc-blue/20 bg-vc-blue/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-vc-blue">
+                  <span className="rounded-pill border border-vc-primary/20 bg-vc-primary/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-vc-primary">
                     popular
                   </span>
                 ) : null}
@@ -43,7 +43,7 @@ export function PricingSection({ plans, enterpriseNote }: PricingSectionProps) {
               <div className="space-y-3">
                 {plan.features.map((feature) => (
                   <div key={feature} className="flex items-start gap-3 text-sm leading-7 text-vc-body">
-                    <span className="mt-1 rounded-full bg-vc-blue/10 p-1 text-vc-blue">
+                    <span className="mt-1 rounded-full bg-vc-primary/10 p-1 text-vc-primary">
                       <Check className="h-3.5 w-3.5" />
                     </span>
                     <span>{feature}</span>

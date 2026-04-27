@@ -55,7 +55,7 @@ export function PillButton({ href, children, className = "", ariaLabel }: Button
     <a
       href={href}
       aria-label={ariaLabel}
-      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-[#3F73FF] bg-[linear-gradient(135deg,#3F73FF_0%,#6AA7FF_100%)] px-5 py-3 text-sm font-semibold tracking-[-0.015em] text-white shadow-[0_18px_50px_rgba(63,115,255,0.24)] transition duration-300 ease-vc hover:-translate-y-0.5 hover:brightness-[1.03] hover:shadow-[0_22px_60px_rgba(63,115,255,0.3)] sm:min-h-14 sm:px-7 sm:text-base lg:min-h-16 ${className}`}
+      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-vc-primary bg-[linear-gradient(135deg,#1E6E43_0%,#2F8F5B_52%,#78C69A_100%)] px-5 py-3 text-sm font-semibold tracking-[-0.015em] text-white shadow-[0_18px_50px_rgba(30,110,67,0.24)] transition duration-300 ease-vc hover:-translate-y-0.5 hover:brightness-[1.03] hover:shadow-[0_22px_60px_rgba(30,110,67,0.3)] sm:min-h-14 sm:px-7 sm:text-base lg:min-h-16 ${className}`}
     >
       {children}
       <ArrowUpRight className="h-4 w-4 shrink-0" />
@@ -68,7 +68,7 @@ export function GhostButton({ href, children, className = "", ariaLabel }: Butto
     <a
       href={href}
       aria-label={ariaLabel}
-      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-[#3F73FF] bg-white/90 px-5 py-3 text-sm font-semibold tracking-[-0.015em] text-[#3F73FF] shadow-[0_12px_32px_rgba(50,72,120,0.08)] transition duration-300 ease-vc hover:-translate-y-0.5 hover:bg-[#F3F8FF] hover:shadow-[0_16px_38px_rgba(63,115,255,0.12)] sm:min-h-14 sm:px-7 sm:text-base lg:min-h-16 ${className}`}
+      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-vc-primary bg-white/90 px-5 py-3 text-sm font-semibold tracking-[-0.015em] text-vc-primary shadow-[0_12px_32px_rgba(26,54,37,0.08)] transition duration-300 ease-vc hover:-translate-y-0.5 hover:bg-[#F2FBF5] hover:shadow-[0_16px_38px_rgba(30,110,67,0.12)] sm:min-h-14 sm:px-7 sm:text-base lg:min-h-16 ${className}`}
     >
       {children}
       <ArrowUpRight className="h-4 w-4 shrink-0" />
@@ -78,7 +78,7 @@ export function GhostButton({ href, children, className = "", ariaLabel }: Butto
 
 export function SurfaceCard({ children, className = "" }: ContainerProps) {
   return (
-    <div className={`rounded-vc border border-[rgba(166,190,230,0.45)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,255,255,0.82))] shadow-vc-card backdrop-blur ${className}`}>
+    <div className={`rounded-vc border border-[rgba(154,192,165,0.45)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,255,255,0.82))] shadow-vc-card backdrop-blur ${className}`}>
       {children}
     </div>
   );

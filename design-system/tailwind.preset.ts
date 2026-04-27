@@ -1,28 +1,28 @@
 import type { Config } from "tailwindcss";
 
-const etherealAiLightPreset: Partial<Config> = {
+const greenIntelligencePreset: Partial<Config> = {
   theme: {
     extend: {
       colors: {
         vc: {
-          canvas: "#FBFCFF",
-          warm: "#FDFDFB",
+          canvas: "#F7FBF8",
+          warm: "#FCFEFC",
           surface: "#FFFFFF",
-          ink: "#111227",
-          ink2: "#1C1E35",
-          body: "#4F536C",
-          muted: "#6F7389",
-          faint: "#A8ABB7",
-          ghost: "#C8CDD8",
-          border: "#DDE6F5",
-          borderSoft: "#EBF0FA",
-          blue: "#478BFF",
-          blueDeep: "#2F65FF",
-          blueSoft: "#8AB6FF",
-          bluePale: "#CFE2FF",
-          lilac: "#D7C9FF",
-          success: "#42C99B",
-          warning: "#F4B75B"
+          ink: "#102114",
+          ink2: "#18301E",
+          body: "#4E6556",
+          muted: "#6C8273",
+          faint: "#9FB2A5",
+          ghost: "#C8D8CD",
+          border: "#D8E6DD",
+          borderSoft: "#EAF3ED",
+          primary: "#2F8F5B",
+          primaryDeep: "#1E6E43",
+          primarySoft: "#78C69A",
+          primaryPale: "#D8F1E0",
+          mint: "#BFE9D1",
+          success: "#2FA36B",
+          warning: "#D5A24D"
         }
       },
       fontFamily: {
@@ -36,9 +36,9 @@ const etherealAiLightPreset: Partial<Config> = {
         pill: "999px"
       },
       boxShadow: {
-        "vc-soft": "0 24px 80px rgba(50, 72, 120, 0.10)",
-        "vc-card": "0 32px 90px rgba(39, 61, 103, 0.12)",
-        "vc-glow": "0 0 60px rgba(71, 139, 255, 0.28)"
+        "vc-soft": "0 24px 80px rgba(33, 66, 45, 0.10)",
+        "vc-card": "0 32px 90px rgba(26, 54, 37, 0.12)",
+        "vc-glow": "0 0 60px rgba(47, 143, 91, 0.24)"
       },
       letterSpacing: {
         hero: "-0.06em",
@@ -55,9 +55,9 @@ const etherealAiLightPreset: Partial<Config> = {
         gutter: "clamp(20px, 4vw, 64px)"
       },
       backgroundImage: {
-        "vc-blue-glow": "radial-gradient(circle, rgba(71,139,255,0.34) 0%, rgba(120,164,255,0.16) 36%, rgba(251,252,255,0) 72%)",
+        "vc-primary-glow": "radial-gradient(circle, rgba(47,143,91,0.28) 0%, rgba(120,198,154,0.16) 36%, rgba(247,251,248,0) 72%)",
         "vc-card-fade": "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.74))",
-        "vc-line-fade": "linear-gradient(90deg, rgba(71,139,255,0), rgba(71,139,255,0.34), rgba(71,139,255,0))"
+        "vc-line-fade": "linear-gradient(90deg, rgba(47,143,91,0), rgba(47,143,91,0.28), rgba(47,143,91,0))"
       },
       transitionTimingFunction: {
         vc: "cubic-bezier(0.16, 1, 0.3, 1)"
@@ -66,4 +66,4 @@ const etherealAiLightPreset: Partial<Config> = {
   }
 };
 
-export default etherealAiLightPreset;
+export default greenIntelligencePreset;

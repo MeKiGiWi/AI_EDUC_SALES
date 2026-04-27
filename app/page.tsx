@@ -117,7 +117,7 @@ export default function Home() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-vc-canvas text-vc-ink">
       <div className="relative isolate overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(71,139,255,0.1),transparent_32%),radial-gradient(circle_at_85%_8%,rgba(215,201,255,0.16),transparent_20%),linear-gradient(180deg,#FBFCFF_0%,#FDFEFF_100%)]" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(47,143,91,0.1),transparent_32%),radial-gradient(circle_at_85%_8%,rgba(191,233,209,0.18),transparent_20%),linear-gradient(180deg,#F7FBF8_0%,#FCFEFC_100%)]" />
         <Navbar links={navLinks} />
         <Hero
           badge="AI Sales Academy"

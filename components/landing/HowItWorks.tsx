@@ -23,7 +23,7 @@ export function HowItWorks({ steps }: { steps: Step[] }) {
               <SurfaceCard className="h-full p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">0{index + 1}</span>
-                  <span className="rounded-pill border border-vc-blue/15 bg-vc-blue/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-vc-blue">
+                  <span className="rounded-pill border border-vc-primary/15 bg-vc-primary/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-vc-primary">
                     этап
                   </span>
                 </div>
@@ -32,7 +32,7 @@ export function HowItWorks({ steps }: { steps: Step[] }) {
               </SurfaceCard>
               {index < steps.length - 1 ? (
                 <div className="pointer-events-none hidden lg:absolute lg:right-[-18px] lg:top-1/2 lg:flex lg:h-9 lg:w-9 lg:-translate-y-1/2 lg:items-center lg:justify-center lg:rounded-full lg:border lg:border-vc-border lg:bg-white">
-                  <ArrowRight className="h-4 w-4 text-vc-blue" />
+                  <ArrowRight className="h-4 w-4 text-vc-primary" />
                 </div>
               ) : null}
             </div>

@@ -28,7 +28,7 @@ export function MetricCards({
           {items.map((item) => (
             <SurfaceCard
               key={item.label}
-              className={`relative overflow-hidden border-[rgba(166,190,230,0.55)] p-6 shadow-[0_28px_70px_rgba(39,61,103,0.12)] sm:p-7 ${
+              className={`relative overflow-hidden border-[rgba(154,192,165,0.55)] p-6 shadow-[0_28px_70px_rgba(26,54,37,0.12)] sm:p-7 ${
                 compact ? "min-h-[220px]" : ""
               }`}
             >

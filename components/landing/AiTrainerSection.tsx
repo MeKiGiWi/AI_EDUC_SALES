@@ -31,12 +31,12 @@ export function AiTrainerSection({ items }: { items: TrainerFeature[] }) {
           </div>
 
           <SurfaceCard className="relative overflow-hidden p-5 sm:p-7">
-            <div className="absolute right-8 top-8 h-28 w-28 rounded-full bg-vc-blue/15 blur-3xl" aria-hidden="true" />
+            <div className="absolute right-8 top-8 h-28 w-28 rounded-full bg-vc-primary/15 blur-3xl" aria-hidden="true" />
             <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
               <div className="rounded-[28px] border border-vc-border bg-white/90 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-vc-muted">Симуляция переговоров</p>
-                  <MessagesSquare className="h-4 w-4 text-vc-blue" />
+                  <MessagesSquare className="h-4 w-4 text-vc-primary" />
                 </div>
                 <div className="mt-4 space-y-3">
                   <Bubble role="client" text="У нас уже сильные продавцы. Что поменяется после запуска?" />
@@ -49,7 +49,7 @@ export function AiTrainerSection({ items }: { items: TrainerFeature[] }) {
               <div className="space-y-4">
                 <SurfaceCard className="p-4">
                   <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-vc-blue/10 p-2 text-vc-blue">
+                    <span className="rounded-full bg-vc-primary/10 p-2 text-vc-primary">
                       <Gauge className="h-4 w-4" />
                     </span>
                     <div>
@@ -61,7 +61,7 @@ export function AiTrainerSection({ items }: { items: TrainerFeature[] }) {
 
                 <SurfaceCard className="p-4">
                   <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-vc-lilac/20 p-2 text-vc-blue">
+                    <span className="rounded-full bg-vc-mint/25 p-2 text-vc-primary">
                       <Bot className="h-4 w-4" />
                     </span>
                     <div>
@@ -73,7 +73,7 @@ export function AiTrainerSection({ items }: { items: TrainerFeature[] }) {
 
                 <SurfaceCard className="p-4">
                   <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-vc-blue/10 p-2 text-vc-blue">
+                    <span className="rounded-full bg-vc-primary/10 p-2 text-vc-primary">
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <div>
@@ -101,7 +101,7 @@ function Bubble({ role, text }: { role: "client" | "manager"; text: string }) {
   return (
     <div
       className={`max-w-[90%] rounded-[20px] px-4 py-3 text-sm leading-6 ${
-        role === "client" ? "border border-vc-border bg-vc-canvas text-vc-body" : "ml-auto border border-vc-blue/20 bg-vc-blue/10 text-vc-ink"
+        role === "client" ? "border border-vc-border bg-vc-canvas text-vc-body" : "ml-auto border border-vc-primary/20 bg-vc-primary/10 text-vc-ink"
       }`}
     >
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-vc-muted">{role === "client" ? "Клиент" : "Менеджер"}</p>

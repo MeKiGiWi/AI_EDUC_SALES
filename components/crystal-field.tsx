@@ -14,12 +14,12 @@ const crystals: Crystal[] = [
 export function CrystalField({ className = "" }: { className?: string }) {
   return (
     <div aria-hidden="true" className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
-      <div className="absolute left-[7%] top-[10%] h-44 w-44 rounded-full bg-vc-blue/15 blur-3xl" />
-      <div className="absolute right-[6%] top-[8%] h-36 w-36 rounded-full bg-vc-blue/12 blur-3xl" />
+      <div className="absolute left-[7%] top-[10%] h-44 w-44 rounded-full bg-vc-primary/15 blur-3xl" />
+      <div className="absolute right-[6%] top-[8%] h-36 w-36 rounded-full bg-vc-primary/12 blur-3xl" />
       {crystals.map((crystal, index) => (
         <div
           key={index}
-          className={`vc-drift absolute [clip-path:polygon(50%_0%,88%_18%,78%_88%,50%_100%,20%_88%,12%_18%)] border border-vc-blue/30 bg-[linear-gradient(135deg,rgba(239,245,255,.95),rgba(111,154,255,.62)_52%,rgba(255,255,255,.55))] shadow-vc-glow ${crystal.className}`}
+          className={`vc-drift absolute [clip-path:polygon(50%_0%,88%_18%,78%_88%,50%_100%,20%_88%,12%_18%)] border border-vc-primary/30 bg-[linear-gradient(135deg,rgba(244,252,247,.96),rgba(120,198,154,.64)_52%,rgba(255,255,255,.56))] shadow-vc-glow ${crystal.className}`}
           style={crystal.style}
         />
       ))}

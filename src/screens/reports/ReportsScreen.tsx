@@ -5,7 +5,6 @@ import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { roleLabels } from "../../navigation/routes";
@@ -27,33 +26,21 @@ type ReportsSheetState =
 
 const roleContent = {
   student: {
-    eyebrow: "Личный отчет",
-    title: "Ваши результаты и план развития",
-    description: "Здесь собраны личные оценки, точки роста и материалы, которые помогут улучшить следующий разговор.",
     sendTargets: ["Мне на почту", "Руководителю"],
     emptyTitle: "Личный отчет пока не готов",
     emptyDescription: "После завершения практики здесь появятся оценка, точки роста и персональный план развития."
   },
   manager: {
-    eyebrow: "Отчеты команды",
-    title: "Командная аналитика и coaching-решения",
-    description: "Руководитель видит уровень команды, динамику навыков, сотрудников в риске и командные выгрузки.",
     sendTargets: ["Руководителю", "HR / L&D"],
     emptyTitle: "Командные отчеты пока не собраны",
     emptyDescription: "Когда по группе накопится практика, здесь появятся отчеты по динамике навыков и точкам роста."
   },
   hr: {
-    eyebrow: "Группы и департамент",
-    title: "Отчеты по компетенциям, adoption и рекомендациям",
-    description: "HR / L&D управляет прогрессом групп, треками развития и регулярными выгрузками для департамента.",
     sendTargets: ["HR / L&D", "Руководителям групп"],
     emptyTitle: "Групповые отчеты пока не собраны",
     emptyDescription: "Здесь появятся групповые, департаментские и компетентностные выгрузки."
   },
   admin: {
-    eyebrow: "Регламенты и правила",
-    title: "Правила отправки отчетов и контроль доступа",
-    description: "Администратор управляет расписанием выгрузок, аудиториями, форматами и доступами к отчетам.",
     sendTargets: ["Администратору", "Владельцу процесса"],
     emptyTitle: "Регламенты пока не собраны",
     emptyDescription: "Когда правила выгрузки будут настроены, здесь появятся доступы, расписание и форматы отчетов."
@@ -105,12 +92,6 @@ export function ReportsScreen({ activeRole, reports, rules, highlightReportId }:
 
   return (
     <>
-      <SectionHeader
-        eyebrow={content.eyebrow}
-        title={content.title}
-        description={content.description}
-      />
-
       {successMessage ? (
         <AppCard>
           <Text style={[styles.successText, { color: theme.semantic.success }]}>{successMessage}</Text>

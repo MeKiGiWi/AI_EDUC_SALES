@@ -5,6 +5,7 @@ import type { LearningModule, Scenario } from "../../types/academy";
 import { useTheme } from "../../theme/useTheme";
 import { AppCard } from "../ui/AppCard";
 import { AppButton } from "../ui/AppButton";
+import { StatusPill } from "../ui/StatusPill";
 
 interface ScenarioPickerProps {
   modules: LearningModule[];
@@ -26,11 +27,24 @@ export function ScenarioPicker({
   const theme = useTheme();
   const selectedModule = modules.find((module) => module.id === selectedModuleId);
   const filteredScenarios = scenarios.filter((scenario) => scenario.moduleId === selectedModuleId);
+  const moduleStatusTone =
+    selectedModule?.completedPercent && selectedModule.completedPercent >= 100
+      ? "success"
+      : selectedModule?.statusLabel === "Завершен"
+        ? "success"
+        : selectedModule?.completedPercent && selectedModule.completedPercent > 0
+          ? "warning"
+          : selectedModule?.statusLabel === "В процессе"
+            ? "warning"
+            : "neutral";
 
   return (
     <AppCard style={styles.wrapper}>
       <View style={styles.section}>
-        <Text style={[styles.label, { color: theme.semantic.textMuted }]}>Модуль</Text>
+        <View style={styles.rowBetween}>
+          <Text style={[styles.label, { color: theme.semantic.textMuted }]}>Модуль</Text>
+          {selectedModule ? <StatusPill label={selectedModule.statusLabel} tone={moduleStatusTone} /> : null}
+        </View>
         <View style={styles.content}>
           {modules.map((module) => (
             <AppButton
@@ -74,6 +88,13 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10
+  },
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap"
   },
   label: {
     fontSize: 13,

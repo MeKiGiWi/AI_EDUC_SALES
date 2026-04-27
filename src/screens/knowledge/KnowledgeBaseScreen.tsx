@@ -7,7 +7,6 @@ import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppCard } from "../../components/ui/AppCard";
 import { AppButton } from "../../components/ui/AppButton";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
@@ -109,12 +108,6 @@ export function KnowledgeBaseScreen({
 
   return (
     <>
-      <SectionHeader
-        eyebrow="База знаний"
-        title="Материалы и объяснение по теме"
-        description="Выбери категорию, быстро найди нужный материал и сразу попроси более простое объяснение или пример ответа для диалога."
-      />
-
       <AppCard tone="mint">
         <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>Категории</Text>
         <ScrollView

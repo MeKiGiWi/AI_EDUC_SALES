@@ -8,7 +8,6 @@ import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { MetricCard } from "../../components/ui/MetricCard";
 import { ProgressBar } from "../../components/ui/ProgressBar";
-import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
@@ -42,12 +41,6 @@ export function HrDashboardScreen({ dashboard, onNavigate }: HrDashboardScreenPr
 
   return (
     <>
-      <SectionHeader
-        eyebrow="HR / L&D"
-        title="Группы, компетенции и треки развития"
-        description="Экран для HR/L&D показывает доходимость, динамику оценки, риски по группам и помогает быстро подготовить выгрузку или назначить трек развития."
-      />
-
       <View style={[styles.metricGrid, (layout.isTablet || layout.isDesktop) && styles.wrapGrid]}>
         {dashboard.metrics.map((metric) => (
           <View key={metric.id} style={{ width: metricWidth }}>

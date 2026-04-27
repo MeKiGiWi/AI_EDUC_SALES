@@ -7,7 +7,6 @@ import { ScenarioPicker } from "../../components/simulator/ScenarioPicker";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
-import { StatusPill } from "../../components/ui/StatusPill";
 import { simulatorEvaluationByScenarioId } from "../../data/academyData";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
@@ -53,10 +52,6 @@ export function SimulatorScreen({
   const [plannedRecommendations, setPlannedRecommendations] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const selectedModule = useMemo(
-    () => modules.find((module) => module.id === selectedModuleId) ?? modules[0],
-    [modules, selectedModuleId]
-  );
   const visibleScenarios = useMemo(
     () => scenarios.filter((scenario) => scenario.moduleId === selectedModuleId),
     [scenarios, selectedModuleId]
@@ -65,6 +60,30 @@ export function SimulatorScreen({
     () => visibleScenarios.find((scenario) => scenario.id === selectedScenarioId) ?? visibleScenarios[0],
     [visibleScenarios, selectedScenarioId]
   );
+  const scenarioContextLines = useMemo(() => {
+    if (!selectedScenario) {
+      return [];
+    }
+
+    const personaSummary = [
+      selectedScenario.persona.name,
+      selectedScenario.persona.roleTitle
+    ].filter(Boolean).join(", ");
+    const companyLabel = selectedScenario.persona.company
+      ? `${personaSummary}${personaSummary ? " в " : ""}${selectedScenario.persona.company}.`
+      : personaSummary
+        ? `${personaSummary}.`
+        : "";
+    const painPointsLabel = selectedScenario.persona.painPoints.length > 0
+      ? `Сейчас в фокусе: ${selectedScenario.persona.painPoints.join(", ")}.`
+      : "";
+    const moodLabel = selectedScenario.persona.mood ? `Настрой: ${selectedScenario.persona.mood}.` : "";
+    const objectionStyleLabel = selectedScenario.persona.objectionStyle
+      ? `Стиль реакции: ${selectedScenario.persona.objectionStyle}.`
+      : "";
+
+    return [companyLabel, painPointsLabel, moodLabel, objectionStyleLabel].filter(Boolean);
+  }, [selectedScenario]);
 
   const evaluation = selectedScenario
     ? simulatorEvaluationByScenarioId[selectedScenario.id] ?? simulatorEvaluationByScenarioId["scn-1"]
@@ -203,19 +222,6 @@ export function SimulatorScreen({
 
   return (
     <>
-      <AppCard tone="mint">
-        <View style={styles.rowBetween}>
-          <View style={styles.flexBlock}>
-            <StatusPill label={selectedModule?.statusLabel ?? "Тренажер"} tone="success" />
-            <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              Выберите модуль, затем сценарий и проведите практику диалога с разбором по компетенциям сразу после тренировки.
-            </Text>
-          </View>
-          {activeMaterialId ? <StatusPill label={`Материал: ${activeMaterialId}`} tone="neutral" /> : null}
-        </View>
-      </AppCard>
-
       <ScenarioPicker
         modules={modules}
         scenarios={scenarios}
@@ -241,9 +247,14 @@ export function SimulatorScreen({
                   ? selectedScenario.title
                   : "Сначала выберите модуль. Для модуля без сценариев тренировки появятся позже."}
               </Text>
+              {activeMaterialId ? (
+                <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>Материал: {activeMaterialId}</Text>
+              ) : null}
               {selectedScenario ? (
                 <>
-                  <StatusPill label={`${difficulty} · ${selectedScenario.channel}`} tone="success" />
+                  <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+                    {difficulty} · {selectedScenario.channel}
+                  </Text>
                   <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
                     {selectedScenario.openingMessage}
                   </Text>
@@ -299,31 +310,6 @@ export function SimulatorScreen({
             )}
           </AppCard>
 
-          <AppCard style={layout.isDesktop && styles.infoCard}>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Клиент и контекст</Text>
-            {selectedScenario ? (
-              <>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                  {selectedScenario.persona.name}, {selectedScenario.persona.roleTitle} в {selectedScenario.persona.company}
-                </Text>
-                <Text style={[styles.body, { color: theme.semantic.textPrimary }]}>
-                  Настрой: {selectedScenario.persona.mood}
-                </Text>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                  Стиль возражения: {selectedScenario.persona.objectionStyle}
-                </Text>
-                {selectedScenario.persona.painPoints.map((painPoint) => (
-                  <Text key={painPoint} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                    • {painPoint}
-                  </Text>
-                ))}
-              </>
-            ) : (
-              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                Клиентская персона появится, когда для выбранного модуля станет доступен сценарий.
-              </Text>
-            )}
-          </AppCard>
         </View>
 
         <AppCard style={styles.dialogFullWidth}>
@@ -331,6 +317,31 @@ export function SimulatorScreen({
           {selectedScenario ? (
             <>
               <View style={styles.chatArea}>
+                <View style={styles.contextMessageWrapper}>
+                  <View
+                    style={[
+                      styles.contextMessageBubble,
+                      {
+                        backgroundColor: theme.semantic.cardAccent,
+                        borderColor: theme.semantic.border,
+                        borderRadius: theme.radius.lg
+                      }
+                    ]}
+                  >
+                    <Text style={[styles.contextTitle, { color: theme.semantic.textPrimary }]}>Клиент и контекст</Text>
+                    {scenarioContextLines.length > 0 ? (
+                      scenarioContextLines.map((line) => (
+                        <Text key={line} style={[styles.text, { color: theme.semantic.textSecondary }]}>
+                          {line}
+                        </Text>
+                      ))
+                    ) : (
+                      <Text style={[styles.text, { color: theme.semantic.textSecondary }]}>
+                        {selectedScenario.title}
+                      </Text>
+                    )}
+                  </View>
+                </View>
                 {messages.map((message) => (
                   <ChatBubble key={message.id} message={message} />
                 ))}
@@ -472,11 +483,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8
   },
-  heroTitle: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: "800"
-  },
   title: {
     fontSize: 18,
     lineHeight: 24,
@@ -485,6 +491,11 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 15,
     lineHeight: 22
+  },
+  meta: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600"
   },
   metaLabel: {
     fontSize: 12,
@@ -503,6 +514,20 @@ const styles = StyleSheet.create({
   chatArea: {
     gap: 12
   },
+  contextMessageWrapper: {
+    width: "100%"
+  },
+  contextMessageBubble: {
+    maxWidth: "92%",
+    padding: 14,
+    gap: 6,
+    borderWidth: 1
+  },
+  contextTitle: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "700"
+  },
   input: {
     borderWidth: 1,
     borderRadius: 18,
@@ -517,5 +542,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700"
+  },
+  text: {
+    fontSize: 15,
+    lineHeight: 21
   }
 });

@@ -13,7 +13,6 @@ import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { MetricCard } from "../../components/ui/MetricCard";
-import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
@@ -53,12 +52,6 @@ export function AdminScreen({ settings, onNavigate }: AdminScreenProps) {
 
   return (
     <>
-      <SectionHeader
-        eyebrow="Администрирование"
-        title="Пользователи, роли и системные правила"
-        description="Администратор управляет ролями, доступами, знаниями, сценариями и правилами отправки отчетов из одного рабочего пространства."
-      />
-
       <View style={[styles.metricGrid, (layout.isTablet || layout.isDesktop) && styles.wrapGrid]}>
         {settings.metrics.map((metric) => (
           <View key={metric.id} style={{ width: metricWidth }}>

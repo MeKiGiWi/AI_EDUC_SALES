@@ -33,12 +33,12 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
   KnowledgeBase: {
     route: "KnowledgeBase",
     title: "База знаний",
-    description: "Материалы, кейсы и короткие гайды"
+    description: "Материалы, кейсы и короткие гайды. Выбери категорию, быстро найди нужный материал и попроси простое объяснение или пример ответа."
   },
   Simulator: {
     route: "Simulator",
     title: "Тренажер",
-    description: "Живой диалог и разбор ответа"
+    description: "Выбери модуль, затем сценарий и проведи практику диалога с разбором по компетенциям."
   },
   ManagerDashboard: {
     route: "ManagerDashboard",

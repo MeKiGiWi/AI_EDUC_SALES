@@ -14,7 +14,6 @@ import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { MetricCard } from "../../components/ui/MetricCard";
 import { ProgressBar } from "../../components/ui/ProgressBar";
-import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
@@ -55,12 +54,6 @@ export function ManagerDashboardScreen({
 
   return (
     <>
-      <SectionHeader
-        eyebrow="Руководитель"
-        title="Команда, риски и управленческие действия"
-        description="Кабинет руководителя помогает быстро увидеть состояние команды, открыть проблемный диалог и сразу назначить следующую тренировку."
-      />
-
       <View style={[styles.metricGrid, (layout.isTablet || layout.isDesktop) && styles.wrapGrid]}>
         {dashboard.metrics.map((metric) => (
           <View key={metric.id} style={{ width: metricWidth }}>

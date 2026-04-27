@@ -1,25 +1,30 @@
 {
-  "name": "sales-educ-ai",
+  "name": "sales-educ-ai-mobile",
   "version": "0.1.0",
   "private": true,
+  "main": "expo/AppEntry",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "start:web": "expo start --web",
+    "doctor": "npx expo-doctor",
+    "check": "expo install --check",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@types/node": "22.13.4",
-    "@types/react": "19.0.10",
-    "@types/react-dom": "19.0.4",
-    "autoprefixer": "10.4.20",
-    "lucide-react": "0.511.0",
-    "next": "15.2.2",
-    "postcss": "8.4.49",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "tailwindcss": "3.4.17",
-    "typescript": "5.7.3"
+    "@expo/metro-runtime": "~6.1.2",
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "@expo/ngrok": "^4.1.3",
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
   }
 }

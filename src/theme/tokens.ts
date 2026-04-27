@@ -20,8 +20,9 @@ export const colors = {
   success: "#2FA36B",
   warning: "#D5A24D",
   danger: "#C85C4A",
-  overlay: "rgba(16, 33, 20, 0.12)",
-  overlayStrong: "rgba(16, 33, 20, 0.22)",
+  info: "#5C8F73",
+  overlay: "rgba(16, 33, 20, 0.18)",
+  overlayStrong: "rgba(16, 33, 20, 0.3)"
 } as const;
 
 export const spacing = {
@@ -32,10 +33,11 @@ export const spacing = {
   lg: 20,
   xl: 24,
   xxl: 32,
-  section: 40,
+  xxxl: 40,
   screenHorizontal: 20,
-  screenTop: 24,
-  screenBottom: 32,
+  screenTop: 18,
+  screenBottom: 28,
+  section: 28
 } as const;
 
 export const radius = {
@@ -45,13 +47,13 @@ export const radius = {
   lg: 24,
   xl: 30,
   xxl: 36,
-  pill: 999,
+  pill: 999
 } as const;
 
 export const typography = {
-  fontFamilySans: "Inter",
-  fontFamilyDisplay: "Geist",
-  fontFamilyMono: "JetBrains Mono",
+  fontFamilySans: "System",
+  fontFamilyDisplay: "System",
+  fontFamilyMono: "Courier",
   sizes: {
     caption: 12,
     bodySmall: 14,
@@ -60,7 +62,7 @@ export const typography = {
     titleSmall: 20,
     title: 24,
     heading: 30,
-    hero: 40,
+    hero: 38
   },
   lineHeights: {
     caption: 16,
@@ -70,20 +72,20 @@ export const typography = {
     titleSmall: 26,
     title: 32,
     heading: 38,
-    hero: 46,
+    hero: 44
   },
   weights: {
     regular: "400",
     medium: "500",
     semibold: "600",
     bold: "700",
-    heavy: "800",
+    heavy: "800"
   },
   tracking: {
     eyebrow: 2.4,
-    tight: -0.6,
-    hero: -1.2,
-  },
+    tight: -0.4,
+    hero: -1
+  }
 } as const;
 
 export const shadows = {
@@ -92,33 +94,34 @@ export const shadows = {
     shadowOpacity: 0.08,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
+    elevation: 4
   },
   card: {
     shadowColor: "#1A3625",
     shadowOpacity: 0.12,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 6,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 6
   },
   glow: {
     shadowColor: "#2F8F5B",
-    shadowOpacity: 0.22,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 2,
-  },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3
+  }
 } as const;
 
 export const elevation = {
   base: 2,
   raised: 4,
   floating: 6,
-  overlay: 8,
+  overlay: 8
 } as const;
 
 export const semantic = {
   background: colors.canvas,
+  backgroundWarm: colors.canvasWarm,
   screen: colors.canvasWarm,
   card: colors.surface,
   cardSubtle: colors.surfaceMuted,
@@ -135,7 +138,7 @@ export const semantic = {
   success: colors.success,
   warning: colors.warning,
   danger: colors.danger,
-  glow: colors.mintGlow,
+  glow: colors.mintGlow
 } as const;
 
 export const themeTokens = {
@@ -145,7 +148,7 @@ export const themeTokens = {
   typography,
   shadows,
   elevation,
-  semantic,
+  semantic
 } as const;
 
 export type ThemeTokens = typeof themeTokens;

@@ -360,7 +360,7 @@ def _make_create_opening_message_node(deps: SimulatorGraphDependencies):
         scenario = state["scenario"]
         opening_message = SimulatorGraphMessage(
             role="customer",
-            text=scenario.introduction,
+            text=scenario.opening_message,
         )
         updated_session = session.model_copy(
             update={
@@ -380,7 +380,7 @@ def _make_create_opening_message_node(deps: SimulatorGraphDependencies):
             node="create_opening_message",
             agent="system",
             status="completed",
-            input_summary={"scenario_id": scenario.id, "introduction": scenario.introduction},
+            input_summary={"scenario_id": scenario.id, "opening_message": scenario.opening_message},
             raw_output=opening_message.text,
             metadata={"session_id": updated_session.id, "message_id": opening_message.id},
         )
@@ -676,7 +676,7 @@ def _make_run_evaluation_agent_node(deps: SimulatorGraphDependencies):
                 for message in state["messages"]
             ],
             scenario_context=(
-                f"{scenario.hidden_summary} "
+                f"{scenario.introduction} "
                 f"{scenario.buyer_agent_context.current_situation}"
             ),
             competency_model_version=methodology.competency_model.version,

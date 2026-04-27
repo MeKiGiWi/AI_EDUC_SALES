@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
 
-from app.api.v1.schemas import MessageRole, SessionMessageDto
 from app.settings import Settings
 
 
@@ -54,14 +51,3 @@ class OpenRouterClient:
                 if isinstance(part, dict)
             ).strip()
         raise ValueError("OpenRouter returned an unsupported response format.")
-
-    async def generate_customer_reply(
-        self,
-        session: Any,
-        message: str,
-    ) -> SessionMessageDto:
-        reply = await self.complete_text(prompt=message)
-        return SessionMessageDto(
-            role=MessageRole.CUSTOMER,
-            text=reply,
-        )

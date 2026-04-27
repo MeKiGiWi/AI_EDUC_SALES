@@ -135,7 +135,8 @@ async def test_buyer_output_is_not_evaluated_during_send_message() -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_buyer_reply_returns_graph_error() -> None:
+async def test_invalid_buyer_reply_uses_fallback_not_error() -> None:
+    """Test that invalid buyer reply triggers fallback instead of graph error."""
     graph, _ = build_graph(['{"criteria":["leak"]}', '# leaked heading'])
     started = await graph.ainvoke(
         {
@@ -154,10 +155,15 @@ async def test_invalid_buyer_reply_returns_graph_error() -> None:
         }
     )
 
-    assert result["status"] == "error"
-    assert result["error"] == "buyer_reply_invalid"
-    assert result["error_node"] == "validate_buyer_reply"
-    assert result["error_detail"]["raw_output"] == "# leaked heading"
+    # With deterministic fallback, invalid output should not cause graph error
+    # Instead, fallback reply should be used
+    assert result["status"] == "dialogue_continues"
+    assert result["messages"][-1].role == "customer"
+    # Fallback should not contain leaked content
+    customer_reply = result["messages"][-1].text
+    assert "criteria" not in customer_reply.casefold()
+    assert not customer_reply.startswith("{")
+    assert not customer_reply.startswith("#")
 
 
 @pytest.mark.asyncio

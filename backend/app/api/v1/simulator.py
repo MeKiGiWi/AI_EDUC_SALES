@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.v1.schemas import (
     AgentDebugStepDto,
+    ScenarioCustomerDto,
     ScenarioListResponseDto,
+    ScenarioStatus,
+    ScenarioSummaryDto,
     SessionCreateDto,
     SessionCreateResponseDto,
     SessionFinishEvaluatedDto,
@@ -150,7 +153,26 @@ def raise_for_graph_error(result: dict, *, http_status: int, debug_enabled: bool
 
 @router.get("/scenarios", response_model=ScenarioListResponseDto)
 async def list_scenarios() -> ScenarioListResponseDto:
-    return ScenarioListResponseDto(items=methodology_repo.get_public_scenarios())
+    """Return public scenarios with DTO mapping in API layer."""
+    raw_scenarios = methodology_repo.get_scenarios_raw()
+    items = [
+        ScenarioSummaryDto(
+            id=scenario.id,
+            title=scenario.title,
+            goal=scenario.goal,
+            difficulty=scenario.difficulty,
+            channel=scenario.channel,
+            status=ScenarioStatus(scenario.status),
+            customer=ScenarioCustomerDto(
+                name=scenario.customer.name,
+                roleTitle=scenario.customer.role_title,
+                company=scenario.customer.company,
+                mood=scenario.customer.mood,
+            ),
+        )
+        for scenario in raw_scenarios
+    ]
+    return ScenarioListResponseDto(items=items)
 
 
 @router.post(

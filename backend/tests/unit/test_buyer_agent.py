@@ -94,18 +94,27 @@ async def test_buyer_agent_gives_concise_business_style_russian_response() -> No
 
 
 async def test_validator_catches_json_markdown_criteria_leakage() -> None:
+    """Test that invalid JSON/markdown/criteria triggers fallback (not LLM repair)."""
     agent = BuyerAgent(
         FakeLLMClient(
             queued_text_responses=[
                 '{"reply":"# Критерии\\nУ вас strong competency model"}',
-                "Давайте сначала поймем, какой риск остановки производства вы считаете самым критичным.",
             ]
         )
     )
 
     reply = await agent.generate_reply(build_payload())
 
-    assert reply == "Давайте сначала поймем, какой риск остановки производства вы считаете самым критичным."
+    # With new validation, invalid output triggers fallback, not LLM repair
+    assert isinstance(reply, str)
+    assert reply  # Should have some fallback text
+    # Fallback should not contain leaked content
+    assert "компетенц" not in reply.casefold()
+    assert "критери" not in reply.casefold()
+    assert "senior" not in reply.casefold()
+    assert not reply.startswith("{")
+    assert not reply.startswith("#")
+
 
 
 async def test_buyer_prompt_does_not_contain_hidden_summary_or_disclosure_sequence() -> None:

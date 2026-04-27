@@ -475,13 +475,57 @@ def detect_edge_cases(state: SimulatorGraphState) -> SimulatorGraphState:
     if any(token in message for token in ("нужно сегодня", "сейчас подпис", "без вариантов")):
         flags.append("manager_pushes_too_hard")
     edge_case_flags = sorted(set(flags))
-    return {"edge_case_flags": edge_case_flags} | append_debug_step(
+
+    # Build dialogue_signals for Buyer Agent fallback logic
+    dialogue_signals = {
+        "profanity_or_insult": any(
+            token in message for token in ("сука", "бля", "идиот", "дебил", "тупой", "придурок", "мудак")
+        ),
+        "price_before_value": "цена" in message or "стоимость" in message or "дорого" in message,
+        "repeated_pitch": False,  # Will be set by checking conversation history
+        "asked_about_equipment": "оборудован" in message or "установк" in message or "что стоит" in message,
+        "asked_about_peak_problem": "пик" in message or "перегрев" in message or "температур" in message,
+        "scheduling_attempt": "когда удобно" in message or "встретитьс" in message or "созвонитьс" in message,
+        "proposed_date_or_time": None,  # Will be extracted from conversation history
+    }
+
+    # Check for repeated pitch (manager repeating same promises)
+    messages = state.get("messages", [])
+    manager_messages = [m.text.casefold() for m in messages if m.role == "learner"]
+    if len(manager_messages) >= 2:
+        # Simple check: if last two manager messages are similar
+        last_two = manager_messages[-2:]
+        if len(set(last_two)) == 1 or (len(last_two[0]) > 20 and last_two[0][:20] == last_two[1][:20]):
+            dialogue_signals["repeated_pitch"] = True
+
+    # Extract proposed_date_or_time from conversation history
+    for msg in reversed(messages):
+        if msg.role == "learner":
+            text_lower = msg.text.casefold()
+            if "завтра" in text_lower or "сегодня" in text_lower or "в 11" in text_lower or "в 14" in text_lower:
+                # Extract time/date mention
+                for word in ["завтра", "сегодня", "понедельник", "вторник", "среда", "четверг", "пятница"]:
+                    if word in text_lower:
+                        dialogue_signals["proposed_date_or_time"] = word
+                        break
+                if not dialogue_signals["proposed_date_or_time"]:
+                    # Check for time pattern like "в 11:00" or "в 14 часов"
+                    import re
+                    time_match = re.search(r"в\s*(\d{1,2}:\d{2}|\d{1,2}\s*час)", text_lower)
+                    if time_match:
+                        dialogue_signals["proposed_date_or_time"] = time_match.group(0)
+                break
+
+    return {
+        "edge_case_flags": edge_case_flags,
+        "dialogue_signals": dialogue_signals,
+    } | append_debug_step(
         state,
         node="detect_edge_cases",
         agent="system",
         status="completed",
         input_summary={"learner_message": state.get("learner_message", "")},
-        parsed_output={"edge_case_flags": edge_case_flags},
+        parsed_output={"edge_case_flags": edge_case_flags, "dialogue_signals": dialogue_signals},
     )
 
 
@@ -515,6 +559,7 @@ def _make_run_buyer_agent_node(deps: SimulatorGraphDependencies):
     async def run_buyer_agent(state: SimulatorGraphState) -> SimulatorGraphState:
         scenario = state["scenario"]
         session = state["session"]
+        dialogue_signals = state.get("dialogue_signals") or {}
         payload = BuyerAgentInput(
             scenario_private_context=scenario,
             public_context={
@@ -528,6 +573,7 @@ def _make_run_buyer_agent_node(deps: SimulatorGraphDependencies):
                 for message in session.messages
             ],
             edge_case_flags=state.get("edge_case_flags", []),
+            dialogue_signals=dialogue_signals,
         )
         trace = await deps.buyer_agent.generate_reply_with_trace(payload)
         metadata = {
@@ -535,6 +581,9 @@ def _make_run_buyer_agent_node(deps: SimulatorGraphDependencies):
             "repaired_prompt": trace.repaired_prompt,
             "repaired_raw_output": trace.repaired_raw_output,
             "repaired_validated_output": trace.repaired_validated_output,
+            "used_fallback": trace.used_fallback,
+            "fallback_reason": trace.fallback_reason,
+            "validation_reasons": trace.validation_reasons,
         }
         return {
             "customer_reply": trace.validated_output,
@@ -549,11 +598,17 @@ def _make_run_buyer_agent_node(deps: SimulatorGraphDependencies):
                 "current_stage": state.get("current_stage", session.current_stage),
                 "edge_case_flags": state.get("edge_case_flags", []),
                 "dialog_turn_count": len(session.messages),
+                "dialogue_signals": dialogue_signals,
             },
             prompt=trace.prompt,
             system_prompt=trace.system_prompt,
             raw_output=trace.raw_output,
-            parsed_output={"validated_output": trace.validated_output},
+            parsed_output={
+                "validated_output": trace.validated_output,
+                "validation_reasons": trace.validation_reasons,
+                "used_fallback": trace.used_fallback,
+                "fallback_reason": trace.fallback_reason,
+            },
             metadata=metadata,
         )
 
@@ -561,42 +616,47 @@ def _make_run_buyer_agent_node(deps: SimulatorGraphDependencies):
 
 
 def validate_buyer_reply(state: SimulatorGraphState) -> SimulatorGraphState:
-    reply = " ".join(state.get("customer_reply", "").strip().split())
-    lowered = reply.casefold()
-    banned_substrings = (
-        "junior",
-        "middle",
-        "senior",
-        "компетенц",
-        "критери",
-        "инструк",
-        "внутренн",
-        "как ии",
-        "как модель",
-        "в тренажёре проверяется",
-        "в тренажере проверяется",
-    )
-    if (
-        not reply
-        or re.fullmatch(r"\s*[\[{].*[\]}]\s*", reply, re.DOTALL)
-        or re.search(r"(?m)^\s*#", reply)
-        or any(fragment in lowered for fragment in banned_substrings)
-    ):
+    # Validation is now done inside BuyerAgent.generate_reply_with_trace()
+    # This node just passes through since validation already happened
+    
+    # Check if we need to force fallback due to dialogue signals (e.g., profanity/insult)
+    # In these cases, even a valid LLM reply should be replaced with appropriate boundary response
+    dialogue_signals = state.get("dialogue_signals") or {}
+    customer_reply = state.get("customer_reply", "").strip()
+    
+    # If profanity_or_insult signal is set and reply doesn't match boundary response, use fallback
+    if dialogue_signals.get("profanity_or_insult"):
+        expected_boundary = "В таком тоне я не готов продолжать обсуждение. Если вернемся к предметному разговору о рисках и сроках, можем продолжить."
+        if customer_reply != expected_boundary:
+            # Force boundary reply
+            return {
+                "customer_reply": expected_boundary,
+                "status": "buyer_reply_valid",
+            } | append_debug_step(
+                state,
+                node="validate_buyer_reply",
+                agent="buyer_agent",
+                status="completed",
+                input_summary={"raw_reply": customer_reply, "forced_fallback": "profanity_or_insult"},
+                parsed_output={"validated_reply": expected_boundary, "forced_fallback": True},
+            )
+    
+    if not customer_reply:
         return _build_graph_error(
             state=state,
             code="buyer_reply_invalid",
-            message="Buyer reply is empty or leaks simulator internals.",
+            message="Buyer reply is empty after validation.",
             node="validate_buyer_reply",
             agent="buyer_agent",
             detail={"raw_output": state.get("customer_reply", "")},
         )
-    return {"customer_reply": reply, "status": "buyer_reply_valid"} | append_debug_step(
+    return {"customer_reply": customer_reply, "status": "buyer_reply_valid"} | append_debug_step(
         state,
         node="validate_buyer_reply",
         agent="buyer_agent",
         status="completed",
-        input_summary={"raw_reply": state.get("customer_reply", "")},
-        parsed_output={"validated_reply": reply},
+        input_summary={"raw_reply": customer_reply},
+        parsed_output={"validated_reply": customer_reply},
     )
 
 
@@ -680,33 +740,36 @@ def _make_run_evaluation_agent_node(deps: SimulatorGraphDependencies):
                 f"{scenario.buyer_agent_context.current_situation}"
             ),
             competency_model_version=methodology.competency_model.version,
+            competency_rubrics=EvaluationAgentInput.rubrics_from_competencies(
+                methodology.competency_model.competencies
+            ),
             criteria=scenario.criteria,
             edge_cases=state.get("edge_case_flags", []),
             min_manager_turns=deps.settings.MIN_MANAGER_TURNS,
         )
-        prompt = deps.evaluation_agent.build_prompt(evaluation_input)
-        raw_output = await deps.evaluation_agent.llm_client.complete_text(
-            prompt,
-            system_prompt=deps.evaluation_agent.system_prompt,
-        )
+        trace_result = await deps.evaluation_agent.evaluate_with_trace(evaluation_input)
         return {
             "evaluation_input": evaluation_input.model_dump(),
-            "evaluation_prompt": prompt,
-            "evaluation_raw_output": raw_output,
-            "status": "evaluation_generated",
+            "evaluation_prompt": trace_result["prompt"],
+            "evaluation_raw_output": trace_result["raw_output"],
+            "evaluation_parsed_result": trace_result["parsed_result"],
+            "evaluation_error": trace_result["error"],
+            "status": "evaluation_generated" if trace_result["parsed_result"] else "evaluation_failed",
         } | append_debug_step(
             state,
             node="run_evaluation_agent",
             agent="evaluation_agent",
-            status="completed",
+            status="completed" if trace_result["parsed_result"] else "failed",
             input_summary={
                 "scenario_id": scenario.id,
                 "edge_case_flags": state.get("edge_case_flags", []),
                 "manager_turn_count": evaluation_input.manager_turn_count,
             },
-            prompt=prompt,
-            system_prompt=deps.evaluation_agent.system_prompt,
-            raw_output=raw_output,
+            prompt=trace_result["prompt"],
+            system_prompt=trace_result["system_prompt"],
+            raw_output=trace_result["raw_output"],
+            parsed_output=trace_result["parsed_result"],
+            error=trace_result["error"],
         )
 
     return run_evaluation_agent
@@ -714,18 +777,16 @@ def _make_run_evaluation_agent_node(deps: SimulatorGraphDependencies):
 
 def _make_validate_evaluation_json_node(deps: SimulatorGraphDependencies):
     def validate_evaluation_json(state: SimulatorGraphState) -> SimulatorGraphState:
-        raw_output = state.get("evaluation_raw_output", "")
-        try:
-            result = deps.evaluation_agent.parse_result(raw_output)
-        except EvaluationJsonError:
+        evaluation_error = state.get("evaluation_error")
+        if evaluation_error:
             if state.get("repair_attempt_count", 0) >= 1:
                 return _build_graph_error(
                     state=state,
                     code="evaluation_json_invalid",
-                    message="Evaluation JSON is invalid after one repair attempt.",
+                    message=f"Evaluation failed: {evaluation_error}",
                     node="validate_evaluation_json",
                     agent="evaluation_agent",
-                    detail={"raw_output": raw_output},
+                    detail={"error": evaluation_error},
                 )
             return {
                 "status": "evaluation_invalid",
@@ -735,12 +796,23 @@ def _make_validate_evaluation_json_node(deps: SimulatorGraphDependencies):
                 node="validate_evaluation_json",
                 agent="evaluation_agent",
                 status="error",
-                raw_output=raw_output,
-                error={"code": "evaluation_json_invalid", "message": "LLM returned invalid evaluation JSON."},
+                error={"code": "evaluation_json_invalid", "message": evaluation_error},
                 metadata={"repair_attempt_count": state.get("repair_attempt_count", 0)},
             )
+
+        result = state.get("evaluation_parsed_result")
+        if not result:
+            return _build_graph_error(
+                state=state,
+                code="evaluation_missing_result",
+                message="Evaluation result is missing.",
+                node="validate_evaluation_json",
+                agent="evaluation_agent",
+            )
+
         return {
             "evaluation_result": result,
+            "evaluation_parsed_result": result,
             "status": "evaluation_valid",
             "error": "",
         } | append_debug_step(
@@ -748,8 +820,7 @@ def _make_validate_evaluation_json_node(deps: SimulatorGraphDependencies):
             node="validate_evaluation_json",
             agent="evaluation_agent",
             status="completed",
-            raw_output=raw_output,
-            parsed_output=result.model_dump(),
+            parsed_output=result,
             metadata={"repair_attempt_count": state.get("repair_attempt_count", 0)},
         )
 

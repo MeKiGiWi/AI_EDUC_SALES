@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     OPENROUTER_APP_NAME: str = "AI Sales Academy"
     MIN_MANAGER_TURNS: int = Field(default=10, ge=1)
     SIMULATOR_DEBUG_TRACE: bool = False
+    SIMULATOR_WORKFLOW_LOG_ENABLED: bool = False
+    SIMULATOR_PROMPT_LOG_ENABLED: bool = True
+    SIMULATOR_PROMPT_LOG_OUTPUTS: bool = True
+    SIMULATOR_PROMPT_LOG_MAX_CHARS: int = Field(default=0, ge=0)
     APP_ENV: str = "development"
 
 

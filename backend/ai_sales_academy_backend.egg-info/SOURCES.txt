@@ -26,9 +26,12 @@ app/llm/__init__.py
 app/llm/base.py
 app/llm/fake_client.py
 app/llm/openrouter_client.py
+app/observability/__init__.py
+app/observability/agent_prompt_logger.py
 app/repositories/__init__.py
 app/repositories/methodology_repo.py
 app/services/__init__.py
+app/services/buyer_reply_validator.py
 app/services/report_service.py
 tests/test_health.py
 tests/test_methodology_repo.py

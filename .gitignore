@@ -40,6 +40,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.expo/
+.venv311/
+node_modules/
 
 # IDEs
 .vscode/

@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import json
 import logging
-import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -25,7 +22,8 @@ from app.services.report_service import (
     VersionMetadataInput,
     build_report_payload,
 )
-from app.settings import Settings
+from app.observability.agent_prompt_logger import log_agent_prompt_call
+from app.settings import Settings, get_settings
 
 
 def _configure_workflow_logger() -> logging.Logger:
@@ -162,6 +160,9 @@ def log_workflow_event(
     error: dict[str, Any] | str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> None:
+    if not get_settings().SIMULATOR_WORKFLOW_LOG_ENABLED:
+        return
+
     payload = {
         "node": node,
         "agent": agent,
@@ -585,6 +586,31 @@ def _make_run_buyer_agent_node(deps: SimulatorGraphDependencies):
             "fallback_reason": trace.fallback_reason,
             "validation_reasons": trace.validation_reasons,
         }
+        log_agent_prompt_call(
+            settings=deps.settings,
+            agent="buyer_agent",
+            node="run_buyer_agent",
+            status="completed",
+            session_id=session.id,
+            scenario_id=scenario.id,
+            prompt=trace.prompt,
+            system_prompt=trace.system_prompt,
+            raw_output=trace.raw_output,
+            parsed_output={
+                "validated_output": trace.validated_output,
+                "validation_reasons": trace.validation_reasons,
+                "used_fallback": trace.used_fallback,
+                "fallback_reason": trace.fallback_reason,
+            },
+            metadata={
+                "current_stage": state.get("current_stage", session.current_stage),
+                "edge_case_flags": state.get("edge_case_flags", []),
+                "dialog_turn_count": len(session.messages),
+                "dialogue_signals": dialogue_signals,
+                "used_fallback": trace.used_fallback,
+                "fallback_reason": trace.fallback_reason,
+            },
+        )
         return {
             "customer_reply": trace.validated_output,
             "status": "buyer_reply_ready",
@@ -748,6 +774,23 @@ def _make_run_evaluation_agent_node(deps: SimulatorGraphDependencies):
             min_manager_turns=deps.settings.MIN_MANAGER_TURNS,
         )
         trace_result = await deps.evaluation_agent.evaluate_with_trace(evaluation_input)
+        log_agent_prompt_call(
+            settings=deps.settings,
+            agent="evaluation_agent",
+            node="run_evaluation_agent",
+            status="completed" if trace_result["parsed_result"] else "failed",
+            session_id=state["session"].id,
+            scenario_id=scenario.id,
+            prompt=trace_result["prompt"],
+            system_prompt=trace_result["system_prompt"],
+            raw_output=trace_result["raw_output"],
+            parsed_output=trace_result["parsed_result"],
+            metadata={
+                "edge_case_flags": state.get("edge_case_flags", []),
+                "manager_turn_count": evaluation_input.manager_turn_count,
+                "error": trace_result["error"],
+            },
+        )
         return {
             "evaluation_input": evaluation_input.model_dump(),
             "evaluation_prompt": trace_result["prompt"],
@@ -859,6 +902,22 @@ def _make_repair_evaluation_json_node(deps: SimulatorGraphDependencies):
                 "code": "evaluation_json_invalid",
                 "message": "Repaired evaluation JSON is still invalid.",
             }
+        log_agent_prompt_call(
+            settings=deps.settings,
+            agent="json_repair",
+            node="repair_evaluation_json",
+            status="completed" if repair_validation_error is None else "error",
+            session_id=state["session"].id,
+            scenario_id=state["scenario"].id,
+            prompt=prompt,
+            system_prompt=deps.evaluation_agent.system_prompt,
+            raw_output=repaired_output,
+            parsed_output=repair_parsed_output,
+            metadata={
+                "repair_attempt_count": repair_attempt_count,
+                "error": repair_validation_error,
+            },
+        )
         return {
             "evaluation_raw_output": repaired_output,
             "repair_attempt_count": repair_attempt_count + 1,

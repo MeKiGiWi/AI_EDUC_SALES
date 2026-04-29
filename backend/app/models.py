@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
+
+if TYPE_CHECKING:
+    from app.agents import BuyerAgent, RudeClassifierAgent
+    from app.store import InMemorySessionStore
 
 
 class ChatSession(BaseModel):
@@ -33,25 +39,11 @@ class GraphState(TypedDict, total=False):
     customer_message: str
 
 
-class SessionStore(Protocol):
-    def create(self, session: ChatSession) -> ChatSession: ...
-    def get(self, session_id: str) -> ChatSession | None: ...
-    def save(self, session: ChatSession) -> ChatSession: ...
-
-
-class RudeClassifier(Protocol):
-    async def check(self, message: str): ...
-
-
-class BuyerResponder(Protocol):
-    async def reply(self, messages: list[BaseMessage]) -> str: ...
-
-
 @dataclass
 class GraphDependencies:
-    session_store: SessionStore
-    rude_classifier: RudeClassifier
-    buyer_agent: BuyerResponder
+    session_store: InMemorySessionStore
+    rude_classifier: RudeClassifierAgent
+    buyer_agent: BuyerAgent
 
 
 class ScenarioStatus(str, Enum):

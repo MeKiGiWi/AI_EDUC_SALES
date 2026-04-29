@@ -8,13 +8,11 @@ import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import {
-  type SimulatorApiErrorDetail,
   SimulatorApiError,
   simulatorApiService
 } from "../../services/simulatorApiService";
 import { useTheme } from "../../theme/useTheme";
 import type {
-  AgentDebugStepDto,
   LearningModule,
   Scenario,
   ScenarioMessage,
@@ -68,9 +66,6 @@ export function SimulatorScreen({
   const [sheetState, setSheetState] = useState<SimulatorSheetState>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [managerTurnCount, setManagerTurnCount] = useState(0);
-  const [minManagerTurns, setMinManagerTurns] = useState(2);
-  const [canFinish, setCanFinish] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
 
   const visibleScenarios = useMemo(
@@ -182,8 +177,6 @@ export function SimulatorScreen({
     setDraft("");
     setSheetState(null);
     setSessionId(null);
-    setManagerTurnCount(0);
-    setCanFinish(false);
   }, [apiEnabled, selectedScenario?.id]);
 
   function createSystemMessage(text: string): ScenarioMessage {
@@ -238,50 +231,8 @@ export function SimulatorScreen({
 
   function appendSystemErrorMessage(operation: string, error: unknown): void {
     const text = formatSystemErrorText(operation, error);
-    const debugMessages = mapDebugStepsToSystemMessages(extractDebugStepsFromError(error));
-    setMessages((current) => [...current, createSystemMessage(text), ...debugMessages]);
+    setMessages((current) => [...current, createSystemMessage(text)]);
     setSuccessMessage(null);
-  }
-
-  function extractDebugStepsFromError(error: unknown): AgentDebugStepDto[] {
-    if (!simulatorApiService.isDebugEnabled() || !(error instanceof SimulatorApiError)) {
-      return [];
-    }
-
-    const detail = error.detail;
-    if (!detail || typeof detail !== "object") {
-      return [];
-    }
-
-    const typedDetail = detail as SimulatorApiErrorDetail;
-    return Array.isArray(typedDetail.debug_steps) ? typedDetail.debug_steps : [];
-  }
-
-  function mapDebugStepToSystemMessage(step: AgentDebugStepDto): ScenarioMessage {
-    const payload = {
-      ...(step.input_summary !== undefined && step.input_summary !== null ? { input_summary: step.input_summary } : {}),
-      ...(step.prompt ? { prompt: step.prompt } : {}),
-      ...(step.system_prompt ? { system_prompt: step.system_prompt } : {}),
-      ...(step.raw_output ? { raw_output: step.raw_output } : {}),
-      ...(step.parsed_output ? { parsed_output: step.parsed_output } : {}),
-      ...(step.error ? { error: step.error } : {}),
-      ...(Object.keys(step.metadata ?? {}).length > 0 ? { metadata: step.metadata } : {})
-    };
-
-    return {
-      id: `debug-${step.step_id}`,
-      speakerName: "Система",
-      speakerRole: "system",
-      text: `DEBUG ${step.node} / ${step.agent} / ${step.status}\n${JSON.stringify(payload, null, 2)}`,
-      timestampLabel: formatTimestamp(step.ts)
-    };
-  }
-
-  function mapDebugStepsToSystemMessages(debugSteps?: AgentDebugStepDto[]): ScenarioMessage[] {
-    if (!simulatorApiService.isDebugEnabled() || !debugSteps || debugSteps.length === 0) {
-      return [];
-    }
-    return debugSteps.map(mapDebugStepToSystemMessage);
   }
 
   function resetScenario(clearSuccess: boolean) {
@@ -289,9 +240,6 @@ export function SimulatorScreen({
     setDraft("");
     setSheetState(null);
     setSessionId(null);
-    setManagerTurnCount(0);
-    setCanFinish(false);
-    setMinManagerTurns(10);
     if (clearSuccess) {
       setSuccessMessage(null);
     }
@@ -315,13 +263,7 @@ export function SimulatorScreen({
         backendDifficultyMap[difficulty]
       );
       setSessionId(response.session_id);
-      setMessages([
-        mapApiMessageToChatMessage(response.message, selectedScenario),
-        ...mapDebugStepsToSystemMessages(response.debug_steps)
-      ]);
-      setManagerTurnCount(response.manager_turn_count);
-      setMinManagerTurns(response.min_manager_turns);
-      setCanFinish(response.can_finish);
+      setMessages([mapApiMessageToChatMessage(response.message, selectedScenario)]);
       setDraft("");
       setSuccessMessage(`Сценарий "${selectedScenario.title}" запущен.`);
     } catch (error) {
@@ -356,17 +298,12 @@ export function SimulatorScreen({
     try {
       setIsBusy(true);
       const response = await simulatorApiService.sendDialogueMessage(sessionId, trimmedText);
-      const debugMessages = mapDebugStepsToSystemMessages(response.debug_steps);
       setMessages((current) => [
         ...current,
-        ...response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario)),
-        ...debugMessages
+        ...response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario))
       ]);
-      setManagerTurnCount(response.manager_turn_count);
-      setMinManagerTurns(response.min_manager_turns);
-      setCanFinish(response.can_finish);
       setDraft("");
-      setSuccessMessage("Реплика отправлена.");
+      setSuccessMessage(response.rude === "yes" ? "Клиент завершил диалог." : "Реплика отправлена.");
     } catch (error) {
       appendSystemErrorMessage("sendReply", error);
     } finally {
@@ -392,27 +329,7 @@ export function SimulatorScreen({
     try {
       setIsBusy(true);
       const response = await simulatorApiService.finishDialogueSession(sessionId);
-      if (response.status === "needs_more_dialogue") {
-        const debugMessages = mapDebugStepsToSystemMessages(response.debug_steps);
-        if (debugMessages.length > 0) {
-          setMessages((current) => [...current, ...debugMessages]);
-        }
-        setManagerTurnCount(response.manager_turn_count);
-        setMinManagerTurns(response.min_manager_turns);
-        setCanFinish(false);
-        setSuccessMessage(response.message);
-        return;
-      }
-
-      setSheetState({
-        kind: "report",
-        reportJson: JSON.stringify(response.report, null, 2)
-      });
-      const debugMessages = mapDebugStepsToSystemMessages(response.debug_steps);
-      if (debugMessages.length > 0) {
-        setMessages((current) => [...current, ...debugMessages]);
-      }
-      setSuccessMessage("Отчет получен из backend.");
+      setSuccessMessage(response.status === "finished" ? "Сценарий завершен." : "Сессия обновлена.");
     } catch (error) {
       appendSystemErrorMessage("finishScenario", error);
     } finally {
@@ -585,9 +502,9 @@ export function SimulatorScreen({
           </View>
           <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
             {apiEnabled
-              ? canFinish
-                ? `Реплик менеджера: ${managerTurnCount} из ${minManagerTurns}. Сценарий уже можно завершить.`
-                : `Реплик менеджера: ${managerTurnCount} из ${minManagerTurns} для итогового отчета.`
+              ? sessionId
+                ? "Чат с backend активен. Можно продолжать диалог или завершить сессию."
+                : "Сначала запустите сценарий, затем отправьте сообщение."
               : "Тренажер недоступен: требуется backend-конфигурация."}
           </Text>
         </AppCard>
@@ -616,21 +533,21 @@ function mapApiScenarioToScenario(item: SimulatorPublicScenarioDto, moduleId: st
     id: item.id,
     moduleId,
     title: item.title,
-    goal: item.goal,
-    difficulty: item.difficulty,
+    goal: "Проведите короткий B2B-диалог с клиентом в чате.",
+    difficulty: "medium",
     status: item.status,
-    channel: item.channel,
+    channel: "chat",
     targetCompetencies: [],
     persona: {
       id: `persona-${item.id}`,
-      name: item.customer.name,
-      company: item.customer.company ?? "",
-      roleTitle: item.customer.roleTitle,
-      mood: item.customer.mood ?? "",
+      name: "Клиент",
+      company: "",
+      roleTitle: "B2B клиент",
+      mood: "",
       painPoints: [],
       objectionStyle: ""
     },
-    openingMessage: "",
+    openingMessage: item.openingMessage,
     suggestedActions: [],
     quickReplies: [],
     customerReplies: [],
@@ -641,15 +558,13 @@ function mapApiScenarioToScenario(item: SimulatorPublicScenarioDto, moduleId: st
 function mapApiMessageToChatMessage(message: SimulatorApiMessageDto, scenario: Scenario): ScenarioMessage {
   const speakerNameByRole = {
     customer: scenario.persona.name || "Клиент",
-    learner: "Вы",
-    manager: "Вы",
-    system: "Система"
+    learner: "Вы"
   } as const;
 
   return {
-    id: message.id,
+    id: message.id ?? `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     speakerName: speakerNameByRole[message.role] ?? "Собеседник",
-    speakerRole: message.role === "manager" ? "learner" : message.role,
+    speakerRole: message.role,
     text: message.text,
     timestampLabel: formatTimestamp(message.created_at)
   };

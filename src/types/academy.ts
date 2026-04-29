@@ -193,16 +193,8 @@ export interface SimulatorEvaluation {
 export interface SimulatorPublicScenarioDto {
   id: string;
   title: string;
-  goal: string;
-  difficulty: string;
-  channel: string;
-  status: "ready" | "active" | "completed";
-  customer: {
-    name: string;
-    roleTitle: string;
-    company?: string;
-    mood?: string;
-  };
+  openingMessage: string;
+  status: "ready";
 }
 
 export interface SimulatorCatalogResponseDto {
@@ -210,8 +202,8 @@ export interface SimulatorCatalogResponseDto {
 }
 
 export interface SimulatorApiMessageDto {
-  id: string;
-  role: "system" | "customer" | "manager" | "learner";
+  id?: string;
+  role: "customer" | "learner";
   text: string;
   created_at: string;
 }
@@ -220,7 +212,7 @@ export interface AgentDebugStepDto {
   step_id: string;
   ts: string;
   node: string;
-  agent: "system" | "buyer_agent" | "evaluation_agent" | "report_builder" | "json_repair";
+  agent: "system" | "safety_agent" | "buyer_agent" | "report_builder";
   status: "started" | "completed" | "error" | "skipped";
   input_summary?: Record<string, unknown> | string | null;
   prompt?: string | null;
@@ -235,20 +227,14 @@ export interface SimulatorStartSessionResponseDto {
   session_id: string;
   status: "active";
   message: SimulatorApiMessageDto;
-  can_finish: boolean;
-  manager_turn_count: number;
-  min_manager_turns: number;
-  debug_steps?: AgentDebugStepDto[];
 }
 
 export interface SimulatorSendMessageResponseDto {
   session_id: string;
-  status: "active";
+  status: "active" | "finished";
+  rude: "yes" | "no";
+  confidence: number;
   messages: SimulatorApiMessageDto[];
-  can_finish: boolean;
-  manager_turn_count: number;
-  min_manager_turns: number;
-  debug_steps?: AgentDebugStepDto[];
 }
 
 export interface SimulatorReportPayloadDto {
@@ -294,25 +280,10 @@ export interface SimulatorReportPayloadDto {
   }[];
 }
 
-export interface SimulatorFinishNeedsMoreDialogueResponseDto {
+export interface SimulatorFinishResponseDto {
   session_id: string;
-  status: "needs_more_dialogue";
-  message: string;
-  manager_turn_count: number;
-  min_manager_turns: number;
-  debug_steps?: AgentDebugStepDto[];
+  status: "finished";
 }
-
-export interface SimulatorFinishEvaluatedResponseDto {
-  session_id: string;
-  status: "evaluated";
-  report: SimulatorReportPayloadDto;
-  debug_steps?: AgentDebugStepDto[];
-}
-
-export type SimulatorFinishResponseDto =
-  | SimulatorFinishNeedsMoreDialogueResponseDto
-  | SimulatorFinishEvaluatedResponseDto;
 
 export interface TeamMember {
   id: string;

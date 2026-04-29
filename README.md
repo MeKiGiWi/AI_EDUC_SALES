@@ -1,12 +1,13 @@
 # AI Sales Academy
 
-Репозиторий содержит одно активное приложение: `Expo + React Native + TypeScript` продукт `AI Sales Academy`, который работает на телефоне и в браузере через React Native Web.
+Репозиторий содержит основное приложение `Expo + React Native + TypeScript` для `AI Sales Academy`, а также упрощенный Python backend для simulator-flow.
 
 ## Что в репозитории
 
 - `App.tsx`, `app.json`, `src/` — корневое Expo-приложение
 - `design-system/` — токены, рецепты компонентов и layout-правила для зелёной визуальной системы
 - `docs/` — продуктовые и контрактные документы
+- `backend/` — минимальный `FastAPI + LangChain + LangGraph` backend для симулятора
 - `codex-prompts/` — вспомогательные промпты
 
 ## Продуктовый контур

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 
@@ -37,7 +37,7 @@ class BuyerAgent:
     def __init__(self, model) -> None:
         self._model = model
 
-    async def reply(self, messages: list[SystemMessage | HumanMessage | AIMessage]) -> str:
+    async def reply(self, messages: list[BaseMessage]) -> str:
         response = await self._model.ainvoke(messages)
         return self._normalize_reply(response.content)
 

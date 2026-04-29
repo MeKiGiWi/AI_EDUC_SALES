@@ -5,7 +5,7 @@ from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from pydantic import BaseModel, Field
 
-from app.prompts import BUYER_SYSTEM_PROMPT, RUDE_CLASSIFIER_SYSTEM_PROMPT
+from app.prompts import RUDE_CLASSIFIER_SYSTEM_PROMPT
 
 
 class RudeCheckResult(BaseModel):
@@ -44,12 +44,7 @@ class RudeClassifierAgent:
 class BuyerAgent:
     def __init__(self, llm) -> None:
         self.parser = StrOutputParser()
-        self.prompt_template = ChatPromptTemplate.from_messages(
-            [
-                ("system", BUYER_SYSTEM_PROMPT),
-                MessagesPlaceholder("messages"),
-            ]
-        )
+        self.prompt_template = ChatPromptTemplate.from_messages([MessagesPlaceholder("messages")])
         self.chain = self.prompt_template | llm | self.parser
 
     async def reply(self, messages: list[BaseMessage]) -> str:

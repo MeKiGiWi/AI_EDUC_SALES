@@ -5,7 +5,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from app.models import ChatSession, GraphDependencies, GraphState
-from app.prompts import BASELINE_OPENING_MESSAGE, BUYER_SYSTEM_PROMPT
+from app.prompts import BASELINE_OPENING_MESSAGE, BUYER_SCENARIO_CONTEXT_PROMPT, BUYER_SYSTEM_PROMPT
+from app.scenario_repository import get_scenario_by_id, get_scenario_info
 
 
 def create_graph(deps: GraphDependencies):
@@ -55,13 +56,25 @@ def create_graph(deps: GraphDependencies):
 
 def _open_new_session(deps: GraphDependencies):
     def node(state: GraphState) -> GraphState:
+        scenario_id = state["scenario_id"]
+        scenario = get_scenario_by_id(scenario_id)
+        opening_message = (
+            scenario["opening_message"] if scenario is not None else BASELINE_OPENING_MESSAGE
+        )
+        scenario_info = get_scenario_info(scenario_id)
+        if scenario_info is None:
+            scenario_info = f"Сценарий: {scenario_id}. Дополнительная информация недоступна."
+
         messages = [
             SystemMessage(content=BUYER_SYSTEM_PROMPT),
-            AIMessage(content=BASELINE_OPENING_MESSAGE),
+            SystemMessage(
+                content=BUYER_SCENARIO_CONTEXT_PROMPT.format(scenario_info=scenario_info)
+            ),
+            AIMessage(content=opening_message),
         ]
         session = ChatSession(
             id=state.get("session_id", str(uuid4())),
-            scenario_id=state["scenario_id"],
+            scenario_id=scenario_id,
             messages=messages,
         )
         deps.session_store.create(session)
@@ -70,7 +83,7 @@ def _open_new_session(deps: GraphDependencies):
             "session": session,
             "messages": messages,
             "status": session.status,
-            "customer_message": BASELINE_OPENING_MESSAGE,
+            "customer_message": opening_message,
         }
 
     return node

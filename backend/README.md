@@ -9,7 +9,7 @@
 - `app/simulator_api.py` — API
 - `app/simulator_prompts.py` — runtime-промпты, которые реально используются кодом
 - `kb/prompts/` — справочные `.md`
-- `kb/scenarios/` — справочные `.yaml`
+- `kb/scenarios/` — сценарии в `.md`
 - `artifacts/langgraph/` — отрисованная схема графа
 
 ## Команды

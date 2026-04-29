@@ -17,8 +17,8 @@ from app.models import (
     SessionMessageResponseDto,
     SessionStatus,
 )
-from app.prompts import BASELINE_OPENING_MESSAGE, BASELINE_SCENARIO_ID, BASELINE_SCENARIO_TITLE
 from app.runtime import SESSION_STORE, build_graph
+from app.scenario_repository import get_scenario_by_id, list_scenarios
 
 router = APIRouter(prefix="/api/v1/simulator", tags=["simulator"])
 
@@ -47,19 +47,24 @@ async def get_scenarios() -> ScenarioListResponseDto:
     return ScenarioListResponseDto(
         items=[
             ScenarioSummaryDto(
-                id=BASELINE_SCENARIO_ID,
-                title=BASELINE_SCENARIO_TITLE,
-                openingMessage=BASELINE_OPENING_MESSAGE,
+                id=str(scenario["id"]),
+                title=str(scenario["title"]),
+                openingMessage=str(scenario["opening_message"]),
                 status=ScenarioStatus.READY,
             )
+            for scenario in list_scenarios()
         ]
     )
 
 
 @router.post("/sessions", response_model=SessionCreateResponseDto, status_code=201)
 async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
+    if get_scenario_by_id(payload.scenario_id) is None:
+        raise HTTPException(status_code=404, detail="Сценарий не найден.")
+
     graph = build_graph(get_settings())
-    result = await graph.ainvoke({"action": "open_session", "scenario_id": payload.scenario_id})
+    initial_state = {"action": "open_session", "scenario_id": payload.scenario_id}
+    result = await graph.ainvoke(initial_state)
     return SessionCreateResponseDto(
         session_id=result["session_id"],
         status=SessionStatus(result["status"]),
@@ -76,13 +81,12 @@ async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> S
         raise HTTPException(status_code=409, detail="Сессия уже завершена.")
 
     graph = build_graph(get_settings())
-    result = await graph.ainvoke(
-        {
-            "action": "reply_to_sales",
-            "session_id": session_id,
-            "sales_message": payload.text,
-        }
-    )
+    initial_state = {
+        "action": "reply_to_sales",
+        "session_id": session_id,
+        "sales_message": payload.text,
+    }
+    result = await graph.ainvoke(initial_state)
 
     return SessionMessageResponseDto(
         session_id=session_id,
@@ -100,7 +104,8 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
         raise HTTPException(status_code=404, detail="Сессия не найдена.")
 
     graph = build_graph(get_settings())
-    result = await graph.ainvoke({"action": "close_session", "session_id": session_id})
+    initial_state = {"action": "close_session", "session_id": session_id}
+    result = await graph.ainvoke(initial_state)
     return SessionFinishResponseDto(
         session_id=session_id,
         status=SessionStatus(result["status"]),

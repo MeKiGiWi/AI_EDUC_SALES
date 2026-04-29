@@ -4,18 +4,21 @@ from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-import app.simulator_api as simulator_api
+import app.api as simulator_api
+import app.runtime as simulator_runtime
 from app.main import app
-from app.simulator_agents import BuyerAgent, RudeClassifierAgent
-from app.simulator_graph import InMemorySessionStore, SimulatorGraphDependencies, create_simulator_graph
+from app.agents import BuyerAgent, RudeClassifierAgent
+from app.graph import GraphDependencies, create_graph
+from app.store import InMemorySessionStore
 
 
 def build_fake_graph():
-    if not isinstance(simulator_api.SESSION_STORE, InMemorySessionStore):
-        simulator_api.SESSION_STORE = InMemorySessionStore()
-    return create_simulator_graph(
-        SimulatorGraphDependencies(
-            session_store=simulator_api.SESSION_STORE,
+    if not isinstance(simulator_runtime.SESSION_STORE, InMemorySessionStore):
+        simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    simulator_api.SESSION_STORE = simulator_runtime.SESSION_STORE
+    return create_graph(
+        GraphDependencies(
+            session_store=simulator_runtime.SESSION_STORE,
             rude_classifier=RudeClassifierAgent(
                 RunnableLambda(lambda _: AIMessage(content='{"rude":"no","confidence":0.66}'))
             ),
@@ -35,8 +38,9 @@ async def test_health_endpoint_returns_ok() -> None:
 
 @pytest.mark.asyncio
 async def test_create_session_returns_opening_message(monkeypatch) -> None:
-    simulator_api.SESSION_STORE = InMemorySessionStore()
-    monkeypatch.setattr(simulator_api, "build_simulator_graph", lambda settings: build_fake_graph())
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(simulator_api, "build_graph", lambda settings: build_fake_graph())
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "production-cooling"})
@@ -50,8 +54,9 @@ async def test_create_session_returns_opening_message(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_send_message_returns_buyer_reply(monkeypatch) -> None:
-    simulator_api.SESSION_STORE = InMemorySessionStore()
-    monkeypatch.setattr(simulator_api, "build_simulator_graph", lambda settings: build_fake_graph())
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(simulator_api, "build_graph", lambda settings: build_fake_graph())
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "production-cooling"})

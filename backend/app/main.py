@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.render_graph import render_graph_artifacts
-from app.simulator_api import router as simulator_router
+from app.api import router as simulator_router
 
 
 @asynccontextmanager

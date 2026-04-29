@@ -1,12 +1,10 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 
-from app.simulator_agents import BuyerAgent, RudeClassifierAgent
-from app.simulator_graph import InMemorySessionStore, SimulatorGraphDependencies, create_simulator_graph
-from app.simulator_models import (
+from app.settings import get_settings
+from app.models import (
     MessageRole,
     ScenarioListResponseDto,
     ScenarioStatus,
@@ -19,40 +17,10 @@ from app.simulator_models import (
     SessionMessageResponseDto,
     SessionStatus,
 )
-from app.simulator_prompts import BASELINE_OPENING_MESSAGE, BASELINE_SCENARIO_ID, BASELINE_SCENARIO_TITLE
-from app.settings import Settings, get_settings
+from app.prompts import BASELINE_OPENING_MESSAGE, BASELINE_SCENARIO_ID, BASELINE_SCENARIO_TITLE
+from app.runtime import SESSION_STORE, build_graph
 
 router = APIRouter(prefix="/api/v1/simulator", tags=["simulator"])
-SESSION_STORE = InMemorySessionStore()
-
-
-def build_chat_model(settings: Settings) -> ChatOpenAI:
-    if not settings.LLM_API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="LLM API key is not configured.",
-        )
-    return ChatOpenAI(
-        model=settings.LLM_MODEL,
-        api_key=settings.LLM_API_KEY,
-        base_url=settings.OPENROUTER_BASE_URL,
-        temperature=settings.LLM_TEMPERATURE,
-        default_headers={
-            "HTTP-Referer": settings.OPENROUTER_SITE_URL,
-            "X-Title": settings.OPENROUTER_APP_NAME,
-        },
-    )
-
-
-def build_simulator_graph(settings: Settings):
-    model = build_chat_model(settings)
-    return create_simulator_graph(
-        SimulatorGraphDependencies(
-            session_store=SESSION_STORE,
-            rude_classifier=RudeClassifierAgent(model),
-            buyer_agent=BuyerAgent(model),
-        )
-    )
 
 
 def map_message(message) -> SessionMessageDto:
@@ -70,7 +38,7 @@ def map_message(message) -> SessionMessageDto:
     )
 
 
-def visible_messages(messages: list) -> list:
+def filter_visible_messages(messages: list) -> list:
     return [message for message in messages if not isinstance(message, SystemMessage)]
 
 
@@ -88,28 +56,26 @@ async def get_scenarios() -> ScenarioListResponseDto:
     )
 
 
-@router.post("/sessions", response_model=SessionCreateResponseDto, status_code=status.HTTP_201_CREATED)
+@router.post("/sessions", response_model=SessionCreateResponseDto, status_code=201)
 async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
-    settings = get_settings()
-    graph = build_simulator_graph(settings)
+    graph = build_graph(get_settings())
     result = await graph.ainvoke({"action": "open_session", "scenario_id": payload.scenario_id})
     return SessionCreateResponseDto(
         session_id=result["session_id"],
         status=SessionStatus(result["status"]),
-        message=map_message(visible_messages(result["messages"])[-1]),
+        message=map_message(filter_visible_messages(result["messages"])[-1]),
     )
 
 
 @router.post("/sessions/{session_id}/messages", response_model=SessionMessageResponseDto)
 async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> SessionMessageResponseDto:
-    settings = get_settings()
     session = SESSION_STORE.get(session_id)
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сессия не найдена.")
+        raise HTTPException(status_code=404, detail="Сессия не найдена.")
     if session.status == "finished":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Сессия уже завершена.")
+        raise HTTPException(status_code=409, detail="Сессия уже завершена.")
 
-    graph = build_simulator_graph(settings)
+    graph = build_graph(get_settings())
     result = await graph.ainvoke(
         {
             "action": "reply_to_sales",
@@ -123,7 +89,7 @@ async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> S
         status=SessionStatus(result["status"]),
         rude="yes" if result["dialog_route"] == "stop_after_rudeness" else "no",
         confidence=result["confidence"],
-        messages=[map_message(item) for item in visible_messages(result["messages"])[-2:]],
+        messages=[map_message(item) for item in filter_visible_messages(result["messages"])[-2:]],
     )
 
 
@@ -131,10 +97,9 @@ async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> S
 async def close_session(session_id: str) -> SessionFinishResponseDto:
     session = SESSION_STORE.get(session_id)
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сессия не найдена.")
+        raise HTTPException(status_code=404, detail="Сессия не найдена.")
 
-    settings = get_settings()
-    graph = build_simulator_graph(settings)
+    graph = build_graph(get_settings())
     result = await graph.ainvoke({"action": "close_session", "session_id": session_id})
     return SessionFinishResponseDto(
         session_id=session_id,

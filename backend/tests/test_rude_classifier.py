@@ -2,7 +2,7 @@ import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.simulator_agents import RudeClassifierAgent
+from app.agents import RudeClassifierAgent
 
 
 @pytest.mark.asyncio

@@ -5,36 +5,21 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from app.simulator_agents import BuyerAgent, RudeClassifierAgent
-from app.simulator_models import SimulatorGraphState, SimulatorSession
-from app.simulator_prompts import BASELINE_OPENING_MESSAGE, BUYER_SYSTEM_PROMPT
-
-
-class InMemorySessionStore:
-    def __init__(self) -> None:
-        self._store: dict[str, SimulatorSession] = {}
-
-    def create(self, session: SimulatorSession) -> SimulatorSession:
-        self._store[session.id] = session
-        return session
-
-    def get(self, session_id: str) -> SimulatorSession | None:
-        return self._store.get(session_id)
-
-    def save(self, session: SimulatorSession) -> SimulatorSession:
-        self._store[session.id] = session
-        return session
+from app.agents import BuyerAgent, RudeClassifierAgent
+from app.models import GraphState, Session
+from app.prompts import BASELINE_OPENING_MESSAGE, BUYER_SYSTEM_PROMPT
+from app.store import InMemorySessionStore
 
 
 @dataclass
-class SimulatorGraphDependencies:
+class GraphDependencies:
     session_store: InMemorySessionStore
     rude_classifier: RudeClassifierAgent
     buyer_agent: BuyerAgent
 
 
-def create_simulator_graph(deps: SimulatorGraphDependencies):
-    graph = StateGraph(SimulatorGraphState)
+def create_graph(deps: GraphDependencies):
+    graph = StateGraph(GraphState)
 
     graph.add_node("start_session_with_opening_message", _open_new_session(deps))
     graph.add_node("load_session_for_next_action", _load_existing_session(deps))
@@ -78,13 +63,13 @@ def create_simulator_graph(deps: SimulatorGraphDependencies):
     return graph.compile()
 
 
-def _open_new_session(deps: SimulatorGraphDependencies):
-    def node(state: SimulatorGraphState) -> SimulatorGraphState:
+def _open_new_session(deps: GraphDependencies):
+    def node(state: GraphState) -> GraphState:
         messages = [
             SystemMessage(content=BUYER_SYSTEM_PROMPT),
             AIMessage(content=BASELINE_OPENING_MESSAGE),
         ]
-        session = SimulatorSession(
+        session = Session(
             id=state.get("session_id", str(uuid4())),
             scenario_id=state["scenario_id"],
             messages=messages,
@@ -101,18 +86,18 @@ def _open_new_session(deps: SimulatorGraphDependencies):
     return node
 
 
-def _load_existing_session(deps: SimulatorGraphDependencies):
-    def node(state: SimulatorGraphState) -> SimulatorGraphState:
+def _load_existing_session(deps: GraphDependencies):
+    def node(state: GraphState) -> GraphState:
         session = deps.session_store.get(state["session_id"])
         if session is None:
             raise KeyError(f"Session '{state['session_id']}' was not found.")
-        return {"session": session, "messages": session.messages, "status": session.status}
+        return {"session": session, "messages": list(session.messages), "status": session.status}
 
     return node
 
 
-def _append_sales_message(deps: SimulatorGraphDependencies):
-    def node(state: SimulatorGraphState) -> SimulatorGraphState:
+def _append_sales_message(deps: GraphDependencies):
+    def node(state: GraphState) -> GraphState:
         new_messages = [*state["messages"], HumanMessage(content=state["sales_message"])]
         updated_session = state["session"].model_copy(update={"messages": new_messages})
         deps.session_store.save(updated_session)
@@ -121,21 +106,19 @@ def _append_sales_message(deps: SimulatorGraphDependencies):
     return node
 
 
-def _classify_sales_tone(deps: SimulatorGraphDependencies):
-    async def node(state: SimulatorGraphState) -> SimulatorGraphState:
+def _classify_sales_tone(deps: GraphDependencies):
+    async def node(state: GraphState) -> GraphState:
         result = await deps.rude_classifier.check(state["sales_message"])
         return {
-            "dialog_route": (
-                "stop_after_rudeness" if result.rude == "yes" else "continue_with_customer_reply"
-            ),
+            "dialog_route": "stop_after_rudeness" if result.rude == "yes" else "continue_with_customer_reply",
             "confidence": result.confidence,
         }
 
     return node
 
 
-def _append_customer_left_message(deps: SimulatorGraphDependencies):
-    def node(state: SimulatorGraphState) -> SimulatorGraphState:
+def _append_customer_left_message(deps: GraphDependencies):
+    def node(state: GraphState) -> GraphState:
         new_messages = [*state["messages"], AIMessage(content="КЛИЕНТ УШЕЛ")]
         updated_session = state["session"].model_copy(
             update={
@@ -155,8 +138,8 @@ def _append_customer_left_message(deps: SimulatorGraphDependencies):
     return node
 
 
-def _append_customer_reply_message(deps: SimulatorGraphDependencies):
-    async def node(state: SimulatorGraphState) -> SimulatorGraphState:
+def _append_customer_reply_message(deps: GraphDependencies):
+    async def node(state: GraphState) -> GraphState:
         reply = await deps.buyer_agent.reply(state["messages"])
         new_messages = [*state["messages"], AIMessage(content=reply)]
         updated_session = state["session"].model_copy(update={"messages": new_messages})
@@ -171,19 +154,20 @@ def _append_customer_reply_message(deps: SimulatorGraphDependencies):
     return node
 
 
-def _close_existing_session(deps: SimulatorGraphDependencies):
-    def node(state: SimulatorGraphState) -> SimulatorGraphState:
+def _close_existing_session(deps: GraphDependencies):
+    def node(state: GraphState) -> GraphState:
         session = state["session"]
         if session.status == "finished":
-            return {"session": session, "messages": state["messages"], "status": session.status}
+            return {"session": session, "messages": list(state["messages"]), "status": session.status}
+
         updated_session = session.model_copy(
             update={
                 "status": "finished",
                 "completed_at": datetime.now(timezone.utc),
-                "messages": state["messages"],
+                "messages": list(state["messages"]),
             }
         )
         deps.session_store.save(updated_session)
-        return {"session": updated_session, "messages": state["messages"], "status": updated_session.status}
+        return {"session": updated_session, "messages": list(state["messages"]), "status": updated_session.status}
 
     return node

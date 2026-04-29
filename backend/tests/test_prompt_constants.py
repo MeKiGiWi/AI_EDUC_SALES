@@ -1,4 +1,4 @@
-from app.simulator_prompts import (
+from app.prompts import (
     BASELINE_OPENING_MESSAGE,
     BUYER_SYSTEM_PROMPT,
     RUDE_CLASSIFIER_SYSTEM_PROMPT,

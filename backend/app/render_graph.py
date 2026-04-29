@@ -3,15 +3,16 @@ from pathlib import Path
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.simulator_agents import BuyerAgent, RudeClassifierAgent
-from app.simulator_graph import InMemorySessionStore, SimulatorGraphDependencies, create_simulator_graph
+from app.agents import BuyerAgent, RudeClassifierAgent
+from app.graph import GraphDependencies, create_graph
+from app.store import InMemorySessionStore
 
 ARTIFACTS_DIR = Path(__file__).resolve().parents[1] / "artifacts" / "langgraph"
 
 
 def render_graph_artifacts() -> None:
-    graph = create_simulator_graph(
-        SimulatorGraphDependencies(
+    graph = create_graph(
+        GraphDependencies(
             session_store=InMemorySessionStore(),
             rude_classifier=RudeClassifierAgent(
                 RunnableLambda(lambda _: AIMessage(content='{"rude":"no","confidence":0.5}'))

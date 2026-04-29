@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
 
-class SimulatorSession(BaseModel):
+class Session(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     id: str
@@ -19,12 +19,12 @@ class SimulatorSession(BaseModel):
     completed_at: datetime | None = None
 
 
-class SimulatorGraphState(TypedDict, total=False):
+class GraphState(TypedDict, total=False):
     action: Literal["open_session", "reply_to_sales", "close_session"]
     scenario_id: str
     session_id: str
     sales_message: str
-    session: SimulatorSession
+    session: Session
     messages: list[BaseMessage]
     status: Literal["active", "finished"]
     dialog_route: Literal["stop_after_rudeness", "continue_with_customer_reply"]

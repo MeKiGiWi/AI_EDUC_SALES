@@ -2,14 +2,15 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.simulator_agents import BuyerAgent, RudeClassifierAgent
-from app.simulator_graph import InMemorySessionStore, SimulatorGraphDependencies, create_simulator_graph
+from app.agents import BuyerAgent, RudeClassifierAgent
+from app.graph import GraphDependencies, create_graph
+from app.store import InMemorySessionStore
 
 
 @pytest.mark.asyncio
 async def test_graph_finishes_dialogue_when_user_is_rude() -> None:
-    graph = create_simulator_graph(
-        SimulatorGraphDependencies(
+    graph = create_graph(
+        GraphDependencies(
             session_store=InMemorySessionStore(),
             rude_classifier=RudeClassifierAgent(
                 RunnableLambda(lambda _: AIMessage(content='{"rude":"yes","confidence":0.95}'))
@@ -36,8 +37,8 @@ async def test_graph_finishes_dialogue_when_user_is_rude() -> None:
 
 @pytest.mark.asyncio
 async def test_graph_returns_buyer_reply_when_user_is_not_rude() -> None:
-    graph = create_simulator_graph(
-        SimulatorGraphDependencies(
+    graph = create_graph(
+        GraphDependencies(
             session_store=InMemorySessionStore(),
             rude_classifier=RudeClassifierAgent(
                 RunnableLambda(lambda _: AIMessage(content='{"rude":"no","confidence":0.77}'))

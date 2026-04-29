@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Literal
+from typing import Literal, Protocol
 from uuid import uuid4
 
 from langchain_core.messages import BaseMessage
@@ -8,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
 
-class Session(BaseModel):
+class ChatSession(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     id: str
@@ -24,12 +25,33 @@ class GraphState(TypedDict, total=False):
     scenario_id: str
     session_id: str
     sales_message: str
-    session: Session
+    session: ChatSession
     messages: list[BaseMessage]
     status: Literal["active", "finished"]
     dialog_route: Literal["stop_after_rudeness", "continue_with_customer_reply"]
     confidence: float
     customer_message: str
+
+
+class SessionStore(Protocol):
+    def create(self, session: ChatSession) -> ChatSession: ...
+    def get(self, session_id: str) -> ChatSession | None: ...
+    def save(self, session: ChatSession) -> ChatSession: ...
+
+
+class RudeClassifier(Protocol):
+    async def check(self, message: str): ...
+
+
+class BuyerResponder(Protocol):
+    async def reply(self, messages: list[BaseMessage]) -> str: ...
+
+
+@dataclass
+class GraphDependencies:
+    session_store: SessionStore
+    rude_classifier: RudeClassifier
+    buyer_agent: BuyerResponder
 
 
 class ScenarioStatus(str, Enum):

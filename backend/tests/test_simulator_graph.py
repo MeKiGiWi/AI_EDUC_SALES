@@ -3,7 +3,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
 
 from app.agents import BuyerAgent, RudeClassifierAgent
-from app.graph import GraphDependencies, create_graph
+from app.graph import create_graph
+from app.models import GraphDependencies
 from app.store import InMemorySessionStore
 
 

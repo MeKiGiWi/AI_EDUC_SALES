@@ -1,21 +1,11 @@
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from app.agents import BuyerAgent, RudeClassifierAgent
-from app.models import GraphState, Session
+from app.models import ChatSession, GraphDependencies, GraphState
 from app.prompts import BASELINE_OPENING_MESSAGE, BUYER_SYSTEM_PROMPT
-from app.store import InMemorySessionStore
-
-
-@dataclass
-class GraphDependencies:
-    session_store: InMemorySessionStore
-    rude_classifier: RudeClassifierAgent
-    buyer_agent: BuyerAgent
 
 
 def create_graph(deps: GraphDependencies):
@@ -69,7 +59,7 @@ def _open_new_session(deps: GraphDependencies):
             SystemMessage(content=BUYER_SYSTEM_PROMPT),
             AIMessage(content=BASELINE_OPENING_MESSAGE),
         ]
-        session = Session(
+        session = ChatSession(
             id=state.get("session_id", str(uuid4())),
             scenario_id=state["scenario_id"],
             messages=messages,

@@ -6,9 +6,10 @@ from langchain_core.runnables import RunnableLambda
 
 import app.api as simulator_api
 import app.runtime as simulator_runtime
-from app.main import app
 from app.agents import BuyerAgent, RudeClassifierAgent
-from app.graph import GraphDependencies, create_graph
+from app.graph import create_graph
+from app.main import app
+from app.models import GraphDependencies
 from app.store import InMemorySessionStore
 
 

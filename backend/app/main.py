@@ -3,20 +3,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.router import api_router
-from app.settings import get_settings
+from app.render_graph import render_graph_artifacts
+from app.simulator_api import router as simulator_router
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    get_settings()
+    render_graph_artifacts()
     yield
 
 
 def create_app() -> FastAPI:
     application = FastAPI(
         title="AI Sales Academy Backend",
-        version="0.1.0",
+        version="0.2.0",
         lifespan=lifespan,
     )
     application.add_middleware(
@@ -34,7 +34,7 @@ def create_app() -> FastAPI:
     async def healthcheck() -> dict[str, str]:
         return {"status": "ok", "message": "Сервис работает стабильно."}
 
-    application.include_router(api_router, prefix="/api/v1")
+    application.include_router(simulator_router)
     return application
 
 

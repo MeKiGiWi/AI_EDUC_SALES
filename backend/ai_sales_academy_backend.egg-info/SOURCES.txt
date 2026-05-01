@@ -8,6 +8,7 @@ ai_sales_academy_backend.egg-info/requires.txt
 ai_sales_academy_backend.egg-info/top_level.txt
 app/agents.py
 app/api.py
+app/dialog_logger.py
 app/graph.py
 app/main.py
 app/models.py
@@ -17,8 +18,11 @@ app/runtime.py
 app/scenario_repository.py
 app/settings.py
 app/store.py
+tests/test_dialog_logger.py
+tests/test_evaluation_agent.py
 tests/test_health.py
 tests/test_prompt_constants.py
 tests/test_rude_classifier.py
+tests/test_settings.py
 tests/test_simulator_api.py
 tests/test_simulator_graph.py

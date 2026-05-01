@@ -28,6 +28,21 @@ npm run typecheck
 npm run doctor
 ```
 
+## Docker dev с hot reload
+
+Для локальной разработки через Docker есть отдельный dev-контур:
+
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env
+docker compose -f docker-compose.dev.yml up --build
+```
+
+- Expo web с hot reload: `http://localhost:19006`
+- FastAPI backend с `uvicorn --reload`: `http://localhost:8000`
+
+Продовый compose остаётся в [docker-compose.yml](/Users/daniil/code/Sales_educ_ai/docker-compose.yml).
+
 ## Дальнейшее развитие
 
 - держать архитектуру в рамках React Native / Expo

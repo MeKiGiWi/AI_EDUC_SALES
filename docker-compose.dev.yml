@@ -1,0 +1,35 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: npm run web -- --non-interactive --port 19006
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      EXPO_PUBLIC_SIMULATOR_API_URL: http://localhost:8000
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "19006:19006"
+      - "8081:8081"
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - ./backend/.env
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app

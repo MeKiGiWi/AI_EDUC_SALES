@@ -54,6 +54,8 @@ node_modules/
 .env
 .env.local
 *.env.*
+!.env.example
+!backend/.env.example
 
 # OS generated files
 .DS_Store

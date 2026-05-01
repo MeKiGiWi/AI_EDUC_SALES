@@ -4,13 +4,15 @@ from langchain_openai import ChatOpenAI
 from app.agents import BuyerAgent, EvaluationAgent, RudeClassifierAgent
 from app.graph import create_graph
 from app.models import GraphDependencies
-from app.settings import LLMSettings
+from app.settings import AgentsConfig, LLMSettings
 from app.store import InMemorySessionStore
 
 SESSION_STORE = InMemorySessionStore()
 
 
-def build_chat_model(llm_settings: LLMSettings) -> ChatOpenAI:
+def build_chat_model(
+    llm_settings: LLMSettings,
+) -> ChatOpenAI:
     if not llm_settings.LLM_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -29,16 +31,15 @@ def build_chat_model(llm_settings: LLMSettings) -> ChatOpenAI:
     )
 
 
-def build_graph(llm_settings: LLMSettings):
-    llm = build_chat_model(llm_settings)
+def build_graph(agents_config: AgentsConfig):
     deps = GraphDependencies(
         session_store=SESSION_STORE,
-        rude_classifier=RudeClassifierAgent(llm),
-        buyer_agent=BuyerAgent(llm),
+        rude_classifier=RudeClassifierAgent(build_chat_model(agents_config.check_rude_llm_settings)),
+        buyer_agent=BuyerAgent(build_chat_model(agents_config.buyer_agent_llm_settings)),
     )
     return create_graph(deps)
 
 
-def build_evaluation_agent(llm_settings: LLMSettings) -> EvaluationAgent:
-    llm = build_chat_model(llm_settings)
+def build_evaluation_agent(agents_config: AgentsConfig) -> EvaluationAgent:
+    llm = build_chat_model(agents_config.evaluation_agent_llm_settings)
     return EvaluationAgent(llm)

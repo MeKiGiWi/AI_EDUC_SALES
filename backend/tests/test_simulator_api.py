@@ -16,6 +16,7 @@ from app.models import (
     GraphDependencies,
 )
 from app.prompts import BASELINE_OPENING_MESSAGE
+from app.settings import get_agents_config
 from app.store import InMemorySessionStore
 
 
@@ -99,7 +100,7 @@ async def test_health_endpoint_returns_ok() -> None:
 async def test_create_session_returns_opening_message(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
-    monkeypatch.setattr(simulator_api, "build_graph", lambda settings: build_fake_graph())
+    monkeypatch.setattr(simulator_api, "build_graph", lambda agents_config: build_fake_graph())
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
@@ -126,7 +127,7 @@ async def test_get_scenarios_returns_baseline() -> None:
 async def test_create_session_with_unknown_scenario_returns_404(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
-    monkeypatch.setattr(simulator_api, "build_graph", lambda settings: build_fake_graph())
+    monkeypatch.setattr(simulator_api, "build_graph", lambda agents_config: build_fake_graph())
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "unknown-scenario"})
@@ -142,7 +143,7 @@ async def test_send_message_returns_buyer_reply(monkeypatch) -> None:
     monkeypatch.setattr(
         simulator_api,
         "build_graph",
-        lambda settings: build_fake_graph("Давайте ближе к выгоде для нас."),
+        lambda agents_config: build_fake_graph("Давайте ближе к выгоде для нас."),
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
@@ -167,7 +168,7 @@ async def test_send_message_stays_active_even_for_refusal_text(monkeypatch) -> N
     monkeypatch.setattr(
         simulator_api,
         "build_graph",
-        lambda settings: build_fake_graph("Не актуально, мы уже выбрали другого."),
+        lambda agents_config: build_fake_graph("Не актуально, мы уже выбрали другого."),
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
@@ -187,8 +188,14 @@ async def test_send_message_stays_active_even_for_refusal_text(monkeypatch) -> N
 async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
-    monkeypatch.setattr(simulator_api, "build_graph", lambda settings: build_fake_graph())
-    monkeypatch.setattr(simulator_api, "build_evaluation_agent", lambda settings: FakeEvaluationAgent())
+    monkeypatch.setattr(simulator_api, "build_graph", lambda agents_config: build_fake_graph())
+    monkeypatch.setattr(simulator_api, "build_evaluation_agent", lambda agents_config: FakeEvaluationAgent())
+    log_calls: list[dict[str, str]] = []
+    monkeypatch.setattr(
+        simulator_api,
+        "append_dialog_log",
+        lambda **kwargs: log_calls.append(kwargs),
+    )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
@@ -212,3 +219,7 @@ async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None
         "Работа с возражением «подумаю / не сейчас»",
         "Фиксация следующего шага",
     ]
+    assert len(log_calls) == 1
+    assert log_calls[0]["model_name"] == get_agents_config().buyer_agent_llm_settings.LLM_MODEL
+    assert log_calls[0]["scenario_name"] == "baseline"
+    assert "Менеджер:" in log_calls[0]["dialogue"]

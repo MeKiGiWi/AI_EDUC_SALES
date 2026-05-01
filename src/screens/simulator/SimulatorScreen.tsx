@@ -3,7 +3,6 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import { ChatBubble } from "../../components/simulator/ChatBubble";
 import { ScenarioPicker } from "../../components/simulator/ScenarioPicker";
-import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
@@ -17,6 +16,7 @@ import type {
   Scenario,
   ScenarioMessage,
   SimulatorApiMessageDto,
+  SimulatorEvaluationPayloadDto,
   SimulatorPublicScenarioDto
 } from "../../types/academy";
 
@@ -26,11 +26,12 @@ interface SimulatorScreenProps {
   activeScenarioId?: string;
   activeMaterialId?: string;
   onOpenMaterial: (materialId?: string) => void;
+  onOpenReports: () => void;
+  onReportSaved: (payload: {
+    scenarioTitle: string;
+    evaluation: SimulatorEvaluationPayloadDto;
+  }) => void | Promise<void>;
 }
-
-type SimulatorSheetState =
-  | { kind: "evaluation"; evaluationJson: string }
-  | null;
 type DialoguePhase = "idle" | "active" | "finished";
 const API_SIMULATOR_MODULE_ID = "mod-simulator-api";
 
@@ -52,7 +53,9 @@ export function SimulatorScreen({
   scenarios,
   activeScenarioId,
   activeMaterialId,
-  onOpenMaterial
+  onOpenMaterial,
+  onOpenReports,
+  onReportSaved
 }: SimulatorScreenProps) {
   const theme = useTheme();
   const apiEnabled = simulatorApiService.isEnabled();
@@ -90,7 +93,6 @@ export function SimulatorScreen({
   const [messages, setMessages] = useState<ScenarioMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [difficulty, setDifficulty] = useState<(typeof difficultyOptions)[number]>("Средний");
-  const [sheetState, setSheetState] = useState<SimulatorSheetState>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -218,7 +220,6 @@ export function SimulatorScreen({
       setMessages((current) => current.filter((message) => message.speakerRole === "system"));
     }
     setDraft("");
-    setSheetState(null);
     setSessionId(null);
   }, [apiEnabled, selectedScenario?.id]);
 
@@ -281,12 +282,31 @@ export function SimulatorScreen({
   function resetScenario(clearSuccess: boolean) {
     setMessages(apiEnabled && selectedScenario ? [createSystemMessage(TRAINING_INTRO_MESSAGE)] : [createSystemMessage(buildMissingApiUrlText())]);
     setDraft("");
-    setSheetState(null);
     setSessionId(null);
     setDialoguePhase("idle");
     if (clearSuccess) {
       setSuccessMessage(null);
     }
+  }
+
+  async function persistLatestReport(currentScenario: Scenario) {
+    if (!sessionId) {
+      throw new Error("Сначала запустите сценарий.");
+    }
+
+    const response = await simulatorApiService.finishDialogueSession(sessionId);
+    if (response.evaluation) {
+      await onReportSaved({
+        scenarioTitle: currentScenario.title,
+        evaluation: response.evaluation
+      });
+      setSuccessMessage('Диалог завершён. Отчет сохранен во вкладке "Отчеты".');
+    } else {
+      setSuccessMessage("Диалог завершён, но оценка пока не сформирована.");
+    }
+
+    setDialoguePhase("finished");
+    setDraft("");
   }
 
   async function startScenario() {
@@ -365,7 +385,7 @@ export function SimulatorScreen({
       setDraft("");
       if (response.status === "finished") {
         setDialoguePhase("finished");
-        setSuccessMessage("Диалог завершён.");
+        await persistLatestReport(selectedScenario);
       } else {
         setSuccessMessage("Реплика отправлена.");
       }
@@ -410,18 +430,7 @@ export function SimulatorScreen({
 
     try {
       setIsBusy(true);
-      const response = await simulatorApiService.finishDialogueSession(sessionId);
-      if (response.evaluation) {
-        setSheetState({
-          kind: "evaluation",
-          evaluationJson: JSON.stringify(response.evaluation, null, 2)
-        });
-        setSuccessMessage("Сценарий завершен. Сырая оценка сформирована.");
-      } else {
-        setSuccessMessage(response.status === "finished" ? "Сценарий завершен." : "Сессия обновлена.");
-      }
-      setDialoguePhase("finished");
-      setDraft("");
+      await persistLatestReport(selectedScenario);
     } catch (error) {
       appendSystemErrorMessage("finishScenario", error);
     } finally {
@@ -518,7 +527,7 @@ export function SimulatorScreen({
                 tone="primary"
                 disabled={!selectedScenario || isBusy || !apiEnabled}
               />
-            ) : (
+            ) : dialoguePhase === "active" ? (
               <>
                 <AppButton
                   label="Отправить"
@@ -533,13 +542,30 @@ export function SimulatorScreen({
                   disabled={!selectedScenario || isBusy || !apiEnabled || dialoguePhase !== "active"}
                 />
               </>
+            ) : (
+              <>
+                <AppButton
+                  label="Открыть отчеты"
+                  onPress={onOpenReports}
+                  tone="primary"
+                  disabled={!selectedScenario || isBusy}
+                />
+                <AppButton
+                  label="Повторить сценарий"
+                  onPress={() => resetScenario(true)}
+                  tone="ghost"
+                  disabled={!selectedScenario || isBusy}
+                />
+              </>
             )}
-            <AppButton
-              label="Повторить сценарий"
-              onPress={() => resetScenario(true)}
-              tone="ghost"
-              disabled={!selectedScenario || isBusy}
-            />
+            {dialoguePhase !== "finished" ? (
+              <AppButton
+                label="Повторить сценарий"
+                onPress={() => resetScenario(true)}
+                tone="ghost"
+                disabled={!selectedScenario || isBusy}
+              />
+            ) : null}
           </View>
           <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
             {apiEnabled
@@ -547,26 +573,11 @@ export function SimulatorScreen({
                 ? "Нажмите Начать, чтобы запустить диалог."
                 : dialoguePhase === "active"
                   ? "Диалог активен. Цель — закрыть клиента на конкретный следующий шаг."
-                  : "Диалог завершён. Можно повторить сценарий."
+                  : 'Диалог завершён. Последний отчет доступен во вкладке "Отчеты".'
               : "Тренажер недоступен: требуется backend-конфигурация."}
           </Text>
         </AppCard>
       </View>
-
-      <AppBottomSheet
-        visible={sheetState !== null}
-        title="JSON-оценка по сессии"
-        description={
-          "Компетенции и детали оценки доступны только после завершения сценария."
-        }
-        onClose={() => setSheetState(null)}
-      >
-        {sheetState?.kind === "evaluation" ? (
-          <Text style={[styles.reportJson, { color: theme.semantic.textSecondary }]}>
-            {sheetState.evaluationJson}
-          </Text>
-        ) : null}
-      </AppBottomSheet>
     </>
   );
 }
@@ -710,10 +721,5 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 15,
     lineHeight: 21
-  },
-  reportJson: {
-    fontSize: 13,
-    lineHeight: 20,
-    fontFamily: "Courier"
   }
 });

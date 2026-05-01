@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
@@ -8,84 +8,588 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { roleLabels } from "../../navigation/routes";
+import { themeTokens } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
-import type { ReportCard, ScheduledReportRule, UserRole } from "../../types/academy";
+import type { ExportFormat, ReportCard, UserRole } from "../../types/academy";
 
 interface ReportsScreenProps {
   activeRole: UserRole;
   reports: ReportCard[];
-  rules: ScheduledReportRule[];
   highlightReportId?: string;
 }
 
 type ReportsSheetState =
   | { kind: "preview"; report: ReportCard }
   | { kind: "export"; title: string; lines: string[] }
-  | { kind: "schedule"; title: string; lines: string[] }
+  | { kind: "info"; title: string; lines: string[] }
   | null;
+
+const reportExportTheme = themeTokens;
+const browserFontStack = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+const reportPageWidth = 1240;
+const reportPageHeight = 1754;
+const reportPagePadding = 72;
+const reportPageFooterHeight = 56;
+const reportCardGap = 28;
+const reportCardRadius = 30;
+const reportCardWidth = reportPageWidth - reportPagePadding * 2;
+
+interface WrappedSectionLine {
+  bullet: string;
+  lines: string[];
+}
+
+interface RenderSectionCard {
+  title: string;
+  items: WrappedSectionLine[];
+  height: number;
+}
 
 const roleContent = {
   student: {
-    sendTargets: ["Мне на почту", "Руководителю"],
-    emptyTitle: "Личный отчет пока не готов",
-    emptyDescription: "После завершения практики здесь появятся оценка, точки роста и персональный план развития."
+    emptyTitle: "Последний отчет еще не сохранен",
+    emptyDescription:
+      "Завершите диалог в тренажере. После этого здесь появится один последний отчет с предпросмотром и выгрузкой.",
+    infoLines: [
+      "После завершения диалога сохраняется только один последний отчет.",
+      "Новый отчет перезаписывает предыдущий без отдельной базы данных.",
+      "Из этой вкладки доступны предпросмотр, PDF и CSV."
+    ]
   },
   manager: {
-    sendTargets: ["Руководителю", "HR / L&D"],
-    emptyTitle: "Командные отчеты пока не собраны",
-    emptyDescription: "Когда по группе накопится практика, здесь появятся отчеты по динамике навыков и точкам роста."
+    emptyTitle: "Последний отчет по практике еще не сохранен",
+    emptyDescription:
+      "После завершения диалога руководитель увидит здесь только последний сохраненный отчет по текущей практике.",
+    infoLines: [
+      "Хранится только последний отчет по завершенной практике.",
+      "Если пройти новый диалог, предыдущий отчет будет заменен.",
+      "Во вкладке доступны предпросмотр, PDF и CSV."
+    ]
   },
   hr: {
-    sendTargets: ["HR / L&D", "Руководителям групп"],
-    emptyTitle: "Групповые отчеты пока не собраны",
-    emptyDescription: "Здесь появятся групповые, департаментские и компетентностные выгрузки."
+    emptyTitle: "Последний отчет еще не поступил",
+    emptyDescription:
+      "Когда в текущей сессии будет завершен диалог и сохранен отчет, он появится здесь как единственный актуальный артефакт.",
+    infoLines: [
+      "На MVP этапе без БД хранится только один последний отчет.",
+      "Выгрузки строятся прямо из этого сохраненного отчета.",
+      "История отчетов появится позже вместе с постоянным хранилищем."
+    ]
   },
   admin: {
-    sendTargets: ["Администратору", "Владельцу процесса"],
-    emptyTitle: "Регламенты пока не собраны",
-    emptyDescription: "Когда правила выгрузки будут настроены, здесь появятся доступы, расписание и форматы отчетов."
+    emptyTitle: "Последний отчет еще не зафиксирован",
+    emptyDescription:
+      "Пока ни один завершенный диалог не сохранил актуальный отчет в runtime-хранилище приложения.",
+    infoLines: [
+      "Сейчас нет отдельного файлового или серверного архива отчетов.",
+      "Сохраняется только последний отчет в памяти приложения.",
+      "PDF и CSV формируются из этой записи по запросу."
+    ]
   }
 } as const;
 
-export function ReportsScreen({ activeRole, reports, rules, highlightReportId }: ReportsScreenProps) {
+function buildSafeFilename(report: ReportCard, extension: string): string {
+  const normalizedTitle = report.title
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яё]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+  return `${normalizedTitle || "latest-report"}.${extension}`;
+}
+
+function escapeCsvCell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function buildCsv(report: ReportCard): string {
+  const rows: string[][] = [
+    ["Отчет", report.title],
+    ["Владелец", report.ownerLabel],
+    ["Обновлен", report.updatedAt],
+    ["Формат", report.format.toUpperCase()],
+    ["", ""]
+  ];
+
+  report.previewSections.forEach((section) => {
+    rows.push([section.title, ""]);
+    section.lines.forEach((line) => {
+      rows.push(["", line]);
+    });
+    rows.push(["", ""]);
+  });
+
+  return rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+}
+
+function downloadBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function createCanvasContext(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+  const canvas = document.createElement("canvas");
+  canvas.width = reportPageWidth;
+  canvas.height = reportPageHeight;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Браузер не поддерживает Canvas для генерации PDF.");
+  }
+
+  return { canvas, ctx };
+}
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  fillColor: string | CanvasGradient | CanvasPattern,
+  strokeColor?: string
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  if (strokeColor) {
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = strokeColor;
+    ctx.stroke();
+  }
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const source = text.trim();
+  if (!source) {
+    return [];
+  }
+
+  const words = source.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = "";
+
+  const pushBrokenWord = (word: string) => {
+    let fragment = "";
+    for (const character of word) {
+      const candidate = fragment ? `${fragment}${character}` : character;
+      if (ctx.measureText(candidate).width > maxWidth && fragment) {
+        lines.push(fragment);
+        fragment = character;
+      } else {
+        fragment = candidate;
+      }
+    }
+    currentLine = fragment;
+  };
+
+  words.forEach((word) => {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      currentLine = candidate;
+      return;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    if (ctx.measureText(word).width <= maxWidth) {
+      currentLine = word;
+      return;
+    }
+
+    pushBrokenWord(word);
+  });
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+function prepareSectionCard(
+  ctx: CanvasRenderingContext2D,
+  section: ReportCard["previewSections"][number]
+): RenderSectionCard {
+  ctx.font = `600 20px ${browserFontStack}`;
+
+  const items = section.lines.map((line) => ({
+    bullet: "•",
+    lines: wrapText(ctx, line, reportCardWidth - 112)
+  }));
+
+  const contentHeight = items.reduce((sum, item) => {
+    const lineCount = Math.max(item.lines.length, 1);
+    return sum + lineCount * 30 + 14;
+  }, 0);
+
+  return {
+    title: section.title,
+    items,
+    height: 44 + 24 + contentHeight + 28
+  };
+}
+
+function drawPageBackground(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = reportExportTheme.semantic.backgroundWarm;
+  ctx.fillRect(0, 0, reportPageWidth, reportPageHeight);
+
+  const heroGradient = ctx.createLinearGradient(0, 0, reportPageWidth, 520);
+  heroGradient.addColorStop(0, reportExportTheme.semantic.cardAccent);
+  heroGradient.addColorStop(1, reportExportTheme.semantic.backgroundWarm);
+  ctx.fillStyle = heroGradient;
+  ctx.fillRect(0, 0, reportPageWidth, 520);
+
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = reportExportTheme.semantic.glow;
+  ctx.beginPath();
+  ctx.arc(reportPageWidth - 190, 126, 158, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(138, 212, 92, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawHeroCard(ctx: CanvasRenderingContext2D, report: ReportCard): number {
+  ctx.font = `800 44px ${browserFontStack}`;
+  const titleLines = wrapText(ctx, report.title, reportCardWidth - 120);
+  ctx.font = `500 24px ${browserFontStack}`;
+  const summaryLines = wrapText(ctx, report.summary, reportCardWidth - 120);
+
+  const heroHeight = 236 + titleLines.length * 50 + summaryLines.length * 30;
+  const heroGradient = ctx.createLinearGradient(
+    reportPagePadding,
+    reportPagePadding,
+    reportPagePadding + reportCardWidth,
+    reportPagePadding + heroHeight
+  );
+  heroGradient.addColorStop(0, reportExportTheme.semantic.cardAccent);
+  heroGradient.addColorStop(1, "#FFFFFF");
+
+  ctx.save();
+  ctx.shadowColor = "rgba(16, 33, 20, 0.12)";
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetY = 10;
+  drawRoundedRect(
+    ctx,
+    reportPagePadding,
+    reportPagePadding,
+    reportCardWidth,
+    heroHeight,
+    40,
+    heroGradient,
+    reportExportTheme.semantic.border
+  );
+  ctx.restore();
+
+  ctx.fillStyle = reportExportTheme.semantic.textMuted;
+  ctx.font = `700 15px ${browserFontStack}`;
+  ctx.fillText("AI SALES ACADEMY", reportPagePadding + 34, reportPagePadding + 44);
+
+  ctx.fillStyle = reportExportTheme.semantic.textPrimary;
+  ctx.font = `800 44px ${browserFontStack}`;
+  let currentY = reportPagePadding + 94;
+  titleLines.forEach((line) => {
+    ctx.fillText(line, reportPagePadding + 34, currentY);
+    currentY += 50;
+  });
+
+  ctx.fillStyle = reportExportTheme.semantic.textSecondary;
+  ctx.font = `500 24px ${browserFontStack}`;
+  currentY += 8;
+  summaryLines.forEach((line) => {
+    ctx.fillText(line, reportPagePadding + 34, currentY);
+    currentY += 30;
+  });
+
+  const pillY = reportPagePadding + heroHeight - 72;
+  const pills = [report.ownerLabel, report.updatedAt, "Последний отчет"];
+  let pillX = reportPagePadding + 34;
+  ctx.font = `700 16px ${browserFontStack}`;
+  pills.forEach((label, index) => {
+    const pillWidth = ctx.measureText(label).width + 36;
+    drawRoundedRect(
+      ctx,
+      pillX,
+      pillY,
+      pillWidth,
+      36,
+      18,
+      index === 2 ? reportExportTheme.semantic.actionPrimary : "#FFFFFF",
+      index === 2 ? reportExportTheme.semantic.actionPrimary : reportExportTheme.semantic.border
+    );
+    ctx.fillStyle = index === 2 ? "#FFFFFF" : reportExportTheme.semantic.textPrimary;
+    ctx.fillText(label, pillX + 18, pillY + 24);
+    pillX += pillWidth + 12;
+  });
+
+  ctx.fillStyle = reportExportTheme.semantic.textMuted;
+  ctx.font = `500 16px ${browserFontStack}`;
+  ctx.fillText(
+    "Сформировано автоматически по завершенному диалогу.",
+    reportPagePadding + 34,
+    reportPagePadding + heroHeight - 20
+  );
+
+  return reportPagePadding + heroHeight + reportCardGap;
+}
+
+function drawContinuationHeader(
+  ctx: CanvasRenderingContext2D,
+  report: ReportCard,
+  pageIndex: number
+): number {
+  drawRoundedRect(
+    ctx,
+    reportPagePadding,
+    reportPagePadding,
+    reportCardWidth,
+    94,
+    reportCardRadius,
+    "#FFFFFF",
+    reportExportTheme.semantic.border
+  );
+
+  ctx.fillStyle = reportExportTheme.semantic.textMuted;
+  ctx.font = `700 14px ${browserFontStack}`;
+  ctx.fillText("ОТЧЕТ ПО ДИАЛОГУ", reportPagePadding + 28, reportPagePadding + 34);
+
+  ctx.fillStyle = reportExportTheme.semantic.textPrimary;
+  ctx.font = `800 28px ${browserFontStack}`;
+  const titleLine = wrapText(ctx, report.title, reportCardWidth - 180)[0] ?? report.title;
+  ctx.fillText(titleLine, reportPagePadding + 28, reportPagePadding + 68);
+
+  ctx.fillStyle = reportExportTheme.semantic.textMuted;
+  ctx.font = `700 15px ${browserFontStack}`;
+  const pageLabel = `Страница ${pageIndex + 1}`;
+  const pageLabelWidth = ctx.measureText(pageLabel).width;
+  ctx.fillText(pageLabel, reportPagePadding + reportCardWidth - pageLabelWidth - 28, reportPagePadding + 50);
+
+  return reportPagePadding + 94 + reportCardGap;
+}
+
+function drawSectionCard(
+  ctx: CanvasRenderingContext2D,
+  card: RenderSectionCard,
+  y: number
+): void {
+  ctx.save();
+  ctx.shadowColor = "rgba(16, 33, 20, 0.08)";
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 8;
+  drawRoundedRect(
+    ctx,
+    reportPagePadding,
+    y,
+    reportCardWidth,
+    card.height,
+    reportCardRadius,
+    "#FFFFFF",
+    reportExportTheme.semantic.border
+  );
+  ctx.restore();
+
+  drawRoundedRect(
+    ctx,
+    reportPagePadding + 24,
+    y + 24,
+    68,
+    8,
+    4,
+    reportExportTheme.semantic.actionPrimary
+  );
+
+  ctx.fillStyle = reportExportTheme.semantic.textPrimary;
+  ctx.font = `800 28px ${browserFontStack}`;
+  ctx.fillText(card.title, reportPagePadding + 24, y + 70);
+
+  ctx.fillStyle = reportExportTheme.semantic.textSecondary;
+  ctx.font = `600 20px ${browserFontStack}`;
+  let currentY = y + 110;
+  card.items.forEach((item) => {
+    item.lines.forEach((line, lineIndex) => {
+      const prefix = lineIndex === 0 ? `${item.bullet} ` : "";
+      ctx.fillText(prefix + line, reportPagePadding + 32, currentY);
+      currentY += 30;
+    });
+    currentY += 14;
+  });
+}
+
+function drawPageFooter(
+  ctx: CanvasRenderingContext2D,
+  pageIndex: number,
+  totalPages: number
+): void {
+  const baselineY = reportPageHeight - reportPagePadding + 6;
+
+  ctx.strokeStyle = reportExportTheme.semantic.border;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(reportPagePadding, baselineY - 28);
+  ctx.lineTo(reportPageWidth - reportPagePadding, baselineY - 28);
+  ctx.stroke();
+
+  ctx.fillStyle = reportExportTheme.semantic.textMuted;
+  ctx.font = `600 16px ${browserFontStack}`;
+  ctx.fillText(
+    "Экспортировано из web MVP-платформы. В памяти приложения хранится только последний отчет.",
+    reportPagePadding,
+    baselineY
+  );
+
+  const pageLabel = `${pageIndex + 1} / ${totalPages}`;
+  const pageLabelWidth = ctx.measureText(pageLabel).width;
+  ctx.fillText(pageLabel, reportPageWidth - reportPagePadding - pageLabelWidth, baselineY);
+}
+
+function buildPdfCanvases(report: ReportCard): HTMLCanvasElement[] {
+  const pages: Array<{ canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }> = [];
+  const createPage = () => {
+    const page = createCanvasContext();
+    drawPageBackground(page.ctx);
+    pages.push(page);
+    return page;
+  };
+
+  let page = createPage();
+  let currentY = drawHeroCard(page.ctx, report);
+
+  report.previewSections.forEach((section) => {
+    const card = prepareSectionCard(page.ctx, section);
+    const maxY = reportPageHeight - reportPagePadding - reportPageFooterHeight;
+
+    if (currentY + card.height > maxY) {
+      page = createPage();
+      currentY = drawContinuationHeader(page.ctx, report, pages.length - 1);
+    }
+
+    drawSectionCard(page.ctx, card, currentY);
+    currentY += card.height + reportCardGap;
+  });
+
+  pages.forEach((item, index) => {
+    drawPageFooter(item.ctx, index, pages.length);
+  });
+
+  return pages.map((item) => item.canvas);
+}
+
+async function buildPdfBlob(report: ReportCard): Promise<Blob> {
+  const { jsPDF } = await import("jspdf");
+  const pages = buildPdfCanvases(report);
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "pt",
+    format: "a4",
+    compress: true
+  });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  pages.forEach((canvas, index) => {
+    if (index > 0) {
+      pdf.addPage();
+    }
+
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
+  });
+
+  return pdf.output("blob");
+}
+
+export function ReportsScreen({ activeRole, reports, highlightReportId }: ReportsScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [sheetState, setSheetState] = useState<ReportsSheetState>(null);
-  const [sendLog, setSendLog] = useState<string[]>([]);
-  const [scheduleMode, setScheduleMode] = useState<"weekly" | "monthly">("weekly");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [activeExport, setActiveExport] = useState<ExportFormat | null>(null);
 
-  const roleReports = useMemo(
-    () => reports.filter((report) => report.role === activeRole),
-    [activeRole, reports]
+  const latestReport = useMemo(
+    () => reports.find((report) => report.id === highlightReportId) ?? reports[0] ?? null,
+    [highlightReportId, reports]
   );
-  const roleRules = useMemo(
-    () => rules.filter((rule) => rule.role === activeRole),
-    [activeRole, rules]
-  );
-  const [selectedReportId, setSelectedReportId] = useState("");
-
-  useEffect(() => {
-    const nextReport = roleReports.find((item) => item.id === highlightReportId) ?? roleReports[0] ?? null;
-    setSelectedReportId(nextReport?.id ?? "");
-  }, [highlightReportId, roleReports]);
-
-  const selectedReport = useMemo(
-    () => roleReports.find((item) => item.id === selectedReportId) ?? roleReports[0] ?? null,
-    [roleReports, selectedReportId]
-  );
-  const reportWidth = layout.isDesktop ? "48%" : "100%";
+  const reportWidth = layout.isDesktop ? "56%" : "100%";
   const content = roleContent[activeRole];
 
-  function openExport(report: ReportCard, format: "pdf" | "csv" | "xlsx") {
+  function openInfoSheet() {
+    setSheetState({
+      kind: "info",
+      title: "Как работает вкладка отчетов",
+      lines: [...content.infoLines]
+    });
+  }
+
+  function openPreview(report: ReportCard) {
+    setSuccessMessage(null);
+    setSheetState({ kind: "preview", report });
+  }
+
+  async function openExport(report: ReportCard, format: ExportFormat) {
+    if (Platform.OS === "web" && typeof document !== "undefined" && typeof window !== "undefined") {
+      try {
+        setActiveExport(format);
+        setSuccessMessage(format === "pdf" ? "Формируем PDF..." : "Формируем CSV...");
+
+        if (format === "csv") {
+          const blob = new Blob([`\uFEFF${buildCsv(report)}`], {
+            type: "text/csv;charset=utf-8"
+          });
+          downloadBlob(buildSafeFilename(report, "csv"), blob);
+          setSuccessMessage(`CSV для отчета "${report.title}" скачивается.`);
+          return;
+        }
+
+        if (format === "pdf") {
+          const blob = await buildPdfBlob(report);
+          downloadBlob(buildSafeFilename(report, "pdf"), blob);
+          setSuccessMessage(`PDF для отчета "${report.title}" скачивается.`);
+          return;
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Неизвестная ошибка при генерации файла.";
+        setSuccessMessage(null);
+        setSheetState({
+          kind: "export",
+          title: `Не удалось подготовить ${format.toUpperCase()}`,
+          lines: [`Отчет: ${report.title}`, message]
+        });
+        return;
+      } finally {
+        setActiveExport(null);
+      }
+    }
+
     setSheetState({
       kind: "export",
-      title: `${format.toUpperCase()} подготовлен`,
+      title: `${format.toUpperCase()} подготовлен для MVP`,
       lines: [
         `Отчет: ${report.title}`,
         `Формат: ${format.toUpperCase()}`,
-        `Аудитория: ${roleLabels[activeRole]}`,
-        "Статус: выгрузка подготовлена и доступна для дальнейшего действия"
+        "На web файл создается по кнопке автоматически.",
+        "На других платформах пока доступен только предпросмотр последнего сохраненного отчета."
       ]
     });
   }
@@ -98,122 +602,77 @@ export function ReportsScreen({ activeRole, reports, rules, highlightReportId }:
         </AppCard>
       ) : null}
 
-      {roleReports.length === 0 ? (
+      {latestReport === null ? (
         <EmptyState
           title={content.emptyTitle}
           description={content.emptyDescription}
-          actionLabel="Открыть правила"
-          onAction={() =>
-            setSheetState({
-              kind: "schedule",
-              title: "Правила отправки",
-              lines: roleRules.map((rule) => `${rule.audience}: ${rule.frequencyLabel} · ${rule.format.toUpperCase()}`)
-            })
-          }
+          actionLabel="Как это работает"
+          onAction={openInfoSheet}
         />
       ) : (
         <View style={[styles.reportsGrid, layout.isDesktop && styles.reportsGridDesktop]}>
-          {roleReports.map((report) => (
-            <View key={report.id} style={{ width: reportWidth }}>
-              <AppCard tone={report.id === selectedReportId ? "mint" : "default"}>
-                <View style={styles.rowBetween}>
-                  <View style={styles.flexBlock}>
-                    <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
-                    <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{report.summary}</Text>
-                    <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-                      {report.ownerLabel} · {report.updatedAt}
-                    </Text>
-                  </View>
-                  <StatusPill label={report.format.toUpperCase()} tone="success" />
+          <View style={{ width: reportWidth }}>
+            <AppCard tone="mint">
+              <View style={styles.rowBetween}>
+                <View style={styles.flexBlock}>
+                  <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{latestReport.title}</Text>
+                  <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{latestReport.summary}</Text>
+                  <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+                    {latestReport.ownerLabel} · {latestReport.updatedAt}
+                  </Text>
                 </View>
-                <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-                  Доступные форматы: {report.availableFormats.map((item) => item.toUpperCase()).join(", ")}
-                </Text>
-                <View style={styles.buttonRow}>
-                  <AppButton label="Предпросмотр" onPress={() => setSheetState({ kind: "preview", report })} tone="primary" />
-                  <AppButton
-                    label={`Скачать ${report.availableFormats[0].toUpperCase()}`}
-                    onPress={() => openExport(report, report.availableFormats[0])}
-                    tone="secondary"
-                  />
-                  {report.availableFormats[1] ? (
-                    <AppButton
-                      label={`Скачать ${report.availableFormats[1].toUpperCase()}`}
-                      onPress={() => openExport(report, report.availableFormats[1])}
-                      tone="ghost"
-                    />
-                  ) : null}
-                </View>
-                <View style={styles.buttonRow}>
-                  <AppButton
-                    label={`Отправить: ${content.sendTargets[0]}`}
-                    onPress={() => {
-                      setSendLog((current) => [...current, `${report.title} → ${content.sendTargets[0]}`]);
-                      setSuccessMessage(`Отчет "${report.title}" отправлен: ${content.sendTargets[0]}.`);
-                    }}
-                    tone="secondary"
-                  />
-                  {content.sendTargets[1] ? (
-                    <AppButton
-                      label={`Отправить: ${content.sendTargets[1]}`}
-                      onPress={() => {
-                        setSendLog((current) => [...current, `${report.title} → ${content.sendTargets[1]}`]);
-                        setSuccessMessage(`Отчет "${report.title}" отправлен: ${content.sendTargets[1]}.`);
-                      }}
-                      tone="ghost"
-                    />
-                  ) : null}
-                  <AppButton
-                    label="Настроить регулярность"
-                    onPress={() =>
-                      setSheetState({
-                        kind: "schedule",
-                        title: "Настроить регулярность",
-                        lines: [
-                          `Текущий режим: ${scheduleMode === "weekly" ? "еженедельно" : "ежемесячно"}`,
-                          ...roleRules.map((rule) => `${rule.title} · ${rule.frequencyLabel}`)
-                        ]
-                      })
-                    }
-                    tone="ghost"
-                  />
-                </View>
-                <AppButton label="Выбрать отчет" onPress={() => setSelectedReportId(report.id)} tone="ghost" />
-              </AppCard>
-            </View>
-          ))}
+                <StatusPill label="Последний" tone="success" />
+              </View>
+
+              <Text style={[styles.note, { color: theme.semantic.textSecondary }]}>
+                Хранится только один последний отчет. Следующее завершение диалога перезапишет текущий.
+              </Text>
+
+              <View style={styles.buttonRow}>
+                <AppButton label="Предпросмотр" onPress={() => openPreview(latestReport)} tone="primary" />
+                <AppButton
+                  label={activeExport === "pdf" ? "PDF..." : "PDF"}
+                  onPress={() => {
+                    void openExport(latestReport, "pdf");
+                  }}
+                  tone="secondary"
+                  disabled={activeExport !== null}
+                />
+                <AppButton
+                  label={activeExport === "csv" ? "CSV..." : "CSV"}
+                  onPress={() => {
+                    void openExport(latestReport, "csv");
+                  }}
+                  tone="ghost"
+                  disabled={activeExport !== null}
+                />
+              </View>
+            </AppCard>
+          </View>
         </View>
       )}
 
-      {selectedReport ? (
-        <AppCard>
-          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Выбранный отчет</Text>
-          <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-            {selectedReport.title} · основной формат {selectedReport.format.toUpperCase()}
-          </Text>
-          {sendLog.slice(-4).map((entry) => (
-            <Text key={entry} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-              • {entry}
-            </Text>
-          ))}
-          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Правила отправки</Text>
-          {roleRules.map((rule) => (
-            <Text key={rule.id} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
-              • {rule.audience}: {rule.title} · {rule.frequencyLabel}
-            </Text>
-          ))}
-        </AppCard>
-      ) : null}
+      <AppCard tone="mint">
+        <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>MVP-хранение</Text>
+        <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+          Без отдельной базы данных и архива сейчас хранится только один последний отчет на все приложение.
+        </Text>
+        <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+          Текущая роль: {roleLabels[activeRole]} · Новый завершенный диалог заменяет предыдущий отчет.
+        </Text>
+      </AppCard>
 
       <AppBottomSheet
         visible={sheetState !== null}
-        title={sheetState?.kind === "preview" ? `Предпросмотр: ${sheetState.report.title}` : sheetState?.title ?? ""}
+        title={
+          sheetState?.kind === "preview"
+            ? `Предпросмотр: ${sheetState.report.title}`
+            : sheetState?.title ?? ""
+        }
         description={
           sheetState?.kind === "preview"
-            ? `Отчет для роли: ${roleLabels[activeRole]}.`
-            : sheetState?.kind === "schedule"
-              ? "Правила отправки можно переключать прямо из этого центра отчетов."
-              : "Выгрузка подготовлена и зафиксирована как успешное действие."
+            ? `Отчет доступен из общего MVP-хранилища и открыт для роли: ${roleLabels[activeRole]}.`
+            : "Последний отчет обрабатывается прямо во вкладке без отдельного серверного архива."
         }
         onClose={() => setSheetState(null)}
       >
@@ -232,34 +691,13 @@ export function ReportsScreen({ activeRole, reports, rules, highlightReportId }:
           </>
         ) : null}
 
-        {sheetState?.kind === "export" ? (
+        {sheetState?.kind === "export" || sheetState?.kind === "info" ? (
           <>
             {sheetState.lines.map((line) => (
               <Text key={line} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
                 • {line}
               </Text>
             ))}
-          </>
-        ) : null}
-
-        {sheetState?.kind === "schedule" ? (
-          <>
-            {sheetState.lines.map((line) => (
-              <Text key={line} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                • {line}
-              </Text>
-            ))}
-            <AppButton
-              label={scheduleMode === "weekly" ? "Переключить на ежемесячно" : "Переключить на еженедельно"}
-              onPress={() => {
-                const nextMode = scheduleMode === "weekly" ? "monthly" : "weekly";
-                setScheduleMode(nextMode);
-                setSuccessMessage(`Регулярность переключена на ${nextMode === "weekly" ? "еженедельно" : "ежемесячно"}.`);
-                setSheetState(null);
-              }}
-              tone="primary"
-              fullWidth
-            />
           </>
         ) : null}
       </AppBottomSheet>
@@ -291,10 +729,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600"
   },
+  note: {
+    fontSize: 14,
+    lineHeight: 20
+  },
   buttonRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10
+    gap: 10,
+    alignItems: "center"
   },
   listItem: {
     fontSize: 14,

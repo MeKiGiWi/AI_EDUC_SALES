@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import { hrDashboardData, roleWorkspaceOptions, scheduledReportRules } from "../data/academyData";
+import { hrDashboardData, roleWorkspaceOptions } from "../data/academyData";
 import { DesktopSidebar } from "../components/layout/DesktopSidebar";
 import { MobileHeader } from "../components/layout/MobileHeader";
 import { BottomTabs } from "../components/layout/BottomTabs";
@@ -26,6 +26,7 @@ import type {
   ManagerDashboard,
   ReportCard,
   Scenario,
+  SimulatorEvaluationPayloadDto,
   StudentDashboard,
   UserRole
 } from "../types/academy";
@@ -122,6 +123,18 @@ export function AppNavigator() {
     setRouteState({ name: route, params });
   }
 
+  async function handleSimulatorReportSaved(payload: {
+    scenarioTitle: string;
+    evaluation: SimulatorEvaluationPayloadDto;
+  }) {
+    const report = await academyDataService.saveLatestSimulatorReport({
+      role: activeRole,
+      scenarioTitle: payload.scenarioTitle,
+      evaluation: payload.evaluation
+    });
+    setReports([report]);
+  }
+
   const footer = useMemo(
     () =>
       routeState.name === "Landing" || layout.isDesktop ? null : (
@@ -214,6 +227,8 @@ export function AppNavigator() {
           activeScenarioId={simulatorParams?.scenarioId}
           activeMaterialId={simulatorParams?.materialId}
           onOpenMaterial={(materialId) => navigate("KnowledgeBase", materialId ? { materialId } : undefined)}
+          onOpenReports={() => navigate("Reports")}
+          onReportSaved={handleSimulatorReportSaved}
         />
       ) : null}
 
@@ -233,7 +248,6 @@ export function AppNavigator() {
         <ReportsScreen
           activeRole={activeRole}
           reports={reports}
-          rules={adminSettings.reportRules.length > 0 ? adminSettings.reportRules : scheduledReportRules}
           highlightReportId={reportParams?.highlightReportId}
         />
       ) : null}

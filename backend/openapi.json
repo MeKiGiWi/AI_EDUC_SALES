@@ -189,6 +189,88 @@
   },
   "components": {
     "schemas": {
+      "CompetencyLevel": {
+        "type": "string",
+        "enum": [
+          "Junior",
+          "Middle",
+          "Senior"
+        ],
+        "title": "CompetencyLevel"
+      },
+      "EvaluationCompetencyRaw": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "level": {
+            "$ref": "#/components/schemas/CompetencyLevel"
+          },
+          "argument": {
+            "type": "string",
+            "title": "Argument"
+          },
+          "quote": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quote"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "level",
+          "argument",
+          "quote",
+          "recommendations"
+        ],
+        "title": "EvaluationCompetencyRaw"
+      },
+      "EvaluationResultRaw": {
+        "properties": {
+          "overall_level": {
+            "$ref": "#/components/schemas/CompetencyLevel"
+          },
+          "overall_comment": {
+            "type": "string",
+            "title": "Overall Comment"
+          },
+          "overall_recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Overall Recommendations"
+          },
+          "competencies": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationCompetencyRaw"
+            },
+            "type": "array",
+            "title": "Competencies"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "overall_level",
+          "overall_comment",
+          "overall_recommendations",
+          "competencies"
+        ],
+        "title": "EvaluationResultRaw"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -265,6 +347,17 @@
           "scenario_id": {
             "type": "string",
             "title": "Scenario Id"
+          },
+          "difficulty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difficulty"
           }
         },
         "type": "object",
@@ -302,6 +395,16 @@
           },
           "status": {
             "$ref": "#/components/schemas/SessionStatus"
+          },
+          "evaluation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationResultRaw"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

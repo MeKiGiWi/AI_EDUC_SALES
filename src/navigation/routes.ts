@@ -70,10 +70,10 @@ export const roleHomeRoute: Record<UserRole, RouteName> = {
 };
 
 export const tabsByRole: Record<UserRole, RouteName[]> = {
-  student: ["StudentHome", "KnowledgeBase", "Simulator", "Reports"],
-  manager: ["ManagerDashboard", "KnowledgeBase", "Simulator", "Reports"],
-  hr: ["HrDashboard", "KnowledgeBase", "Reports"],
-  admin: ["Admin", "Reports", "KnowledgeBase"]
+  student: ["StudentHome", "Simulator", "Reports"],
+  manager: ["ManagerDashboard", "Simulator", "Reports"],
+  hr: ["HrDashboard", "Reports"],
+  admin: ["Admin", "Reports"]
 };
 
 export const roleLabels: Record<UserRole, string> = {

@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import { ChatBubble } from "../../components/simulator/ChatBubble";
 import { ScenarioPicker } from "../../components/simulator/ScenarioPicker";
+import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
@@ -12,6 +13,7 @@ import {
 } from "../../services/simulatorApiService";
 import { useTheme } from "../../theme/useTheme";
 import type {
+  KnowledgeMaterial,
   LearningModule,
   Scenario,
   ScenarioMessage,
@@ -23,18 +25,19 @@ import type {
 interface SimulatorScreenProps {
   modules: LearningModule[];
   scenarios: Scenario[];
+  materials: KnowledgeMaterial[];
   activeScenarioId?: string;
   activeMaterialId?: string;
-  onOpenMaterial: (materialId?: string) => void;
   onOpenReports: () => void;
   onReportSaved: (payload: {
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
   }) => void | Promise<void>;
 }
-type DialoguePhase = "idle" | "active" | "finished";
-const API_SIMULATOR_MODULE_ID = "mod-simulator-api";
 
+type DialoguePhase = "idle" | "active" | "finished";
+
+const API_SIMULATOR_MODULE_ID = "mod-simulator-api";
 const difficultyOptions = ["Легкий", "Средний", "Сложный"] as const;
 const TRAINING_INTRO_MESSAGE = `Коллега, приветствую!
 Ты получил входящий запрос от клиента – руководителя производства, который ищет кондиционер для цеха. Он разослал запросы нескольким поставщикам, ты – один из них.
@@ -51,16 +54,17 @@ const backendDifficultyMap: Record<(typeof difficultyOptions)[number], string> =
 export function SimulatorScreen({
   modules,
   scenarios,
+  materials,
   activeScenarioId,
   activeMaterialId,
-  onOpenMaterial,
   onOpenReports,
   onReportSaved
 }: SimulatorScreenProps) {
   const theme = useTheme();
+  const layout = useResponsiveLayout();
   const apiEnabled = simulatorApiService.isEnabled();
-  useResponsiveLayout();
   const [apiScenarios, setApiScenarios] = useState<Scenario[]>([]);
+  const [selectedMaterial, setSelectedMaterial] = useState<KnowledgeMaterial | null>(null);
   const apiSimulatorModule = useMemo<LearningModule>(
     () => ({
       id: API_SIMULATOR_MODULE_ID,
@@ -77,6 +81,7 @@ export function SimulatorScreen({
     if (!apiEnabled) {
       return modules;
     }
+
     return [apiSimulatorModule];
   }, [apiEnabled, apiSimulatorModule, modules]);
   const catalogScenarios = apiEnabled ? apiScenarios : scenarios;
@@ -130,6 +135,19 @@ export function SimulatorScreen({
 
     return [companyLabel, painPointsLabel, moodLabel, objectionStyleLabel].filter(Boolean);
   }, [selectedScenario]);
+  const materialHint = useMemo(
+    () =>
+      (activeMaterialId ? materials.find((material) => material.id === activeMaterialId) : undefined) ??
+      (selectedScenario
+        ? materials.find((material) =>
+            selectedScenario.targetCompetencies.some((competency) =>
+              material.title.toLowerCase().includes(competency.toLowerCase())
+            )
+          )
+        : undefined) ??
+      materials[0],
+    [activeMaterialId, materials, selectedScenario]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -144,6 +162,7 @@ export function SimulatorScreen({
         if (!isMounted) {
           return;
         }
+
         const mappedScenarios = items.map((item) => mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID));
         setApiScenarios(mappedScenarios);
         setSelectedModuleId(API_SIMULATOR_MODULE_ID);
@@ -152,6 +171,7 @@ export function SimulatorScreen({
         if (!isMounted) {
           return;
         }
+
         setApiScenarios([]);
         appendSystemErrorMessage("fetchSimulatorScenarios", error);
       }
@@ -221,6 +241,7 @@ export function SimulatorScreen({
     }
     setDraft("");
     setSessionId(null);
+    setSelectedMaterial(null);
   }, [apiEnabled, selectedScenario?.id]);
 
   function createSystemMessage(text: string): ScenarioMessage {
@@ -257,7 +278,7 @@ export function SimulatorScreen({
             ? JSON.stringify(detailObject)
             : error.detail !== undefined
               ? JSON.stringify(error.detail)
-            : "";
+              : "";
       const payloadText = detailText || error.body || error.message;
       const segments = [
         error.status ? `${error.status}` : "",
@@ -280,10 +301,15 @@ export function SimulatorScreen({
   }
 
   function resetScenario(clearSuccess: boolean) {
-    setMessages(apiEnabled && selectedScenario ? [createSystemMessage(TRAINING_INTRO_MESSAGE)] : [createSystemMessage(buildMissingApiUrlText())]);
+    setMessages(
+      apiEnabled && selectedScenario
+        ? [createSystemMessage(TRAINING_INTRO_MESSAGE)]
+        : [createSystemMessage(buildMissingApiUrlText())]
+    );
     setDraft("");
     setSessionId(null);
     setDialoguePhase("idle");
+    setSelectedMaterial(null);
     if (clearSuccess) {
       setSuccessMessage(null);
     }
@@ -441,6 +467,16 @@ export function SimulatorScreen({
   function handleSelectModule(moduleId: string) {
     setSelectedModuleId(moduleId);
     setSuccessMessage(null);
+    setSelectedMaterial(null);
+  }
+
+  function openMaterialHint() {
+    if (!materialHint) {
+      setSuccessMessage("Подсказка пока недоступна. Продолжайте практику по текущему сценарию.");
+      return;
+    }
+
+    setSelectedMaterial(materialHint);
   }
 
   return (
@@ -461,6 +497,79 @@ export function SimulatorScreen({
       ) : null}
 
       <View style={styles.trainerContent}>
+        <View style={[styles.trainerInfoGrid, layout.isDesktop && styles.trainerInfoGridDesktop]}>
+          <AppCard style={layout.isDesktop && styles.infoCard}>
+            <View style={styles.flexBlock}>
+              <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Практика диалога</Text>
+              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+                {selectedScenario
+                  ? selectedScenario.title
+                  : "Сначала выберите модуль. Для модуля без сценариев тренировки появятся позже."}
+              </Text>
+              {activeMaterialId ? (
+                <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>Материал: {activeMaterialId}</Text>
+              ) : null}
+              {selectedScenario ? (
+                <>
+                  <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+                    {difficulty} · {selectedScenario.channel}
+                  </Text>
+                  <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+                    {selectedScenario.openingMessage}
+                  </Text>
+                </>
+              ) : null}
+            </View>
+            <View style={styles.buttonRow}>
+              <AppButton
+                label="Начать сценарий"
+                onPress={startScenario}
+                tone="primary"
+                disabled={!selectedScenario || isBusy}
+              />
+              <AppButton
+                label="Сменить уровень сложности"
+                onPress={() => {
+                  const currentIndex = difficultyOptions.indexOf(difficulty);
+                  setDifficulty(difficultyOptions[(currentIndex + 1) % difficultyOptions.length]);
+                }}
+                tone="secondary"
+                disabled={!selectedScenario || isBusy}
+              />
+              <AppButton
+                label="Открыть подсказку"
+                onPress={openMaterialHint}
+                tone="ghost"
+              />
+            </View>
+          </AppCard>
+
+          <AppCard style={layout.isDesktop && styles.infoCard}>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Цель и фокус тренировки</Text>
+            {selectedScenario ? (
+              <>
+                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{selectedScenario.goal}</Text>
+                <Text style={[styles.metaLabel, { color: theme.semantic.textMuted }]}>Компетенции в фокусе</Text>
+                {selectedScenario.targetCompetencies.map((competency) => (
+                  <Text key={competency} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
+                    • {competency}
+                  </Text>
+                ))}
+                <Text style={[styles.metaLabel, { color: theme.semantic.textMuted }]}>Что держать в разговоре</Text>
+                {selectedScenario.suggestedActions.map((action) => (
+                  <Text key={action} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
+                    • {action}
+                  </Text>
+                ))}
+              </>
+            ) : (
+              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+                Для этого модуля сценарии скоро появятся. Пока можно открыть другой модуль и продолжить тренировку там.
+              </Text>
+            )}
+          </AppCard>
+        </View>
+
         <AppCard style={styles.dialogFullWidth}>
           <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Диалог</Text>
           {selectedScenario ? (
@@ -578,6 +687,30 @@ export function SimulatorScreen({
           </Text>
         </AppCard>
       </View>
+
+      <AppBottomSheet
+        visible={selectedMaterial !== null}
+        title={selectedMaterial?.title ?? ""}
+        description={selectedMaterial?.description ?? ""}
+        onClose={() => setSelectedMaterial(null)}
+      >
+        {selectedMaterial ? (
+          <>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Короткое объяснение</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {selectedMaterial.aiPlainExplanation}
+            </Text>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Как использовать сейчас</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {selectedMaterial.applyInDialogue}
+            </Text>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Пример формулировки</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {selectedMaterial.clientAnswerExample}
+            </Text>
+          </>
+        ) : null}
+      </AppBottomSheet>
     </>
   );
 }
@@ -652,7 +785,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: 12
+    gap: 12,
+    flexWrap: "wrap"
   },
   flexBlock: {
     flex: 1,

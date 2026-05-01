@@ -9,6 +9,7 @@ Requires-Dist: langchain-core<1.0.0,>=0.3.0
 Requires-Dist: langchain-openai<1.0.0,>=0.2.0
 Requires-Dist: langgraph<1.0.0,>=0.2.0
 Requires-Dist: pydantic-settings<3.0.0,>=2.6.0
+Requires-Dist: python-dotenv<2.0.0,>=1.0.0
 Requires-Dist: PyYAML<7.0.0,>=6.0.2
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.32.0
 Provides-Extra: dev

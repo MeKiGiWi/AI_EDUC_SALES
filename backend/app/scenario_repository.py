@@ -1,30 +1,36 @@
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
-from app.prompts import BASELINE_OPENING_MESSAGE, BASELINE_SCENARIO_ID, BASELINE_SCENARIO_TITLE
 
 
 SCENARIOS_DIR = Path(__file__).resolve().parent.parent / "kb" / "scenarios"
-BASELINE_SCENARIO_PATH = SCENARIOS_DIR / f"{BASELINE_SCENARIO_ID}.md"
+SCENARIOS_PATH = SCENARIOS_DIR / "scenarios.json"
 
 
 @lru_cache(maxsize=1)
-def _load_baseline_scenario_info() -> str:
-    if not BASELINE_SCENARIO_PATH.exists():
-        return ""
-    return BASELINE_SCENARIO_PATH.read_text(encoding="utf-8").strip()
-
-
 def list_scenarios() -> list[dict[str, str]]:
+    if not SCENARIOS_PATH.exists():
+        return []
+
+    payload = json.loads(SCENARIOS_PATH.read_text(encoding="utf-8"))
     return [
         {
-            "id": BASELINE_SCENARIO_ID,
-            "title": BASELINE_SCENARIO_TITLE,
-            "opening_message": BASELINE_OPENING_MESSAGE,
-            "scenario_info": _load_baseline_scenario_info(),
+            "id": str(item["id"]),
+            "title": str(item["title"]),
+            "opening_message": str(item["opening_message"]),
+            "scenario_info": _load_scenario_info(str(item["scenario_info_path"])),
         }
+        for item in payload
     ]
+
+
+def _load_scenario_info(relative_path: str) -> str:
+    scenario_info_path = SCENARIOS_DIR / relative_path
+    if not scenario_info_path.exists():
+        return ""
+    return scenario_info_path.read_text(encoding="utf-8").strip()
 
 
 def get_scenario_by_id(scenario_id: str) -> dict[str, str] | None:

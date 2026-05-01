@@ -7,9 +7,9 @@ from app.prompts import (
 
 
 def test_prompt_constants_are_present() -> None:
-    assert "b2b клиент" in BUYER_SYSTEM_PROMPT
+    assert "B2B-продажам" in BUYER_SYSTEM_PROMPT
     assert "JSON" in RUDE_CLASSIFIER_SYSTEM_PROMPT
-    assert "взвесить" in BASELINE_OPENING_MESSAGE
+    assert "производственного цеха" in BASELINE_OPENING_MESSAGE
 
 
 def test_buyer_scenario_context_prompt_formats_scenario_info() -> None:

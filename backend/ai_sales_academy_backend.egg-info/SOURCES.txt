@@ -6,7 +6,6 @@ ai_sales_academy_backend.egg-info/dependency_links.txt
 ai_sales_academy_backend.egg-info/entry_points.txt
 ai_sales_academy_backend.egg-info/requires.txt
 ai_sales_academy_backend.egg-info/top_level.txt
-app/__init__.py
 app/agents.py
 app/api.py
 app/graph.py

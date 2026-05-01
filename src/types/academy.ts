@@ -190,6 +190,72 @@ export interface SimulatorEvaluation {
   recommendations: string[];
 }
 
+export interface SimulatorPublicScenarioDto {
+  id: string;
+  title: string;
+  openingMessage: string;
+  status: "ready";
+}
+
+export interface SimulatorCatalogResponseDto {
+  items: SimulatorPublicScenarioDto[];
+}
+
+export interface SimulatorApiMessageDto {
+  id?: string;
+  role: "customer" | "learner";
+  text: string;
+  created_at: string;
+}
+
+export interface AgentDebugStepDto {
+  step_id: string;
+  ts: string;
+  node: string;
+  agent: "system" | "safety_agent" | "buyer_agent" | "report_builder";
+  status: "started" | "completed" | "error" | "skipped";
+  input_summary?: Record<string, unknown> | string | null;
+  prompt?: string | null;
+  system_prompt?: string | null;
+  raw_output?: string | null;
+  parsed_output?: Record<string, unknown> | null;
+  error?: Record<string, unknown> | string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface SimulatorStartSessionResponseDto {
+  session_id: string;
+  status: "active";
+  message: SimulatorApiMessageDto;
+}
+
+export interface SimulatorSendMessageResponseDto {
+  session_id: string;
+  status: "active" | "finished";
+  rude: "yes" | "no";
+  confidence: number;
+  messages: SimulatorApiMessageDto[];
+}
+
+export interface SimulatorEvaluationPayloadDto {
+  overall_level: "Junior" | "Middle" | "Senior";
+  overall_comment: string;
+  overall_recommendations: string[];
+  competencies: {
+    name: string;
+    level: "Junior" | "Middle" | "Senior";
+    argument: string;
+    quote: string[];
+    recommendations: string[];
+  }[];
+}
+
+export interface SimulatorFinishResponseDto {
+  session_id: string;
+  status: "finished";
+  evaluation?: SimulatorEvaluationPayloadDto;
+}
+
 export interface TeamMember {
   id: string;
   fullName: string;

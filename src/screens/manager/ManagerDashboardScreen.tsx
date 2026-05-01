@@ -378,7 +378,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: 12
+    gap: 12,
+    flexWrap: "wrap"
   },
   flexBlock: {
     flex: 1,

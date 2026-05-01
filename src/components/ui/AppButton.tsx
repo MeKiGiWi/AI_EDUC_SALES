@@ -87,14 +87,18 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8
+    justifyContent: "center",
+    gap: 8,
+    maxWidth: "100%"
   },
   fullWidth: {
     width: "100%"
   },
   label: {
     fontSize: 15,
-    fontWeight: "700"
+    fontWeight: "700",
+    flexShrink: 1,
+    textAlign: "center"
   },
   icon: {
     fontSize: 15

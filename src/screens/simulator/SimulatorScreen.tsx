@@ -2,59 +2,108 @@ import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import { ChatBubble } from "../../components/simulator/ChatBubble";
-import { CompetencyScoreCard } from "../../components/simulator/CompetencyScoreCard";
 import { ScenarioPicker } from "../../components/simulator/ScenarioPicker";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
-import { simulatorEvaluationByScenarioId } from "../../data/academyData";
-import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
+import {
+  SimulatorApiError,
+  simulatorApiService
+} from "../../services/simulatorApiService";
 import { useTheme } from "../../theme/useTheme";
-import type { LearningModule, Scenario, ScenarioMessage, SimulatorEvaluation } from "../../types/academy";
+import type {
+  KnowledgeMaterial,
+  LearningModule,
+  Scenario,
+  ScenarioMessage,
+  SimulatorApiMessageDto,
+  SimulatorEvaluationPayloadDto,
+  SimulatorPublicScenarioDto
+} from "../../types/academy";
 
 interface SimulatorScreenProps {
   modules: LearningModule[];
   scenarios: Scenario[];
+  materials: KnowledgeMaterial[];
   activeScenarioId?: string;
   activeMaterialId?: string;
-  onOpenMaterial: (materialId?: string) => void;
+  onOpenReports: () => void;
+  onReportSaved: (payload: {
+    scenarioTitle: string;
+    evaluation: SimulatorEvaluationPayloadDto;
+  }) => void | Promise<void>;
 }
 
-type SimulatorSheetState =
-  | { kind: "evaluation"; evaluation: SimulatorEvaluation }
-  | { kind: "plan"; title: string; items: string[] }
-  | null;
+type DialoguePhase = "idle" | "active" | "finished";
 
+const API_SIMULATOR_MODULE_ID = "mod-simulator-api";
 const difficultyOptions = ["Легкий", "Средний", "Сложный"] as const;
+const TRAINING_INTRO_MESSAGE = `Коллега, приветствую!
+Ты получил входящий запрос от клиента – руководителя производства, который ищет кондиционер для цеха. Он разослал запросы нескольким поставщикам, ты – один из них.
+Твоя задача – стать единственным.
+Общайся так, как обычно ведёшь диалог с потенциальным покупателем. Диалог завершится, когда клиент примет решение о следующем шаге или окончательно уйдёт после повторного "подумаю". Минимальная длина диалога для честной оценки — 10 твоих реплик. Если хочешь завершить раньше, напиши Стоп.
+По итогам получишь обратную связь по своим профессиональным навыкам. Поехали?
+Нажми начать, чтобы начать`;
+const backendDifficultyMap: Record<(typeof difficultyOptions)[number], string> = {
+  "Легкий": "easy",
+  "Средний": "medium",
+  "Сложный": "hard"
+};
 
 export function SimulatorScreen({
   modules,
   scenarios,
+  materials,
   activeScenarioId,
   activeMaterialId,
-  onOpenMaterial
+  onOpenReports,
+  onReportSaved
 }: SimulatorScreenProps) {
   const theme = useTheme();
-  const layout = useResponsiveLayout();
-  const initialScenario = useMemo(
-    () => scenarios.find((scenario) => scenario.id === activeScenarioId),
-    [activeScenarioId, scenarios]
+  const apiEnabled = simulatorApiService.isEnabled();
+  const [apiScenarios, setApiScenarios] = useState<Scenario[]>([]);
+  const [selectedMaterial, setSelectedMaterial] = useState<KnowledgeMaterial | null>(null);
+  const apiSimulatorModule = useMemo<LearningModule>(
+    () => ({
+      id: API_SIMULATOR_MODULE_ID,
+      title: "b2b продажи",
+      description: "Практика baseline-сценария с AI-клиентом.",
+      durationMinutes: 15,
+      completedPercent: 0,
+      nextStep: "Запустить baseline-сценарий",
+      statusLabel: "Активен"
+    }),
+    []
   );
-  const fallbackModuleId = initialScenario?.moduleId ?? modules[0]?.id ?? scenarios[0]?.moduleId ?? "";
+  const simulatorModules = useMemo(() => {
+    if (!apiEnabled) {
+      return modules;
+    }
+
+    return [apiSimulatorModule];
+  }, [apiEnabled, apiSimulatorModule, modules]);
+  const catalogScenarios = apiEnabled ? apiScenarios : scenarios;
+  const initialScenario = useMemo(
+    () => catalogScenarios.find((scenario) => scenario.id === activeScenarioId) ?? catalogScenarios[0],
+    [activeScenarioId, catalogScenarios]
+  );
+  const fallbackModuleId =
+    initialScenario?.moduleId ?? simulatorModules[0]?.id ?? catalogScenarios[0]?.moduleId ?? "";
   const [selectedModuleId, setSelectedModuleId] = useState(fallbackModuleId);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(
-    initialScenario?.id ?? scenarios.find((scenario) => scenario.moduleId === fallbackModuleId)?.id
+    initialScenario?.id ?? catalogScenarios.find((scenario) => scenario.moduleId === fallbackModuleId)?.id
   );
   const [messages, setMessages] = useState<ScenarioMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [difficulty, setDifficulty] = useState<(typeof difficultyOptions)[number]>("Средний");
-  const [sheetState, setSheetState] = useState<SimulatorSheetState>(null);
-  const [plannedRecommendations, setPlannedRecommendations] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isBusy, setIsBusy] = useState(false);
+  const [dialoguePhase, setDialoguePhase] = useState<DialoguePhase>("idle");
 
   const visibleScenarios = useMemo(
-    () => scenarios.filter((scenario) => scenario.moduleId === selectedModuleId),
-    [scenarios, selectedModuleId]
+    () => catalogScenarios.filter((scenario) => scenario.moduleId === selectedModuleId),
+    [catalogScenarios, selectedModuleId]
   );
   const selectedScenario = useMemo(
     () => visibleScenarios.find((scenario) => scenario.id === selectedScenarioId) ?? visibleScenarios[0],
@@ -84,13 +133,61 @@ export function SimulatorScreen({
 
     return [companyLabel, painPointsLabel, moodLabel, objectionStyleLabel].filter(Boolean);
   }, [selectedScenario]);
-
-  const evaluation = selectedScenario
-    ? simulatorEvaluationByScenarioId[selectedScenario.id] ?? simulatorEvaluationByScenarioId["scn-1"]
-    : undefined;
-  const learnerTurnCount = messages.filter((message) => message.speakerRole === "learner").length;
+  const materialHint = useMemo(
+    () =>
+      (activeMaterialId ? materials.find((material) => material.id === activeMaterialId) : undefined) ??
+      (selectedScenario
+        ? materials.find((material) =>
+            selectedScenario.targetCompetencies.some((competency) =>
+              material.title.toLowerCase().includes(competency.toLowerCase())
+            )
+          )
+        : undefined) ??
+      materials[0],
+    [activeMaterialId, materials, selectedScenario]
+  );
 
   useEffect(() => {
+    let isMounted = true;
+
+    async function loadApiScenarios() {
+      if (!apiEnabled) {
+        return;
+      }
+
+      try {
+        const items = await simulatorApiService.fetchSimulatorScenarios();
+        if (!isMounted) {
+          return;
+        }
+
+        const mappedScenarios = items.map((item) => mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID));
+        setApiScenarios(mappedScenarios);
+        setSelectedModuleId(API_SIMULATOR_MODULE_ID);
+        setSelectedScenarioId(mappedScenarios[0]?.id);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setApiScenarios([]);
+        appendSystemErrorMessage("fetchSimulatorScenarios", error);
+      }
+    }
+
+    loadApiScenarios();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiEnabled]);
+
+  useEffect(() => {
+    if (apiEnabled) {
+      setSelectedModuleId(API_SIMULATOR_MODULE_ID);
+      return;
+    }
+
     if (initialScenario) {
       setSelectedModuleId(initialScenario.moduleId);
       setSelectedScenarioId(initialScenario.id);
@@ -98,13 +195,13 @@ export function SimulatorScreen({
     }
 
     setSelectedModuleId((current) => {
-      if (current && modules.some((module) => module.id === current)) {
+      if (current && simulatorModules.some((module) => module.id === current)) {
         return current;
       }
 
       return fallbackModuleId;
     });
-  }, [fallbackModuleId, initialScenario, modules]);
+  }, [apiEnabled, fallbackModuleId, initialScenario, simulatorModules]);
 
   useEffect(() => {
     if (!selectedModuleId) {
@@ -112,13 +209,22 @@ export function SimulatorScreen({
       return;
     }
 
-    const firstScenarioId = scenarios.find((scenario) => scenario.moduleId === selectedModuleId)?.id;
+    if (apiEnabled) {
+      const firstApiScenarioId = apiScenarios[0]?.id;
+      setSelectedScenarioId((current) =>
+        current && apiScenarios.some((scenario) => scenario.id === current) ? current : firstApiScenarioId
+      );
+      return;
+    }
+
+    const firstScenarioId = catalogScenarios.find((scenario) => scenario.moduleId === selectedModuleId)?.id;
     setSelectedScenarioId((current) =>
-      current && scenarios.some((scenario) => scenario.moduleId === selectedModuleId && scenario.id === current)
+      current &&
+      catalogScenarios.some((scenario) => scenario.moduleId === selectedModuleId && scenario.id === current)
         ? current
         : firstScenarioId
     );
-  }, [scenarios, selectedModuleId]);
+  }, [apiEnabled, apiScenarios, catalogScenarios, selectedModuleId]);
 
   useEffect(() => {
     if (selectedScenario) {
@@ -126,35 +232,138 @@ export function SimulatorScreen({
       return;
     }
 
-    setMessages([]);
+    if (!apiEnabled) {
+      setMessages([createSystemMessage(buildMissingApiUrlText())]);
+    } else {
+      setMessages((current) => current.filter((message) => message.speakerRole === "system"));
+    }
     setDraft("");
-    setSheetState(null);
-  }, [selectedScenario?.id]);
+    setSessionId(null);
+    setSelectedMaterial(null);
+  }, [apiEnabled, selectedScenario?.id]);
 
-  function baseTranscript() {
-    return selectedScenario?.transcript.filter((message) => message.speakerRole !== "coach") ?? [];
+  function createSystemMessage(text: string): ScenarioMessage {
+    return {
+      id: `system-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      speakerName: "Система",
+      speakerRole: "system",
+      text,
+      timestampLabel: formatTimestamp(new Date().toISOString())
+    };
+  }
+
+  function buildMissingApiUrlText(): string {
+    return "Ошибка конфигурации: EXPO_PUBLIC_SIMULATOR_API_URL не задан. Тренажер работает только через backend.";
+  }
+
+  function formatSystemErrorText(operation: string, error: unknown): string {
+    if (typeof error === "string") {
+      return `ERROR [${operation}]: ${error}`;
+    }
+
+    if (error instanceof SimulatorApiError) {
+      const detailObject =
+        error.detail && typeof error.detail === "object"
+          ? { ...(error.detail as Record<string, unknown>) }
+          : null;
+      if (detailObject && "debug_steps" in detailObject) {
+        delete detailObject.debug_steps;
+      }
+      const detailText =
+        typeof error.detail === "string"
+          ? error.detail
+          : detailObject !== null
+            ? JSON.stringify(detailObject)
+            : error.detail !== undefined
+              ? JSON.stringify(error.detail)
+              : "";
+      const payloadText = detailText || error.body || error.message;
+      const segments = [
+        error.status ? `${error.status}` : "",
+        payloadText
+      ].filter(Boolean);
+      return `ERROR [${operation}]: ${segments.join(" ")}`;
+    }
+
+    if (error instanceof Error) {
+      return `ERROR [${operation}]: ${error.message}`;
+    }
+
+    return `ERROR [${operation}]: ${String(error)}`;
+  }
+
+  function appendSystemErrorMessage(operation: string, error: unknown): void {
+    const text = formatSystemErrorText(operation, error);
+    setMessages((current) => [...current, createSystemMessage(text)]);
+    setSuccessMessage(null);
   }
 
   function resetScenario(clearSuccess: boolean) {
-    setMessages(baseTranscript());
+    setMessages(
+      apiEnabled && selectedScenario
+        ? [createSystemMessage(TRAINING_INTRO_MESSAGE)]
+        : [createSystemMessage(buildMissingApiUrlText())]
+    );
     setDraft("");
-    setSheetState(null);
+    setSessionId(null);
+    setDialoguePhase("idle");
+    setSelectedMaterial(null);
     if (clearSuccess) {
       setSuccessMessage(null);
     }
   }
 
-  function startScenario() {
+  async function persistLatestReport(currentScenario: Scenario) {
+    if (!sessionId) {
+      throw new Error("Сначала запустите сценарий.");
+    }
+
+    const response = await simulatorApiService.finishDialogueSession(sessionId);
+    if (response.evaluation) {
+      await onReportSaved({
+        scenarioTitle: currentScenario.title,
+        evaluation: response.evaluation
+      });
+      setSuccessMessage('Диалог завершён. Отчет сохранен во вкладке "Отчеты".');
+    } else {
+      setSuccessMessage("Диалог завершён, но оценка пока не сформирована.");
+    }
+
+    setDialoguePhase("finished");
+    setDraft("");
+  }
+
+  async function startScenario() {
     if (!selectedScenario) {
       setSuccessMessage("Сначала выберите сценарий внутри модуля.");
       return;
     }
 
-    setMessages(baseTranscript());
-    setSuccessMessage(`Сценарий "${selectedScenario.title}" готов к тренировке.`);
+    if (!apiEnabled) {
+      appendSystemErrorMessage("startScenario", new Error(buildMissingApiUrlText()));
+      return;
+    }
+
+    setSessionId(null);
+    try {
+      setIsBusy(true);
+      const response = await simulatorApiService.startDialogueSession(
+        selectedScenario.id,
+        backendDifficultyMap[difficulty]
+      );
+      setSessionId(response.session_id);
+      setMessages([mapApiMessageToChatMessage(response.message, selectedScenario)]);
+      setDialoguePhase("active");
+      setDraft("");
+      setSuccessMessage(`Сценарий "${selectedScenario.title}" запущен.`);
+    } catch (error) {
+      appendSystemErrorMessage("startScenario", error);
+    } finally {
+      setIsBusy(false);
+    }
   }
 
-  function sendReply(text: string) {
+  async function sendReply(text: string) {
     if (!selectedScenario) {
       setSuccessMessage("Выберите сценарий, прежде чем отправлять реплику.");
       return;
@@ -166,65 +375,113 @@ export function SimulatorScreen({
       return;
     }
 
-    const baseIndex = learnerTurnCount;
-    const learnerMessage: ScenarioMessage = {
-      id: `learner-${selectedScenario.id}-${Date.now()}`,
-      speakerName: "Вы",
-      speakerRole: "learner",
-      text: trimmedText,
-      timestampLabel: `00:${20 + baseIndex * 12}`
-    };
-    const customerReplyText =
-      selectedScenario.customerReplies[
-        Math.min(baseIndex, selectedScenario.customerReplies.length - 1)
-      ] ?? "Клиент просит конкретнее объяснить эффект и следующий шаг.";
-    const customerMessage: ScenarioMessage = {
-      id: `customer-${selectedScenario.id}-${Date.now() + 1}`,
-      speakerName: selectedScenario.persona.name,
-      speakerRole: "customer",
-      text: customerReplyText,
-      timestampLabel: `00:${26 + baseIndex * 12}`
-    };
-
-    setMessages((current) => [...current, learnerMessage, customerMessage]);
-    setDraft("");
-    setSuccessMessage("Реплика отправлена.");
-  }
-
-  function addEvaluationToPlan() {
-    if (!evaluation) {
+    if (dialoguePhase === "finished") {
+      setMessages((current) => [
+        ...current,
+        createSystemMessage('Диалог уже завершён. Нажмите "Повторить сценарий", чтобы начать заново.')
+      ]);
+      setSuccessMessage("Сессия уже завершена.");
       return;
     }
 
-    setPlannedRecommendations((current) => {
-      const merged = [...current];
+    if (!apiEnabled) {
+      appendSystemErrorMessage("sendReply", new Error(buildMissingApiUrlText()));
+      return;
+    }
 
-      evaluation.recommendations.forEach((item) => {
-        if (!merged.includes(item)) {
-          merged.push(item);
-        }
-      });
+    if (dialoguePhase === "idle") {
+      setSuccessMessage("Сначала нажмите Начать.");
+      return;
+    }
 
-      return merged;
-    });
-    setSuccessMessage("Рекомендации из оценки добавлены в план развития.");
-    setSheetState({
-      kind: "plan",
-      title: "Рекомендации добавлены",
-      items: evaluation.recommendations
-    });
+    if (!sessionId) {
+      appendSystemErrorMessage("sendReply", new Error("Сначала запустите сценарий."));
+      return;
+    }
+
+    try {
+      setIsBusy(true);
+      const response = await simulatorApiService.sendDialogueMessage(sessionId, trimmedText);
+      setMessages((current) => [
+        ...current,
+        ...response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario))
+      ]);
+      setDraft("");
+      if (response.status === "finished") {
+        setDialoguePhase("finished");
+        await persistLatestReport(selectedScenario);
+      } else {
+        setSuccessMessage("Реплика отправлена.");
+      }
+    } catch (error) {
+      appendSystemErrorMessage("sendReply", error);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function finishScenario() {
+    if (!selectedScenario) {
+      return;
+    }
+
+    if (dialoguePhase === "finished") {
+      setMessages((current) => [
+        ...current,
+        createSystemMessage('Диалог уже завершён. Нажмите "Повторить сценарий", чтобы начать заново.')
+      ]);
+      return;
+    }
+
+    if (dialoguePhase !== "active") {
+      setSuccessMessage("Сначала начните диалог и подтвердите запуск.");
+      return;
+    }
+
+    await finishActiveScenario();
+  }
+
+  async function finishActiveScenario() {
+    if (!apiEnabled) {
+      appendSystemErrorMessage("finishScenario", new Error(buildMissingApiUrlText()));
+      return;
+    }
+
+    if (!sessionId) {
+      appendSystemErrorMessage("finishScenario", new Error("Сначала запустите сценарий."));
+      return;
+    }
+
+    try {
+      setIsBusy(true);
+      await persistLatestReport(selectedScenario);
+    } catch (error) {
+      appendSystemErrorMessage("finishScenario", error);
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   function handleSelectModule(moduleId: string) {
     setSelectedModuleId(moduleId);
     setSuccessMessage(null);
+    setSelectedMaterial(null);
+  }
+
+  function openMaterialHint() {
+    if (!materialHint) {
+      setSuccessMessage("Подсказка пока недоступна. Продолжайте практику по текущему сценарию.");
+      return;
+    }
+
+    setSelectedMaterial(materialHint);
   }
 
   return (
     <>
       <ScenarioPicker
-        modules={modules}
-        scenarios={scenarios}
+        modules={simulatorModules}
+        scenarios={catalogScenarios}
         selectedModuleId={selectedModuleId}
         selectedScenarioId={selectedScenarioId}
         onSelectModule={handleSelectModule}
@@ -238,80 +495,6 @@ export function SimulatorScreen({
       ) : null}
 
       <View style={styles.trainerContent}>
-        <View style={[styles.trainerInfoGrid, layout.isDesktop && styles.trainerInfoGridDesktop]}>
-          <AppCard style={layout.isDesktop && styles.infoCard}>
-            <View style={styles.flexBlock}>
-              <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Практика диалога</Text>
-              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                {selectedScenario
-                  ? selectedScenario.title
-                  : "Сначала выберите модуль. Для модуля без сценариев тренировки появятся позже."}
-              </Text>
-              {activeMaterialId ? (
-                <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>Материал: {activeMaterialId}</Text>
-              ) : null}
-              {selectedScenario ? (
-                <>
-                  <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-                    {difficulty} · {selectedScenario.channel}
-                  </Text>
-                  <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                    {selectedScenario.openingMessage}
-                  </Text>
-                </>
-              ) : null}
-            </View>
-            <View style={styles.buttonRow}>
-              <AppButton
-                label="Начать сценарий"
-                onPress={startScenario}
-                tone="primary"
-                disabled={!selectedScenario}
-              />
-              <AppButton
-                label="Сменить уровень сложности"
-                onPress={() => {
-                  const currentIndex = difficultyOptions.indexOf(difficulty);
-                  setDifficulty(difficultyOptions[(currentIndex + 1) % difficultyOptions.length]);
-                }}
-                tone="secondary"
-                disabled={!selectedScenario}
-              />
-              <AppButton
-                label="Открыть базу знаний"
-                onPress={() => onOpenMaterial(activeMaterialId)}
-                tone="ghost"
-              />
-            </View>
-          </AppCard>
-
-          <AppCard style={layout.isDesktop && styles.infoCard}>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Цель и фокус тренировки</Text>
-            {selectedScenario ? (
-              <>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{selectedScenario.goal}</Text>
-                <Text style={[styles.metaLabel, { color: theme.semantic.textMuted }]}>Компетенции в фокусе</Text>
-                {selectedScenario.targetCompetencies.map((competency) => (
-                  <Text key={competency} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                    • {competency}
-                  </Text>
-                ))}
-                <Text style={[styles.metaLabel, { color: theme.semantic.textMuted }]}>Что держать в разговоре</Text>
-                {selectedScenario.suggestedActions.map((action) => (
-                  <Text key={action} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                    • {action}
-                  </Text>
-                ))}
-              </>
-            ) : (
-              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                Для этого модуля сценарии скоро появятся. Пока можно открыть другой модуль и продолжить тренировку там.
-              </Text>
-            )}
-          </AppCard>
-
-        </View>
-
         <AppCard style={styles.dialogFullWidth}>
           <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Диалог</Text>
           {selectedScenario ? (
@@ -346,22 +529,24 @@ export function SimulatorScreen({
                   <ChatBubble key={message.id} message={message} />
                 ))}
               </View>
-              <TextInput
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="Введите ваш ответ клиенту"
-                placeholderTextColor={theme.semantic.textMuted}
-                multiline
-                editable={Boolean(selectedScenario)}
-                style={[
-                  styles.input,
-                  {
-                    borderColor: theme.semantic.border,
-                    backgroundColor: theme.semantic.cardSubtle,
-                    color: theme.semantic.textPrimary
-                  }
-                ]}
-              />
+              {dialoguePhase === "active" ? (
+                <TextInput
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="Введите ваш ответ клиенту"
+                  placeholderTextColor={theme.semantic.textMuted}
+                  multiline
+                  editable={Boolean(selectedScenario) && apiEnabled && !isBusy}
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: theme.semantic.border,
+                      backgroundColor: theme.semantic.cardSubtle,
+                      color: theme.semantic.textPrimary
+                    }
+                  ]}
+                />
+              ) : null}
             </>
           ) : (
             <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
@@ -369,86 +554,85 @@ export function SimulatorScreen({
             </Text>
           )}
           <View style={styles.buttonRow}>
-            <AppButton label="Отправить" onPress={() => sendReply(draft)} tone="primary" disabled={!selectedScenario} />
-            <AppButton
-              label="Завершить и оценить"
-              onPress={() => {
-                if (!selectedScenario || !evaluation) {
-                  return;
-                }
-
-                if (learnerTurnCount >= 2) {
-                  setSheetState({ kind: "evaluation", evaluation });
-                } else {
-                  setSuccessMessage("Сделайте еще минимум две реплики, чтобы получить оценку.");
-                }
-              }}
-              tone="secondary"
-              disabled={!selectedScenario}
-            />
-            <AppButton
-              label="Повторить сценарий"
-              onPress={() => resetScenario(true)}
-              tone="ghost"
-              disabled={!selectedScenario}
-            />
+            {dialoguePhase === "idle" ? (
+              <AppButton
+                label="Начать"
+                onPress={startScenario}
+                tone="primary"
+                disabled={!selectedScenario || isBusy || !apiEnabled}
+              />
+            ) : dialoguePhase === "active" ? (
+              <>
+                <AppButton
+                  label="Отправить"
+                  onPress={() => sendReply(draft)}
+                  tone="primary"
+                  disabled={!selectedScenario || isBusy || !apiEnabled || dialoguePhase !== "active"}
+                />
+                <AppButton
+                  label="Завершить"
+                  onPress={finishScenario}
+                  tone="secondary"
+                  disabled={!selectedScenario || isBusy || !apiEnabled || dialoguePhase !== "active"}
+                />
+              </>
+            ) : (
+              <>
+                <AppButton
+                  label="Открыть отчеты"
+                  onPress={onOpenReports}
+                  tone="primary"
+                  disabled={!selectedScenario || isBusy}
+                />
+                <AppButton
+                  label="Повторить сценарий"
+                  onPress={() => resetScenario(true)}
+                  tone="ghost"
+                  disabled={!selectedScenario || isBusy}
+                />
+              </>
+            )}
+            {dialoguePhase !== "finished" ? (
+              <AppButton
+                label="Повторить сценарий"
+                onPress={() => resetScenario(true)}
+                tone="ghost"
+                disabled={!selectedScenario || isBusy}
+              />
+            ) : null}
           </View>
+          <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+            {apiEnabled
+              ? dialoguePhase === "idle"
+                ? "Нажмите Начать, чтобы запустить диалог."
+                : dialoguePhase === "active"
+                  ? "Диалог активен. Цель — закрыть клиента на конкретный следующий шаг."
+                  : 'Диалог завершён. Последний отчет доступен во вкладке "Отчеты".'
+              : "Тренажер недоступен: требуется backend-конфигурация."}
+          </Text>
         </AppCard>
-
-        {plannedRecommendations.length > 0 ? (
-          <AppCard>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Уже добавлено в план</Text>
-            {plannedRecommendations.map((item) => (
-              <Text key={item} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                • {item}
-              </Text>
-            ))}
-          </AppCard>
-        ) : null}
       </View>
 
       <AppBottomSheet
-        visible={sheetState !== null}
-        title={sheetState?.kind === "evaluation" ? "Итоговая оценка" : sheetState?.title ?? ""}
-        description={
-          sheetState?.kind === "evaluation"
-            ? `Оценка: ${sheetState.evaluation.overallScore}/100. Ниже разбивка по компетенциям и рекомендации для следующей практики.`
-            : "Рекомендации уже можно использовать в личном плане развития."
-        }
-        onClose={() => setSheetState(null)}
+        visible={selectedMaterial !== null}
+        title={selectedMaterial?.title ?? ""}
+        description={selectedMaterial?.description ?? ""}
+        onClose={() => setSelectedMaterial(null)}
       >
-        {sheetState?.kind === "evaluation" ? (
+        {selectedMaterial ? (
           <>
-            {sheetState.evaluation.competencyScores.map((score) => (
-              <CompetencyScoreCard key={score.id} score={score} />
-            ))}
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Что улучшить</Text>
-            {sheetState.evaluation.whatToImprove.map((item) => (
-              <Text key={item} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                • {item}
-              </Text>
-            ))}
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Пример сильного ответа</Text>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Короткое объяснение</Text>
             <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              {sheetState.evaluation.strongAnswerExample}
+              {selectedMaterial.aiPlainExplanation}
             </Text>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Рекомендации</Text>
-            {sheetState.evaluation.recommendations.map((item) => (
-              <Text key={item} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                • {item}
-              </Text>
-            ))}
-            <AppButton label="Добавить рекомендации в план" onPress={addEvaluationToPlan} tone="primary" fullWidth />
-          </>
-        ) : null}
-
-        {sheetState?.kind === "plan" ? (
-          <>
-            {sheetState.items.map((item) => (
-              <Text key={item} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                • {item}
-              </Text>
-            ))}
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Как использовать сейчас</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {selectedMaterial.applyInDialogue}
+            </Text>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Пример формулировки</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {selectedMaterial.clientAnswerExample}
+            </Text>
           </>
         ) : null}
       </AppBottomSheet>
@@ -456,19 +640,58 @@ export function SimulatorScreen({
   );
 }
 
+function mapApiScenarioToScenario(item: SimulatorPublicScenarioDto, moduleId: string): Scenario {
+  return {
+    id: item.id,
+    moduleId,
+    title: "Baseline",
+    goal: "Проведите короткий B2B-диалог с клиентом в чате.",
+    difficulty: "medium",
+    status: item.status,
+    channel: "chat",
+    targetCompetencies: [],
+    persona: {
+      id: `persona-${item.id}`,
+      name: "Клиент",
+      company: "",
+      roleTitle: "B2B клиент",
+      mood: "",
+      painPoints: [],
+      objectionStyle: ""
+    },
+    openingMessage: item.openingMessage,
+    suggestedActions: [],
+    quickReplies: [],
+    customerReplies: [],
+    transcript: []
+  };
+}
+
+function mapApiMessageToChatMessage(message: SimulatorApiMessageDto, scenario: Scenario): ScenarioMessage {
+  const speakerNameByRole = {
+    customer: scenario.persona.name || "Клиент",
+    learner: "Вы"
+  } as const;
+
+  return {
+    id: message.id ?? `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    speakerName: speakerNameByRole[message.role] ?? "Собеседник",
+    speakerRole: message.role,
+    text: message.text,
+    timestampLabel: formatTimestamp(message.created_at)
+  };
+}
+
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 const styles = StyleSheet.create({
   trainerContent: {
     gap: 16
-  },
-  trainerInfoGrid: {
-    gap: 16
-  },
-  trainerInfoGridDesktop: {
-    flexDirection: "row",
-    flexWrap: "wrap"
-  },
-  infoCard: {
-    width: "48%"
   },
   dialogFullWidth: {
     width: "100%"
@@ -477,11 +700,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: 12
-  },
-  flexBlock: {
-    flex: 1,
-    gap: 8
+    gap: 12,
+    flexWrap: "wrap"
   },
   title: {
     fontSize: 18,
@@ -496,15 +716,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: "600"
-  },
-  metaLabel: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "700"
-  },
-  listItem: {
-    fontSize: 14,
-    lineHeight: 20
   },
   buttonRow: {
     flexDirection: "row",

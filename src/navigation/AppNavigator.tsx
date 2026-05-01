@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import { hrDashboardData, roleWorkspaceOptions, scheduledReportRules } from "../data/academyData";
+import { hrDashboardData, roleWorkspaceOptions } from "../data/academyData";
 import { DesktopSidebar } from "../components/layout/DesktopSidebar";
 import { MobileHeader } from "../components/layout/MobileHeader";
 import { BottomTabs } from "../components/layout/BottomTabs";
@@ -9,7 +9,6 @@ import { AppScreen } from "../components/ui/AppScreen";
 import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
 import { LandingScreen } from "../screens/landing/LandingScreen";
 import { StudentHomeScreen } from "../screens/student/StudentHomeScreen";
-import { KnowledgeBaseScreen } from "../screens/knowledge/KnowledgeBaseScreen";
 import { SimulatorScreen } from "../screens/simulator/SimulatorScreen";
 import { ManagerDashboardScreen } from "../screens/manager/ManagerDashboardScreen";
 import { HrDashboardScreen } from "../screens/hr/HrDashboardScreen";
@@ -22,10 +21,12 @@ import type {
   AdminSettings,
   HrDashboard,
   KnowledgeSection,
+  KnowledgeMaterial,
   LearningModule,
   ManagerDashboard,
   ReportCard,
   Scenario,
+  SimulatorEvaluationPayloadDto,
   StudentDashboard,
   UserRole
 } from "../types/academy";
@@ -122,6 +123,18 @@ export function AppNavigator() {
     setRouteState({ name: route, params });
   }
 
+  async function handleSimulatorReportSaved(payload: {
+    scenarioTitle: string;
+    evaluation: SimulatorEvaluationPayloadDto;
+  }) {
+    const report = await academyDataService.saveLatestSimulatorReport({
+      role: activeRole,
+      scenarioTitle: payload.scenarioTitle,
+      evaluation: payload.evaluation
+    });
+    setReports([report]);
+  }
+
   const footer = useMemo(
     () =>
       routeState.name === "Landing" || layout.isDesktop ? null : (
@@ -133,6 +146,7 @@ export function AppNavigator() {
       ),
     [activeRole, layout.isDesktop, routeState.name]
   );
+  const knowledgeMaterials: KnowledgeMaterial[] = knowledgeSections.flatMap((section) => section.materials);
 
   if (loading || !currentUser || !studentDashboard || !managerDashboard || !hrDashboard || !adminSettings) {
     return (
@@ -148,10 +162,6 @@ export function AppNavigator() {
   }
 
   const currentRouteConfig = routeConfig[routeState.name];
-  const knowledgeParams =
-    routeState.name === "KnowledgeBase"
-      ? (routeState.params as RootStackParamList["KnowledgeBase"] | undefined)
-      : undefined;
   const simulatorParams =
     routeState.name === "Simulator"
       ? (routeState.params as RootStackParamList["Simulator"] | undefined)
@@ -195,25 +205,18 @@ export function AppNavigator() {
       ) : null}
 
       {routeState.name === "StudentHome" ? (
-        <StudentHomeScreen dashboard={studentDashboard} onNavigate={navigate} />
-      ) : null}
-
-      {routeState.name === "KnowledgeBase" ? (
-        <KnowledgeBaseScreen
-          sections={knowledgeSections}
-          initialCategoryId={knowledgeParams?.categoryId}
-          initialMaterialId={knowledgeParams?.materialId}
-          onNavigate={navigate}
-        />
+        <StudentHomeScreen dashboard={studentDashboard} materials={knowledgeMaterials} onNavigate={navigate} />
       ) : null}
 
       {routeState.name === "Simulator" ? (
         <SimulatorScreen
           scenarios={scenarios}
           modules={learningModules}
+          materials={knowledgeMaterials}
           activeScenarioId={simulatorParams?.scenarioId}
           activeMaterialId={simulatorParams?.materialId}
-          onOpenMaterial={(materialId) => navigate("KnowledgeBase", materialId ? { materialId } : undefined)}
+          onOpenReports={() => navigate("Reports")}
+          onReportSaved={handleSimulatorReportSaved}
         />
       ) : null}
 
@@ -233,7 +236,6 @@ export function AppNavigator() {
         <ReportsScreen
           activeRole={activeRole}
           reports={reports}
-          rules={adminSettings.reportRules.length > 0 ? adminSettings.reportRules : scheduledReportRules}
           highlightReportId={reportParams?.highlightReportId}
         />
       ) : null}

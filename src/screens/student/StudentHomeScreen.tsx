@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { RootStackParamList, RouteName } from "../../navigation/routes";
-import type { FeedbackItem, LearningModule, StudentDashboard } from "../../types/academy";
+import type { FeedbackItem, KnowledgeMaterial, LearningModule, StudentDashboard } from "../../types/academy";
 import { DevelopmentPlanCard } from "../../components/student/DevelopmentPlanCard";
 import { AppCard } from "../../components/ui/AppCard";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
@@ -14,17 +14,19 @@ import { useTheme } from "../../theme/useTheme";
 
 interface StudentHomeScreenProps {
   dashboard: StudentDashboard;
+  materials: KnowledgeMaterial[];
   onNavigate: <T extends RouteName>(route: T, params?: RootStackParamList[T]) => void;
 }
 
 type StudentSheetState =
   | { kind: "module"; module: LearningModule }
   | { kind: "feedback"; feedback: FeedbackItem[] }
+  | { kind: "material"; material: KnowledgeMaterial }
   | { kind: "plan"; title: string; description: string; items: string[] }
   | { kind: "export"; title: string; description: string; items: string[] }
   | null;
 
-export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenProps) {
+export function StudentHomeScreen({ dashboard, materials, onNavigate }: StudentHomeScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [sheetState, setSheetState] = useState<StudentSheetState>(null);
@@ -36,10 +38,22 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
     () => dashboard.modules.find((module) => module.id === selectedModuleId) ?? dashboard.modules[0],
     [dashboard.modules, selectedModuleId]
   );
+  const findMaterial = (materialId: string) => materials.find((material) => material.id === materialId);
 
   const openModuleSheet = (module: LearningModule) => {
     setSelectedModuleId(module.id);
     setSheetState({ kind: "module", module });
+  };
+
+  const openMaterialSheet = (materialId: string) => {
+    const material = findMaterial(materialId);
+
+    if (!material) {
+      setSuccessMessage("Материал пока недоступен, но тренировка и рекомендации уже открыты в этом экране.");
+      return;
+    }
+
+    setSheetState({ kind: "material", material });
   };
 
   const addRecommendationToPlan = (recommendation: string) => {
@@ -52,8 +66,10 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
   const sheetTitle =
     sheetState?.kind === "module"
       ? sheetState.module.title
-      : sheetState?.kind === "feedback"
-        ? "Обратная связь по последней практике"
+        : sheetState?.kind === "feedback"
+          ? "Обратная связь по последней практике"
+          : sheetState?.kind === "material"
+            ? sheetState.material.title
         : sheetState?.title ?? "";
 
   const sheetDescription =
@@ -61,6 +77,8 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
       ? sheetState.module.description
       : sheetState?.kind === "feedback"
         ? "Разбор сильных сторон, зоны роста и конкретных действий на следующую практику."
+        : sheetState?.kind === "material"
+          ? sheetState.material.description
         : sheetState?.description ?? "";
   const moduleWidth = layout.isDesktop ? "48%" : "100%";
 
@@ -95,12 +113,7 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
           />
           <AppButton
             label="Объяснить материал"
-            onPress={() =>
-              onNavigate("KnowledgeBase", {
-                categoryId: "sales_skills",
-                materialId: "mat-4"
-              })
-            }
+            onPress={() => openMaterialSheet("mat-4")}
             tone="ghost"
           />
         </View>
@@ -194,12 +207,7 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
           />
           <AppButton
             label="Объяснить материал"
-            onPress={() =>
-              onNavigate("KnowledgeBase", {
-                categoryId: "assessment",
-                materialId: "mat-5"
-              })
-            }
+            onPress={() => openMaterialSheet("mat-5")}
             tone="ghost"
           />
         </View>
@@ -275,6 +283,23 @@ export function StudentHomeScreen({ dashboard, onNavigate }: StudentHomeScreenPr
           </>
         ) : null}
 
+        {sheetState?.kind === "material" ? (
+          <>
+            <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>Коротко и просто</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {sheetState.material.aiPlainExplanation}
+            </Text>
+            <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>Как применить в диалоге</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {sheetState.material.applyInDialogue}
+            </Text>
+            <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>Пример ответа клиенту</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              {sheetState.material.clientAnswerExample}
+            </Text>
+          </>
+        ) : null}
+
         {sheetState?.kind === "plan" || sheetState?.kind === "export" ? (
           <>
             {sheetState.items.map((item) => (
@@ -307,7 +332,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: 12
+    gap: 12,
+    flexWrap: "wrap"
   },
   flexBlock: {
     flex: 1,
@@ -320,7 +346,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: 12
+    gap: 12,
+    flexWrap: "wrap"
   },
   progressPercent: {
     fontSize: 28,
@@ -362,7 +389,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: 12
+    gap: 12,
+    flexWrap: "wrap"
   },
   textSection: {
     gap: 8

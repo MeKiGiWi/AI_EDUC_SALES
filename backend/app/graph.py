@@ -125,8 +125,6 @@ def _append_customer_left_message(deps: GraphDependencies):
         new_messages = [*state["messages"], AIMessage(content="КЛИЕНТ УШЕЛ")]
         updated_session = state["session"].model_copy(
             update={
-                "status": "finished",
-                "completed_at": datetime.now(timezone.utc),
                 "messages": new_messages,
             }
         )
@@ -145,7 +143,10 @@ def _append_customer_reply_message(deps: GraphDependencies):
     async def node(state: GraphState) -> GraphState:
         reply = await deps.buyer_agent.reply(state["messages"])
         new_messages = [*state["messages"], AIMessage(content=reply)]
-        updated_session = state["session"].model_copy(update={"messages": new_messages})
+        update_payload = {
+            "messages": new_messages,
+        }
+        updated_session = state["session"].model_copy(update=update_payload)
         deps.session_store.save(updated_session)
         return {
             "session": updated_session,
@@ -171,6 +172,10 @@ def _close_existing_session(deps: GraphDependencies):
             }
         )
         deps.session_store.save(updated_session)
-        return {"session": updated_session, "messages": list(state["messages"]), "status": updated_session.status}
+        return {
+            "session": updated_session,
+            "messages": list(state["messages"]),
+            "status": updated_session.status,
+        }
 
     return node

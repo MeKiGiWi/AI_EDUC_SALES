@@ -31,8 +31,16 @@ interface SimulatorScreenProps {
 type SimulatorSheetState =
   | { kind: "evaluation"; evaluationJson: string }
   | null;
+type DialoguePhase = "idle" | "active" | "finished";
+const API_SIMULATOR_MODULE_ID = "mod-simulator-api";
 
 const difficultyOptions = ["Легкий", "Средний", "Сложный"] as const;
+const TRAINING_INTRO_MESSAGE = `Коллега, приветствую!
+Ты получил входящий запрос от клиента – руководителя производства, который ищет кондиционер для цеха. Он разослал запросы нескольким поставщикам, ты – один из них.
+Твоя задача – стать единственным.
+Общайся так, как обычно ведёшь диалог с потенциальным покупателем. Диалог завершится, когда клиент примет решение о следующем шаге или окончательно уйдёт после повторного "подумаю". Минимальная длина диалога для честной оценки — 10 твоих реплик. Если хочешь завершить раньше, напиши Стоп.
+По итогам получишь обратную связь по своим профессиональным навыкам. Поехали?
+Нажми начать, чтобы начать`;
 const backendDifficultyMap: Record<(typeof difficultyOptions)[number], string> = {
   "Легкий": "easy",
   "Средний": "medium",
@@ -47,15 +55,34 @@ export function SimulatorScreen({
   onOpenMaterial
 }: SimulatorScreenProps) {
   const theme = useTheme();
-  const layout = useResponsiveLayout();
   const apiEnabled = simulatorApiService.isEnabled();
+  useResponsiveLayout();
   const [apiScenarios, setApiScenarios] = useState<Scenario[]>([]);
+  const apiSimulatorModule = useMemo<LearningModule>(
+    () => ({
+      id: API_SIMULATOR_MODULE_ID,
+      title: "b2b продажи",
+      description: "Практика baseline-сценария с AI-клиентом.",
+      durationMinutes: 15,
+      completedPercent: 0,
+      nextStep: "Запустить baseline-сценарий",
+      statusLabel: "Активен"
+    }),
+    []
+  );
+  const simulatorModules = useMemo(() => {
+    if (!apiEnabled) {
+      return modules;
+    }
+    return [apiSimulatorModule];
+  }, [apiEnabled, apiSimulatorModule, modules]);
   const catalogScenarios = apiEnabled ? apiScenarios : scenarios;
   const initialScenario = useMemo(
     () => catalogScenarios.find((scenario) => scenario.id === activeScenarioId) ?? catalogScenarios[0],
     [activeScenarioId, catalogScenarios]
   );
-  const fallbackModuleId = initialScenario?.moduleId ?? modules[0]?.id ?? catalogScenarios[0]?.moduleId ?? "";
+  const fallbackModuleId =
+    initialScenario?.moduleId ?? simulatorModules[0]?.id ?? catalogScenarios[0]?.moduleId ?? "";
   const [selectedModuleId, setSelectedModuleId] = useState(fallbackModuleId);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(
     initialScenario?.id ?? catalogScenarios.find((scenario) => scenario.moduleId === fallbackModuleId)?.id
@@ -67,6 +94,7 @@ export function SimulatorScreen({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [dialoguePhase, setDialoguePhase] = useState<DialoguePhase>("idle");
 
   const visibleScenarios = useMemo(
     () => catalogScenarios.filter((scenario) => scenario.moduleId === selectedModuleId),
@@ -114,8 +142,10 @@ export function SimulatorScreen({
         if (!isMounted) {
           return;
         }
-        const defaultModuleId = modules[0]?.id ?? "mod-simulator-api";
-        setApiScenarios(items.map((item) => mapApiScenarioToScenario(item, defaultModuleId)));
+        const mappedScenarios = items.map((item) => mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID));
+        setApiScenarios(mappedScenarios);
+        setSelectedModuleId(API_SIMULATOR_MODULE_ID);
+        setSelectedScenarioId(mappedScenarios[0]?.id);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -130,9 +160,14 @@ export function SimulatorScreen({
     return () => {
       isMounted = false;
     };
-  }, [apiEnabled, modules]);
+  }, [apiEnabled]);
 
   useEffect(() => {
+    if (apiEnabled) {
+      setSelectedModuleId(API_SIMULATOR_MODULE_ID);
+      return;
+    }
+
     if (initialScenario) {
       setSelectedModuleId(initialScenario.moduleId);
       setSelectedScenarioId(initialScenario.id);
@@ -140,17 +175,25 @@ export function SimulatorScreen({
     }
 
     setSelectedModuleId((current) => {
-      if (current && modules.some((module) => module.id === current)) {
+      if (current && simulatorModules.some((module) => module.id === current)) {
         return current;
       }
 
       return fallbackModuleId;
     });
-  }, [fallbackModuleId, initialScenario, modules]);
+  }, [apiEnabled, fallbackModuleId, initialScenario, simulatorModules]);
 
   useEffect(() => {
     if (!selectedModuleId) {
       setSelectedScenarioId(undefined);
+      return;
+    }
+
+    if (apiEnabled) {
+      const firstApiScenarioId = apiScenarios[0]?.id;
+      setSelectedScenarioId((current) =>
+        current && apiScenarios.some((scenario) => scenario.id === current) ? current : firstApiScenarioId
+      );
       return;
     }
 
@@ -161,7 +204,7 @@ export function SimulatorScreen({
         ? current
         : firstScenarioId
     );
-  }, [catalogScenarios, selectedModuleId]);
+  }, [apiEnabled, apiScenarios, catalogScenarios, selectedModuleId]);
 
   useEffect(() => {
     if (selectedScenario) {
@@ -236,10 +279,11 @@ export function SimulatorScreen({
   }
 
   function resetScenario(clearSuccess: boolean) {
-    setMessages(apiEnabled ? [] : [createSystemMessage(buildMissingApiUrlText())]);
+    setMessages(apiEnabled && selectedScenario ? [createSystemMessage(TRAINING_INTRO_MESSAGE)] : [createSystemMessage(buildMissingApiUrlText())]);
     setDraft("");
     setSheetState(null);
     setSessionId(null);
+    setDialoguePhase("idle");
     if (clearSuccess) {
       setSuccessMessage(null);
     }
@@ -256,6 +300,7 @@ export function SimulatorScreen({
       return;
     }
 
+    setSessionId(null);
     try {
       setIsBusy(true);
       const response = await simulatorApiService.startDialogueSession(
@@ -264,6 +309,7 @@ export function SimulatorScreen({
       );
       setSessionId(response.session_id);
       setMessages([mapApiMessageToChatMessage(response.message, selectedScenario)]);
+      setDialoguePhase("active");
       setDraft("");
       setSuccessMessage(`Сценарий "${selectedScenario.title}" запущен.`);
     } catch (error) {
@@ -285,8 +331,22 @@ export function SimulatorScreen({
       return;
     }
 
+    if (dialoguePhase === "finished") {
+      setMessages((current) => [
+        ...current,
+        createSystemMessage('Диалог уже завершён. Нажмите "Повторить сценарий", чтобы начать заново.')
+      ]);
+      setSuccessMessage("Сессия уже завершена.");
+      return;
+    }
+
     if (!apiEnabled) {
       appendSystemErrorMessage("sendReply", new Error(buildMissingApiUrlText()));
+      return;
+    }
+
+    if (dialoguePhase === "idle") {
+      setSuccessMessage("Сначала нажмите Начать.");
       return;
     }
 
@@ -303,7 +363,12 @@ export function SimulatorScreen({
         ...response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario))
       ]);
       setDraft("");
-      setSuccessMessage(response.rude === "yes" ? "Клиент завершил диалог." : "Реплика отправлена.");
+      if (response.status === "finished") {
+        setDialoguePhase("finished");
+        setSuccessMessage("Диалог завершён.");
+      } else {
+        setSuccessMessage("Реплика отправлена.");
+      }
     } catch (error) {
       appendSystemErrorMessage("sendReply", error);
     } finally {
@@ -316,6 +381,23 @@ export function SimulatorScreen({
       return;
     }
 
+    if (dialoguePhase === "finished") {
+      setMessages((current) => [
+        ...current,
+        createSystemMessage('Диалог уже завершён. Нажмите "Повторить сценарий", чтобы начать заново.')
+      ]);
+      return;
+    }
+
+    if (dialoguePhase !== "active") {
+      setSuccessMessage("Сначала начните диалог и подтвердите запуск.");
+      return;
+    }
+
+    await finishActiveScenario();
+  }
+
+  async function finishActiveScenario() {
     if (!apiEnabled) {
       appendSystemErrorMessage("finishScenario", new Error(buildMissingApiUrlText()));
       return;
@@ -338,6 +420,8 @@ export function SimulatorScreen({
       } else {
         setSuccessMessage(response.status === "finished" ? "Сценарий завершен." : "Сессия обновлена.");
       }
+      setDialoguePhase("finished");
+      setDraft("");
     } catch (error) {
       appendSystemErrorMessage("finishScenario", error);
     } finally {
@@ -353,7 +437,7 @@ export function SimulatorScreen({
   return (
     <>
       <ScenarioPicker
-        modules={modules}
+        modules={simulatorModules}
         scenarios={catalogScenarios}
         selectedModuleId={selectedModuleId}
         selectedScenarioId={selectedScenarioId}
@@ -368,70 +452,6 @@ export function SimulatorScreen({
       ) : null}
 
       <View style={styles.trainerContent}>
-        <View style={[styles.trainerInfoGrid, layout.isDesktop && styles.trainerInfoGridDesktop]}>
-          <AppCard style={layout.isDesktop && styles.infoCard}>
-            <View style={styles.flexBlock}>
-              <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Практика диалога</Text>
-              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                {selectedScenario
-                  ? selectedScenario.title
-                  : "Сначала выберите модуль. Для модуля без сценариев тренировки появятся позже."}
-              </Text>
-              {activeMaterialId ? (
-                <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>Материал: {activeMaterialId}</Text>
-              ) : null}
-              {selectedScenario ? (
-                <>
-                  <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-                    {difficulty} · {selectedScenario.channel}
-                  </Text>
-                  <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{selectedScenario.goal}</Text>
-                </>
-              ) : null}
-            </View>
-            <View style={styles.buttonRow}>
-              <AppButton
-                label="Начать сценарий"
-                onPress={startScenario}
-                tone="primary"
-                disabled={!selectedScenario || isBusy || !apiEnabled}
-              />
-              <AppButton
-                label="Сменить уровень сложности"
-                onPress={() => {
-                  const currentIndex = difficultyOptions.indexOf(difficulty);
-                  setDifficulty(difficultyOptions[(currentIndex + 1) % difficultyOptions.length]);
-                }}
-                tone="secondary"
-                disabled={!selectedScenario || isBusy}
-              />
-              <AppButton
-                label="Открыть базу знаний"
-                onPress={() => onOpenMaterial(activeMaterialId)}
-                tone="ghost"
-              />
-            </View>
-          </AppCard>
-
-          <AppCard style={layout.isDesktop && styles.infoCard}>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Цель тренировки</Text>
-            {selectedScenario ? (
-              <>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{selectedScenario.goal}</Text>
-                <Text style={[styles.metaLabel, { color: theme.semantic.textMuted }]}>Роль клиента</Text>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                  {selectedScenario.persona.roleTitle || "Клиент B2B"}
-                </Text>
-              </>
-            ) : (
-              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                Для этого модуля сценарии скоро появятся. Пока можно открыть другой модуль и продолжить тренировку там.
-              </Text>
-            )}
-          </AppCard>
-
-        </View>
-
         <AppCard style={styles.dialogFullWidth}>
           <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Диалог</Text>
           {selectedScenario ? (
@@ -466,22 +486,24 @@ export function SimulatorScreen({
                   <ChatBubble key={message.id} message={message} />
                 ))}
               </View>
-              <TextInput
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="Введите ваш ответ клиенту"
-                placeholderTextColor={theme.semantic.textMuted}
-                multiline
-                editable={Boolean(selectedScenario) && apiEnabled && !isBusy}
-                style={[
-                  styles.input,
-                  {
-                    borderColor: theme.semantic.border,
-                    backgroundColor: theme.semantic.cardSubtle,
-                    color: theme.semantic.textPrimary
-                  }
-                ]}
-              />
+              {dialoguePhase === "active" ? (
+                <TextInput
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="Введите ваш ответ клиенту"
+                  placeholderTextColor={theme.semantic.textMuted}
+                  multiline
+                  editable={Boolean(selectedScenario) && apiEnabled && !isBusy}
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: theme.semantic.border,
+                      backgroundColor: theme.semantic.cardSubtle,
+                      color: theme.semantic.textPrimary
+                    }
+                  ]}
+                />
+              ) : null}
             </>
           ) : (
             <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
@@ -489,18 +511,29 @@ export function SimulatorScreen({
             </Text>
           )}
           <View style={styles.buttonRow}>
-            <AppButton
-              label="Отправить"
-              onPress={() => sendReply(draft)}
-              tone="primary"
-              disabled={!selectedScenario || isBusy || !apiEnabled}
-            />
-            <AppButton
-              label="Завершить"
-              onPress={finishScenario}
-              tone="secondary"
-              disabled={!selectedScenario || isBusy || !apiEnabled || !sessionId}
-            />
+            {dialoguePhase === "idle" ? (
+              <AppButton
+                label="Начать"
+                onPress={startScenario}
+                tone="primary"
+                disabled={!selectedScenario || isBusy || !apiEnabled}
+              />
+            ) : (
+              <>
+                <AppButton
+                  label="Отправить"
+                  onPress={() => sendReply(draft)}
+                  tone="primary"
+                  disabled={!selectedScenario || isBusy || !apiEnabled || dialoguePhase !== "active"}
+                />
+                <AppButton
+                  label="Завершить"
+                  onPress={finishScenario}
+                  tone="secondary"
+                  disabled={!selectedScenario || isBusy || !apiEnabled || dialoguePhase !== "active"}
+                />
+              </>
+            )}
             <AppButton
               label="Повторить сценарий"
               onPress={() => resetScenario(true)}
@@ -510,9 +543,11 @@ export function SimulatorScreen({
           </View>
           <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
             {apiEnabled
-              ? sessionId
-                ? "Чат с backend активен. Можно продолжать диалог или завершить сессию."
-                : "Сначала запустите сценарий, затем отправьте сообщение."
+              ? dialoguePhase === "idle"
+                ? "Нажмите Начать, чтобы запустить диалог."
+                : dialoguePhase === "active"
+                  ? "Диалог активен. Цель — закрыть клиента на конкретный следующий шаг."
+                  : "Диалог завершён. Можно повторить сценарий."
               : "Тренажер недоступен: требуется backend-конфигурация."}
           </Text>
         </AppCard>
@@ -540,7 +575,7 @@ function mapApiScenarioToScenario(item: SimulatorPublicScenarioDto, moduleId: st
   return {
     id: item.id,
     moduleId,
-    title: item.title,
+    title: "Baseline",
     goal: "Проведите короткий B2B-диалог с клиентом в чате.",
     difficulty: "medium",
     status: item.status,

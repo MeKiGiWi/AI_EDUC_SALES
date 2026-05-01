@@ -25,7 +25,7 @@ jobs:
           script: |
             set -e
 
-            cd /var/www/AI_EDUC_SALES
+            cd /opt/ai-educ-sales
 
             git fetch origin main
             git reset --hard origin/main

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
 
 from langchain_core.messages import BaseMessage
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
@@ -60,6 +60,12 @@ class SessionStatus(str, Enum):
     FINISHED = "finished"
 
 
+class CompetencyLevel(str, Enum):
+    JUNIOR = "Junior"
+    MIDDLE = "Middle"
+    SENIOR = "Senior"
+
+
 class ScenarioSummaryDto(BaseModel):
     id: str
     title: str
@@ -73,6 +79,7 @@ class ScenarioListResponseDto(BaseModel):
 
 class SessionCreateDto(BaseModel):
     scenario_id: str
+    difficulty: str | None = None
 
 
 class SessionMessageCreateDto(BaseModel):
@@ -100,6 +107,80 @@ class SessionMessageResponseDto(BaseModel):
     messages: list[SessionMessageDto]
 
 
+class EvaluationCompetencyRaw(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    level: CompetencyLevel
+    argument: str
+    quote: list[str]
+    recommendations: list[str]
+
+    @field_validator("quote", mode="before")
+    @classmethod
+    def normalize_quote(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
+
+    @field_validator("recommendations", mode="before")
+    @classmethod
+    def normalize_recommendations(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
+
+    @field_validator("quote")
+    @classmethod
+    def clean_quote(cls, value: list[str]) -> list[str]:
+        cleaned = [item.strip() for item in value if item and item.strip()]
+        return cleaned
+
+    @field_validator("recommendations")
+    @classmethod
+    def clean_recommendations(cls, value: list[str]) -> list[str]:
+        cleaned = [item.strip() for item in value if item and item.strip()]
+        return cleaned
+
+
+class EvaluationResultRaw(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    overall_level: CompetencyLevel
+    overall_comment: str
+    overall_recommendations: list[str] = Field(
+        validation_alias=AliasChoices("overall_recommendations", "recommendations"),
+        serialization_alias="overall_recommendations",
+    )
+    competencies: list[EvaluationCompetencyRaw]
+
+    @field_validator("overall_recommendations", mode="before")
+    @classmethod
+    def normalize_overall_recommendations(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
+
+    @field_validator("overall_recommendations")
+    @classmethod
+    def clean_overall_recommendations(cls, value: list[str]) -> list[str]:
+        cleaned = [item.strip() for item in value if item and item.strip()]
+        return cleaned
+
+    @model_validator(mode="after")
+    def ensure_competencies_present(self):
+        if not self.competencies:
+            raise ValueError("Evaluation must include competencies.")
+        return self
+
+
 class SessionFinishResponseDto(BaseModel):
     session_id: str
     status: SessionStatus
+    evaluation: EvaluationResultRaw | None = None

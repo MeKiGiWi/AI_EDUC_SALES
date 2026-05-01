@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from langchain_openai import ChatOpenAI
 
-from app.agents import BuyerAgent, RudeClassifierAgent
+from app.agents import BuyerAgent, EvaluationAgent, RudeClassifierAgent
 from app.graph import create_graph
 from app.models import GraphDependencies
 from app.settings import LLMSettings
@@ -37,3 +37,8 @@ def build_graph(llm_settings: LLMSettings):
         buyer_agent=BuyerAgent(llm),
     )
     return create_graph(deps)
+
+
+def build_evaluation_agent(llm_settings: LLMSettings) -> EvaluationAgent:
+    llm = build_chat_model(llm_settings)
+    return EvaluationAgent(llm)

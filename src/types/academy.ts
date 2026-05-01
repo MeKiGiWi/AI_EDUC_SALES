@@ -237,52 +237,23 @@ export interface SimulatorSendMessageResponseDto {
   messages: SimulatorApiMessageDto[];
 }
 
-export interface SimulatorReportPayloadDto {
-  type: "simulator_report";
-  schema_version: "1.0";
-  visibility: "after_session_finish_only";
-  metadata: {
-    session_id: string;
-    scenario_id: string;
-    scenario_title: string;
-    manager_name: string;
-    prompt_version: string;
-    methodology_version: string;
-    evaluation_schema_version: string;
-  };
+export interface SimulatorEvaluationPayloadDto {
   overall_level: "Junior" | "Middle" | "Senior";
   overall_comment: string;
-  strengths: {
-    competency_id: string;
-    competency_name: string;
-    level: "Junior" | "Middle" | "Senior";
-    summary: string;
-  }[];
-  development_zones: {
-    competency_id: string;
-    competency_name: string;
-    level: "Junior" | "Middle" | "Senior";
-    summary: string;
-  }[];
   overall_recommendations: string[];
   competencies: {
-    id: string;
     name: string;
     level: "Junior" | "Middle" | "Senior";
     argument: string;
-    evidence_quotes: string[];
-    missing_to_next_level: string;
+    quote: string[];
     recommendations: string[];
-  }[];
-  transcript_quotes: {
-    competency_id: string;
-    quote: string;
   }[];
 }
 
 export interface SimulatorFinishResponseDto {
   session_id: string;
   status: "finished";
+  evaluation?: SimulatorEvaluationPayloadDto;
 }
 
 export interface TeamMember {

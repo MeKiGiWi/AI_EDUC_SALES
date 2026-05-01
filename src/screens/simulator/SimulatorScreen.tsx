@@ -29,7 +29,7 @@ interface SimulatorScreenProps {
 }
 
 type SimulatorSheetState =
-  | { kind: "report"; reportJson: string }
+  | { kind: "evaluation"; evaluationJson: string }
   | null;
 
 const difficultyOptions = ["Легкий", "Средний", "Сложный"] as const;
@@ -329,7 +329,15 @@ export function SimulatorScreen({
     try {
       setIsBusy(true);
       const response = await simulatorApiService.finishDialogueSession(sessionId);
-      setSuccessMessage(response.status === "finished" ? "Сценарий завершен." : "Сессия обновлена.");
+      if (response.evaluation) {
+        setSheetState({
+          kind: "evaluation",
+          evaluationJson: JSON.stringify(response.evaluation, null, 2)
+        });
+        setSuccessMessage("Сценарий завершен. Сырая оценка сформирована.");
+      } else {
+        setSuccessMessage(response.status === "finished" ? "Сценарий завершен." : "Сессия обновлена.");
+      }
     } catch (error) {
       appendSystemErrorMessage("finishScenario", error);
     } finally {
@@ -512,15 +520,15 @@ export function SimulatorScreen({
 
       <AppBottomSheet
         visible={sheetState !== null}
-        title="JSON-отчет по сессии"
+        title="JSON-оценка по сессии"
         description={
           "Компетенции и детали оценки доступны только после завершения сценария."
         }
         onClose={() => setSheetState(null)}
       >
-        {sheetState?.kind === "report" ? (
+        {sheetState?.kind === "evaluation" ? (
           <Text style={[styles.reportJson, { color: theme.semantic.textSecondary }]}>
-            {sheetState.reportJson}
+            {sheetState.evaluationJson}
           </Text>
         ) : null}
       </AppBottomSheet>

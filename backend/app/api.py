@@ -1,10 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.settings import get_settings
 from app.models import (
+    CompetencyLevel,
+    EvaluationCompetencyRaw,
+    EvaluationResultRaw,
     MessageRole,
     ScenarioListResponseDto,
     ScenarioStatus,
@@ -17,10 +20,19 @@ from app.models import (
     SessionMessageResponseDto,
     SessionStatus,
 )
-from app.runtime import SESSION_STORE, build_graph
+from app.runtime import SESSION_STORE, build_evaluation_agent, build_graph
 from app.scenario_repository import get_scenario_by_id, list_scenarios
 
 router = APIRouter(prefix="/api/v1/simulator", tags=["simulator"])
+
+MIN_REPLIES_FOR_CONFIDENT_EVALUATION = 10
+COMPETENCY_CATALOG = [
+    "Умение задавать вопросы",
+    "Диагностика потребности",
+    "Формулировка ценности через выгоду",
+    "Работа с возражением «подумаю / не сейчас»",
+    "Фиксация следующего шага",
+]
 
 
 def map_message(message) -> SessionMessageDto:
@@ -40,6 +52,78 @@ def map_message(message) -> SessionMessageDto:
 
 def filter_visible_messages(messages: list) -> list:
     return [message for message in messages if not isinstance(message, SystemMessage)]
+
+
+def normalize_competency_name(value: str) -> str:
+    return (
+        value.lower()
+        .replace("ё", "е")
+        .replace('"', "")
+        .replace("«", "")
+        .replace("»", "")
+        .strip()
+    )
+
+
+def extract_dialogue_for_evaluation(messages: list) -> tuple[str, int]:
+    lines: list[str] = []
+    manager_replies = 0
+
+    for message in messages:
+        if isinstance(message, HumanMessage):
+            manager_replies += 1
+            lines.append(f"Менеджер: {str(message.content).strip()}")
+        elif isinstance(message, AIMessage):
+            lines.append(f"Клиент: {str(message.content).strip()}")
+
+    return "\n".join(lines).strip(), manager_replies
+
+
+def build_default_competency(name: str) -> EvaluationCompetencyRaw:
+    return EvaluationCompetencyRaw(
+        name=name,
+        level=CompetencyLevel.JUNIOR,
+        argument="Недостаточно данных для надёжной оценки этой компетенции.",
+        quote=[],
+        recommendations=["Продолжить диалог и собрать больше примеров поведения по этой компетенции."],
+    )
+
+
+def normalize_evaluation_result(raw: EvaluationResultRaw) -> EvaluationResultRaw:
+    by_name = {normalize_competency_name(item.name): item for item in raw.competencies}
+    normalized_competencies: list[EvaluationCompetencyRaw] = []
+
+    for competency_name in COMPETENCY_CATALOG:
+        item = by_name.get(normalize_competency_name(competency_name))
+        if item is None:
+            normalized_competencies.append(build_default_competency(competency_name))
+            continue
+
+        normalized_competencies.append(
+            EvaluationCompetencyRaw(
+                name=competency_name,
+                level=item.level,
+                argument=item.argument,
+                quote=item.quote,
+                recommendations=item.recommendations,
+            )
+        )
+
+    overall_recommendations = raw.overall_recommendations
+    if not overall_recommendations:
+        unique_recommendations: list[str] = []
+        for item in normalized_competencies:
+            for recommendation in item.recommendations:
+                if recommendation not in unique_recommendations:
+                    unique_recommendations.append(recommendation)
+        overall_recommendations = unique_recommendations[:3]
+
+    return EvaluationResultRaw(
+        overall_level=raw.overall_level,
+        overall_comment=raw.overall_comment,
+        overall_recommendations=overall_recommendations,
+        competencies=normalized_competencies,
+    )
 
 
 @router.get("/scenarios", response_model=ScenarioListResponseDto)
@@ -106,7 +190,32 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
     graph = build_graph(get_settings())
     initial_state = {"action": "close_session", "session_id": session_id}
     result = await graph.ainvoke(initial_state)
+    visible_messages = filter_visible_messages(result["messages"])
+    dialogue_text, manager_replies = extract_dialogue_for_evaluation(visible_messages)
+
+    if not dialogue_text:
+        return SessionFinishResponseDto(
+            session_id=session_id,
+            status=SessionStatus(result["status"]),
+            evaluation=None,
+        )
+
+    try:
+        evaluation_agent = build_evaluation_agent(get_settings())
+        raw_evaluation = await evaluation_agent.evaluate(
+            dialogue=dialogue_text,
+            manager_replies=manager_replies,
+            min_replies=MIN_REPLIES_FOR_CONFIDENT_EVALUATION,
+        )
+        evaluation = normalize_evaluation_result(raw_evaluation)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Произошла ошибка при формировании оценки, попробуйте позже. {exc}",
+        ) from exc
+
     return SessionFinishResponseDto(
         session_id=session_id,
         status=SessionStatus(result["status"]),
+        evaluation=evaluation,
     )

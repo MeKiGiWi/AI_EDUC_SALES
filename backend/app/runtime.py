@@ -24,6 +24,7 @@ def build_chat_model(
         api_key=llm_settings.LLM_API_KEY,
         base_url=llm_settings.OPENROUTER_BASE_URL,
         temperature=llm_settings.LLM_TEMPERATURE,
+        reasoning_effort=llm_settings.LLM_REASONING_EFFORT,
         default_headers={
             "HTTP-Referer": llm_settings.OPENROUTER_SITE_URL,
             "X-Title": llm_settings.OPENROUTER_APP_NAME,

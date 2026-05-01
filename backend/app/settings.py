@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 from pydantic import Field
@@ -22,6 +23,7 @@ class LLMSettings(BaseSettings):
     OPENROUTER_APP_NAME: str = "AI Sales Academy"
     LLM_MODEL: str = "qwen-turbo"
     LLM_TEMPERATURE: float = Field(default=0.2, ge=0.0, le=1.0)
+    LLM_REASONING_EFFORT: Literal["minimal", "low", "medium", "high", "none"] | None = None
 
 
 class AgentsConfig(BaseModel):
@@ -32,7 +34,14 @@ class AgentsConfig(BaseModel):
     buyer_agent_llm_settings: LLMSettings = Field(
         default_factory=lambda: get_settings().model_copy(update={"LLM_MODEL": "deepseek/deepseek-v3.2"})
     )
-    evaluation_agent_llm_settings: LLMSettings = Field(default_factory=LLMSettings)
+    evaluation_agent_llm_settings: LLMSettings = Field(
+        default_factory=lambda: get_settings().model_copy(
+            update={
+                "LLM_MODEL": "deepseek/deepseek-v3.2",
+                "LLM_REASONING_EFFORT": "medium",
+            }
+        )
+    )
 
 
 @lru_cache(maxsize=1)

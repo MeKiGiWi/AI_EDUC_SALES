@@ -21,7 +21,8 @@ def test_agents_config_returns_singleton_with_default_settings_for_all_agents() 
     assert agents_config.check_rude_llm_settings.LLM_TEMPERATURE == settings.LLM_TEMPERATURE
     assert agents_config.buyer_agent_llm_settings.LLM_MODEL == "deepseek/deepseek-v3.2"
     assert agents_config.buyer_agent_llm_settings.LLM_TEMPERATURE == settings.LLM_TEMPERATURE
-    assert agents_config.evaluation_agent_llm_settings.LLM_MODEL == settings.LLM_MODEL
+    assert agents_config.evaluation_agent_llm_settings.LLM_MODEL == "deepseek/deepseek-v3.2"
     assert agents_config.evaluation_agent_llm_settings.LLM_TEMPERATURE == settings.LLM_TEMPERATURE
+    assert agents_config.evaluation_agent_llm_settings.LLM_REASONING_EFFORT == "medium"
     with pytest.raises(Exception):
         agents_config.buyer_agent_llm_settings = LLMSettings()

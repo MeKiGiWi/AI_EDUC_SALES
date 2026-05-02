@@ -8,7 +8,6 @@
 - `No Next.js` как целевая архитектура.
 - `No API routes`.
 - `No server actions`.
-- `No backend implementation` в этом репозитории на текущем этапе.
 - `Mock data only` до подключения будущего Python backend.
 
 ## Структурные требования
@@ -41,7 +40,6 @@
 
 ## Что пока не делаем
 
-- Не создаем backend.
 - Не создаем Node server.
 - Не используем web-first routing как продуктовую основу.
 - Не проектируем server-side flows как основную модель приложения.

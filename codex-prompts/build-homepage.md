@@ -13,8 +13,7 @@ Read first:
 Context:
 - this repo is moving away from Next.js
 - target direction is React Native mobile MVP
-- backend is not implemented yet
-- all product data must come from typed mock data
+- Python backend handles API requests
 
 Requirements:
 - React Native only
@@ -27,7 +26,5 @@ Requirements:
 
 Do not:
 - introduce Next.js patterns
-- add server actions or API routes
-- add Node backend code
 - use blue/purple SaaS styling
 ```

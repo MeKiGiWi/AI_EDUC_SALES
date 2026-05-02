@@ -24,6 +24,9 @@ class LLMSettings(BaseSettings):
     LLM_MODEL: str = "qwen-turbo"
     LLM_TEMPERATURE: float = Field(default=0.2, ge=0.0, le=1.0)
     LLM_REASONING_EFFORT: Literal["minimal", "low", "medium", "high", "none"] | None = None
+    BUYER_LLM_MODEL: str = "deepseek/deepseek-v3.2"
+    EVALUATION_LLM_MODEL: str = "deepseek/deepseek-v3.2"
+    EVALUATION_LLM_REASONING_EFFORT: Literal["minimal", "low", "medium", "high", "none"] | None = "medium"
 
 
 class AgentsConfig(BaseModel):
@@ -32,13 +35,13 @@ class AgentsConfig(BaseModel):
 
     check_rude_llm_settings: LLMSettings = Field(default_factory=LLMSettings)
     buyer_agent_llm_settings: LLMSettings = Field(
-        default_factory=lambda: get_settings().model_copy(update={"LLM_MODEL": "deepseek/deepseek-v3.2"})
+        default_factory=lambda: get_settings().model_copy(update={"LLM_MODEL": get_settings().BUYER_LLM_MODEL})
     )
     evaluation_agent_llm_settings: LLMSettings = Field(
         default_factory=lambda: get_settings().model_copy(
             update={
-                "LLM_MODEL": "deepseek/deepseek-v3.2",
-                "LLM_REASONING_EFFORT": "medium",
+                "LLM_MODEL": get_settings().EVALUATION_LLM_MODEL,
+                "LLM_REASONING_EFFORT": get_settings().EVALUATION_LLM_REASONING_EFFORT,
             }
         )
     )

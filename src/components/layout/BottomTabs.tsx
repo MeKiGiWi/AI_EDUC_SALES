@@ -14,7 +14,6 @@ interface BottomTabsProps {
 const tabIcons: Record<RouteName, string> = {
   Landing: "Старт",
   StudentHome: "Дом",
-  KnowledgeBase: "База",
   Simulator: "Практика",
   ManagerDashboard: "Команда",
   HrDashboard: "HR",
@@ -25,7 +24,6 @@ const tabIcons: Record<RouteName, string> = {
 const tabLabels: Record<RouteName, string> = {
   Landing: "Старт",
   StudentHome: "Домой",
-  KnowledgeBase: "База",
   Simulator: "Практика",
   ManagerDashboard: "Команда",
   HrDashboard: "HR/L&D",

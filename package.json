@@ -11,10 +11,12 @@
     "start:web": "expo start --web",
     "doctor": "npx expo-doctor",
     "check": "expo install --check",
+    "build:web": "expo export -p web",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~54.0.34",
     "jspdf": "^4.2.1",
     "react": "19.1.0",

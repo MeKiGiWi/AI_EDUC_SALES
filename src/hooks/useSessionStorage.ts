@@ -30,12 +30,13 @@ function writeSession<T>(key: string, value: T): void {
 export function useSessionStorage<T>(
   key: string,
   initialValue: T
-): [T, (value: T) => void] {
+): [T, (value: T | ((val: T) => T)) => void] {
   const [state, setStateRaw] = useState<T>(() => readSession(key, initialValue));
 
-  function setState(value: T): void {
-    writeSession(key, value);
-    setStateRaw(value);
+  function setState(value: T | ((val: T) => T)): void {
+    const newValue = value instanceof Function ? value(state) : value;
+    writeSession(key, newValue);
+    setStateRaw(newValue);
   }
 
   return [state, setState];

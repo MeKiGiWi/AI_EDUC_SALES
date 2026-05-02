@@ -3,7 +3,6 @@ import type { KnowledgeCategoryId, UserRole } from "../types/academy";
 export type RootStackParamList = {
   Landing: undefined;
   StudentHome: undefined;
-  KnowledgeBase: { materialId?: string; categoryId?: KnowledgeCategoryId } | undefined;
   Simulator: { scenarioId?: string; materialId?: string } | undefined;
   ManagerDashboard: undefined;
   HrDashboard: undefined;
@@ -29,11 +28,6 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
     route: "StudentHome",
     title: "Кабинет ученика",
     description: "Практика, модули и персональный трек"
-  },
-  KnowledgeBase: {
-    route: "KnowledgeBase",
-    title: "База знаний",
-    description: "Материалы, кейсы и короткие гайды. Выбери категорию, быстро найди нужный материал и попроси простое объяснение или пример ответа."
   },
   Simulator: {
     route: "Simulator",

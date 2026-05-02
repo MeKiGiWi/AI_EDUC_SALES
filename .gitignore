@@ -21,6 +21,7 @@ coverage.xml
 .git/
 .mypy_cache/
 .pytest_cache/
+.ruff_cache/
 .hypothesis/
 log_dialog/
 
@@ -62,6 +63,7 @@ node_modules/
 .DS_Store
 .DS_Store?
 ._*
+__MACOSX/
 .Spotlight-V100
 .Trashes
 ehthumbs.db

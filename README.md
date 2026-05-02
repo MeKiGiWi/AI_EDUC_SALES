@@ -48,3 +48,22 @@ docker compose -f docker-compose.dev.yml up --build
 - держать архитектуру в рамках React Native / Expo
 - не возвращать в репозиторий Next.js-контур и backend-код
 - использовать `AGENTS.md`, `docs/` и `design-system/` как основные ориентиры
+
+## Деплой на VPS (Production)
+
+Развертывание на VPS осуществляется автоматически через GitHub Actions при push в `main`.
+
+### Структура на VPS
+Для успешного деплоя на сервере в `/opt/ai-educ-sales` (или в директории деплоя) должны лежать секретные файлы:
+- `.env` (для frontend, с `EXPO_PUBLIC_SIMULATOR_API_URL=/`)
+- `backend/.env` (с ключами и конфигом `LLM_API_KEY`)
+
+### Как работает сеть
+- **Локальная разработка (`npm run web`)**: запросы идут напрямую на `http://localhost:8000` (указано в `.env.example`).
+- **Docker dev (`docker-compose.dev.yml`)**: запросы идут на `http://localhost:8000`.
+- **Production (`docker-compose.yml`)**: frontend собирается в статику и раздается nginx. Nginx также проксирует запросы на `/api/` в backend и `/health`. Поэтому в prod `.env` для фронта `EXPO_PUBLIC_SIMULATOR_API_URL` должен быть `/`.
+
+### Проверка после deploy
+Убедитесь, что сервисы живы:
+- Фронтенд: `curl http://127.0.0.1:3000/`
+- Бэкенд health: `curl http://127.0.0.1:3000/health`

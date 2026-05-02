@@ -212,9 +212,7 @@ export function AppNavigator() {
         <SimulatorScreen
           scenarios={scenarios}
           modules={learningModules}
-          materials={knowledgeMaterials}
           activeScenarioId={simulatorParams?.scenarioId}
-          activeMaterialId={simulatorParams?.materialId}
           onOpenReports={() => navigate("Reports")}
           onReportSaved={handleSimulatorReportSaved}
           onNavigateToReports={() => navigate("Reports")}

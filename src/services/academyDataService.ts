@@ -188,19 +188,19 @@ export const academyDataService = {
     return simulateLatency(adminSettingsData);
   },
 
-  getReports(role: UserRole): Promise<ReportCard[]> {
-    const saved = reportStorageService.getAll();
+  async getReports(role: UserRole): Promise<ReportCard[]> {
+    const saved = await reportStorageService.getAll(role);
     const cards = saved.map((item) => savedReportToReportCard(item, role));
     return simulateLatency(cards);
   },
 
-  saveLatestSimulatorReport(params: {
+  async saveLatestSimulatorReport(params: {
     role: UserRole;
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
   }): Promise<ReportCard[]> {
-    const saved = reportStorageService.save(params.scenarioTitle, params.evaluation);
-    const allSaved = reportStorageService.getAll();
+    const saved = await reportStorageService.save(params.role, params.scenarioTitle, params.evaluation);
+    const allSaved = await reportStorageService.getAll(params.role);
     const cards = allSaved.map((item) =>
       savedReportToReportCard(item, params.role)
     );

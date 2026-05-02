@@ -4,13 +4,15 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 import { useSessionStorage } from "../../hooks/useSessionStorage";
 
 import { ChatBubble } from "../../components/simulator/ChatBubble";
+import { FinishConfirmSheet } from "../../components/simulator/FinishConfirmSheet";
 import { ScenarioPicker } from "../../components/simulator/ScenarioPicker";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import {
   SimulatorApiError,
-  simulatorApiService
+  simulatorApiService,
+  getSafeSimulatorErrorMessage
 } from "../../services/simulatorApiService";
 import { useTheme } from "../../theme/useTheme";
 import type {
@@ -26,9 +28,7 @@ import type {
 interface SimulatorScreenProps {
   modules: LearningModule[];
   scenarios: Scenario[];
-  materials: KnowledgeMaterial[];
   activeScenarioId?: string;
-  activeMaterialId?: string;
   onOpenReports: () => void;
   onReportSaved: (payload: {
     scenarioTitle: string;
@@ -56,9 +56,7 @@ const backendDifficultyMap: Record<(typeof difficultyOptions)[number], string> =
 export function SimulatorScreen({
   modules,
   scenarios,
-  materials,
   activeScenarioId,
-  activeMaterialId,
   onOpenReports,
   onReportSaved,
   onNavigateToReports
@@ -69,7 +67,6 @@ export function SimulatorScreen({
   const [simulatorUnavailableReason, setSimulatorUnavailableReason] = useState<string | null>(null);
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
-  const [selectedMaterial, setSelectedMaterial] = useState<KnowledgeMaterial | null>(null);
   const apiSimulatorModule = useMemo<LearningModule>(
     () => ({
       id: API_SIMULATOR_MODULE_ID,
@@ -100,8 +97,8 @@ export function SimulatorScreen({
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(
     initialScenario?.id ?? catalogScenarios.find((scenario) => scenario.moduleId === fallbackModuleId)?.id
   );
-  const [messages, setMessages] = useState<ScenarioMessage[]>([]);
-  const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useSessionStorage<ScenarioMessage[]>("sim_messages", []);
+  const [draft, setDraft] = useSessionStorage("sim_draft", "");
   const [difficulty, setDifficulty] = useState<(typeof difficultyOptions)[number]>("Средний");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionId, setSessionId] = useSessionStorage<string | null>("sim_session_id", null);
@@ -141,19 +138,7 @@ export function SimulatorScreen({
 
     return [companyLabel, painPointsLabel, moodLabel, objectionStyleLabel].filter(Boolean);
   }, [selectedScenario]);
-  const materialHint = useMemo(
-    () =>
-      (activeMaterialId ? materials.find((material) => material.id === activeMaterialId) : undefined) ??
-      (selectedScenario
-        ? materials.find((material) =>
-            selectedScenario.targetCompetencies.some((competency) =>
-              material.title.toLowerCase().includes(competency.toLowerCase())
-            )
-          )
-        : undefined) ??
-      materials[0],
-    [activeMaterialId, materials, selectedScenario]
-  );
+  const difficultyOptionsArray = Array.from(difficultyOptions);
 
   useEffect(() => {
     let isMounted = true;
@@ -251,15 +236,15 @@ export function SimulatorScreen({
       return;
     }
 
-    setMessages((current) => current.filter((message) => message.speakerRole === "system"));
     setDraft("");
     setSessionId(null);
-    setSelectedMaterial(null);
+    setDialoguePhase("idle");
+    setMessages([]);
   }, [apiEnabled, selectedScenario?.id]);
 
   function createSystemMessage(text: string): ScenarioMessage {
     return {
-      id: `system-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: createClientId("system"),
       speakerName: "Система",
       speakerRole: "system",
       text,
@@ -278,39 +263,8 @@ export function SimulatorScreen({
   }
 
   function formatSystemErrorText(operation: string, error: unknown): string {
-    if (typeof error === "string") {
-      return `ERROR [${operation}]: ${error}`;
-    }
-
-    if (error instanceof SimulatorApiError) {
-      const detailObject =
-        error.detail && typeof error.detail === "object"
-          ? { ...(error.detail as Record<string, unknown>) }
-          : null;
-      if (detailObject && "debug_steps" in detailObject) {
-        delete detailObject.debug_steps;
-      }
-      const detailText =
-        typeof error.detail === "string"
-          ? error.detail
-          : detailObject !== null
-            ? JSON.stringify(detailObject)
-            : error.detail !== undefined
-              ? JSON.stringify(error.detail)
-              : "";
-      const payloadText = detailText || error.body || error.message;
-      const segments = [
-        error.status ? `${error.status}` : "",
-        payloadText
-      ].filter(Boolean);
-      return `ERROR [${operation}]: ${segments.join(" ")}`;
-    }
-
-    if (error instanceof Error) {
-      return `ERROR [${operation}]: ${error.message}`;
-    }
-
-    return `ERROR [${operation}]: ${String(error)}`;
+    console.error(`ERROR [${operation}]:`, error);
+    return getSafeSimulatorErrorMessage(error);
   }
 
   function appendSystemErrorMessage(operation: string, error: unknown): void {
@@ -328,7 +282,6 @@ export function SimulatorScreen({
     setDraft("");
     setSessionId(null);
     setDialoguePhase("idle");
-    setSelectedMaterial(null);
     if (clearSuccess) {
       setSuccessMessage(null);
     }
@@ -450,12 +403,16 @@ export function SimulatorScreen({
 
     try {
       setIsBusy(true);
-      const response = await simulatorApiService.sendDialogueMessage(sessionId, trimmedText);
-      setMessages((current) => [
-        ...current,
-        ...response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario))
-      ]);
+      const learnerMessage = createLearnerMessage(trimmedText);
+      setMessages((current) => [...current, learnerMessage]);
       setDraft("");
+      const response = await simulatorApiService.sendDialogueMessage(sessionId, trimmedText);
+      setMessages((current) =>
+        mergeChatMessages(
+          current,
+          response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario))
+        )
+      );
       if (response.status === "finished") {
         setDialoguePhase("finished");
         await persistLatestReport(selectedScenario);
@@ -463,6 +420,8 @@ export function SimulatorScreen({
         setSuccessMessage("Реплика отправлена.");
       }
     } catch (error) {
+      setMessages((current) => current.slice(0, -1));
+      setDraft(trimmedText);
       appendSystemErrorMessage("sendReply", error);
     } finally {
       setIsBusy(false);
@@ -525,16 +484,6 @@ export function SimulatorScreen({
   function handleSelectModule(moduleId: string) {
     setSelectedModuleId(moduleId);
     setSuccessMessage(null);
-    setSelectedMaterial(null);
-  }
-
-  function openMaterialHint() {
-    if (!materialHint) {
-      setSuccessMessage("Подсказка пока недоступна. Продолжайте практику по текущему сценарию.");
-      return;
-    }
-
-    setSelectedMaterial(materialHint);
   }
 
   if (simulatorUnavailableReason) {
@@ -592,6 +541,25 @@ export function SimulatorScreen({
       ) : null}
 
       <View style={styles.trainerContent}>
+        {dialoguePhase === "idle" && selectedScenario ? (
+          <AppCard style={styles.dialogFullWidth}>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Настройка диалога</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              Выберите сложность для сценария "{selectedScenario.title}".
+            </Text>
+            <View style={styles.buttonRow}>
+              {difficultyOptionsArray.map((opt) => (
+                <AppButton
+                  key={opt}
+                  label={opt}
+                  onPress={() => setDifficulty(opt)}
+                  tone={difficulty === opt ? "primary" : "ghost"}
+                />
+              ))}
+            </View>
+          </AppCard>
+        ) : null}
+
         <AppCard style={styles.dialogFullWidth}>
           <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Диалог</Text>
           {selectedScenario ? (
@@ -710,61 +678,15 @@ export function SimulatorScreen({
         </AppCard>
       </View>
 
-      <AppBottomSheet
-        visible={selectedMaterial !== null}
-        title={selectedMaterial?.title ?? ""}
-        description={selectedMaterial?.description ?? ""}
-        onClose={() => setSelectedMaterial(null)}
-      >
-        {selectedMaterial ? (
-          <>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Короткое объяснение</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              {selectedMaterial.aiPlainExplanation}
-            </Text>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Как использовать сейчас</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              {selectedMaterial.applyInDialogue}
-            </Text>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Пример формулировки</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              {selectedMaterial.clientAnswerExample}
-            </Text>
-          </>
-        ) : null}
-      </AppBottomSheet>
 
-      <AppBottomSheet
+
+      <FinishConfirmSheet
         visible={showFinishConfirm}
-        title="Недостаточно реплик"
-        description={`Вы отправили ${messages.filter((m) => m.speakerRole === "learner").length} из рекомендуемых 10 реплик. Этого мало для хорошей точности оценки.`}
+        learnerMessageCount={messages.filter((m) => m.speakerRole === "learner").length}
         onClose={() => setShowFinishConfirm(false)}
-        hideCloseButton
-        centeredHeader
-      >
-        <Text style={[styles.body, { color: theme.semantic.textSecondary, textAlign: "center" }]}>
-          Чем больше реплик вы отправите, тем точнее будет оценка ваших навыков. Рекомендуем продолжить диалог.
-        </Text>
-        <View style={styles.confirmButtonRow}>
-          <View style={styles.confirmButtonItem}>
-            <AppButton
-              label="Завершить"
-              onPress={() => { void confirmFinishScenario(); }}
-              tone="secondary"
-              fullWidth
-              disabled={isBusy}
-            />
-          </View>
-          <View style={styles.confirmButtonItem}>
-            <AppButton
-              label="Продолжить"
-              onPress={() => setShowFinishConfirm(false)}
-              tone="primary"
-              fullWidth
-            />
-          </View>
-        </View>
-      </AppBottomSheet>
+        onConfirm={() => { void confirmFinishScenario(); }}
+        isBusy={isBusy}
+      />
     </>
   );
 }
@@ -773,7 +695,7 @@ function mapApiScenarioToScenario(item: SimulatorPublicScenarioDto, moduleId: st
   return {
     id: item.id,
     moduleId,
-    title: "Baseline",
+    title: item.title,
     goal: "Проведите короткий B2B-диалог с клиентом в чате.",
     difficulty: "medium",
     status: item.status,
@@ -796,6 +718,11 @@ function mapApiScenarioToScenario(item: SimulatorPublicScenarioDto, moduleId: st
   };
 }
 
+function createClientId(prefix: string): string {
+  const randomFallback = Math.random().toString(36).slice(2, 8);
+  return `${prefix}-${Date.now()}-${crypto.randomUUID?.() ?? randomFallback}`;
+}
+
 function mapApiMessageToChatMessage(message: SimulatorApiMessageDto, scenario: Scenario): ScenarioMessage {
   const speakerNameByRole = {
     customer: scenario.persona.name || "Клиент",
@@ -803,12 +730,41 @@ function mapApiMessageToChatMessage(message: SimulatorApiMessageDto, scenario: S
   } as const;
 
   return {
-    id: message.id ?? `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: message.id ?? createClientId("msg"),
     speakerName: speakerNameByRole[message.role] ?? "Собеседник",
     speakerRole: message.role,
     text: message.text,
     timestampLabel: formatTimestamp(message.created_at)
   };
+}
+
+function createLearnerMessage(text: string): ScenarioMessage {
+  return {
+    id: createClientId("learner"),
+    speakerName: "Вы",
+    speakerRole: "learner",
+    text,
+    timestampLabel: formatTimestamp(new Date().toISOString())
+  };
+}
+
+function mergeChatMessages(current: ScenarioMessage[], incoming: ScenarioMessage[]): ScenarioMessage[] {
+  const merged = [...current];
+
+  for (const message of incoming) {
+    const lastMessage = merged[merged.length - 1];
+    if (
+      lastMessage &&
+      lastMessage.speakerRole === message.speakerRole &&
+      lastMessage.text.trim() === message.text.trim()
+    ) {
+      continue;
+    }
+
+    merged.push(message);
+  }
+
+  return merged;
 }
 
 function formatTimestamp(value: string): string {
@@ -850,13 +806,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10
-  },
-  confirmButtonRow: {
-    flexDirection: "row",
-    gap: 10
-  },
-  confirmButtonItem: {
-    flex: 1
   },
   chatArea: {
     gap: 12

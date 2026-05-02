@@ -45,7 +45,6 @@
 ## Проверенные экраны
 
 - `StudentHome`
-- `KnowledgeBase`
 - `Simulator`
 - `ManagerDashboard`
 - `HrDashboard`
@@ -56,7 +55,6 @@
 
 - Переключение ролей через `RoleSwitcher`.
 - Навигация по `BottomTabs`.
-- Переходы в `KnowledgeBase`, `Simulator`, `Reports`.
 - Открытие bottom sheets на всех основных экранах.
 - Mock exports: PDF / CSV / HR выгрузки / team PDF.
 - Local success states для student plan, recommendations, admin save, HR track assign и report sending.
@@ -82,8 +80,8 @@
 
 ## Команды проверки
 
-- `npm run typecheck` в `apps/mobile`
-- `npx expo start --offline` в `apps/mobile`
+- `npm run typecheck` в `root`
+- `npx expo start --offline` в `root`
 
 ## Что осталось проверить руками на реальном устройстве
 
@@ -97,4 +95,4 @@
 
 - Все данные все еще mock-only и не подтверждают backend latency / error states.
 - Не добавлен отдельный test stack, поэтому уверенность строится на typecheck и ручном QA-проходе.
-- Root репозитория по-прежнему содержит legacy Next.js артефакты, хотя mobile MVP уже живет отдельно в `apps/mobile`.
+- Root репозитория по-прежнему содержит legacy Next.js артефакты, хотя mobile MVP уже живет отдельно в `root`.

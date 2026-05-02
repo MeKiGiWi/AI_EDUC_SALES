@@ -18,10 +18,16 @@ def write_openapi_contract(application: FastAPI) -> None:
     )
 
 
+import os
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    render_graph_artifacts()
-    write_openapi_contract(application)
+    if os.getenv("WRITE_RUNTIME_ARTIFACTS", "false").lower() == "true":
+        try:
+            render_graph_artifacts()
+            write_openapi_contract(application)
+        except Exception as e:
+            print(f"Failed to write runtime artifacts: {e}")
     yield
 
 

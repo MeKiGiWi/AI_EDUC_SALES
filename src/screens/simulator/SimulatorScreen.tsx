@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
+import { useSessionStorage } from "../../hooks/useSessionStorage";
+
 import { ChatBubble } from "../../components/simulator/ChatBubble";
 import { ScenarioPicker } from "../../components/simulator/ScenarioPicker";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
@@ -99,9 +101,9 @@ export function SimulatorScreen({
   const [draft, setDraft] = useState("");
   const [difficulty, setDifficulty] = useState<(typeof difficultyOptions)[number]>("Средний");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useSessionStorage<string | null>("sim_session_id", null);
   const [isBusy, setIsBusy] = useState(false);
-  const [dialoguePhase, setDialoguePhase] = useState<DialoguePhase>("idle");
+  const [dialoguePhase, setDialoguePhase] = useSessionStorage<DialoguePhase>("sim_dialogue_phase", "idle");
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
 
   const visibleScenarios = useMemo(
@@ -346,23 +348,50 @@ export function SimulatorScreen({
   }
 
   async function persistLatestReport(currentScenario: Scenario) {
-    if (!sessionId) {
+    const capturedSessionId = sessionId;
+    if (!capturedSessionId) {
       throw new Error("Сначала запустите сценарий.");
     }
 
-    const response = await simulatorApiService.finishDialogueSession(sessionId);
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 2000;
+
+    let evaluation: import("../../types/academy").SimulatorEvaluationPayloadDto | undefined;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await simulatorApiService.finishDialogueSession(capturedSessionId);
+        if (response.evaluation) {
+          evaluation = response.evaluation;
+          break;
+        }
+        // evaluation missing — wait and retry (backend may still be generating)
+        if (attempt < MAX_ATTEMPTS) {
+          setSuccessMessage(`Генерируем отчёт... (попытка ${attempt}/${MAX_ATTEMPTS})`);
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        }
+      } catch (err) {
+        // if backend returns error on already-finished session, try once more
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        } else {
+          throw err;
+        }
+      }
+    }
+
     setDialoguePhase("finished");
     setDraft("");
 
-    if (response.evaluation) {
+    if (evaluation) {
       await onReportSaved({
         scenarioTitle: currentScenario.title,
-        evaluation: response.evaluation
+        evaluation
       });
       setSuccessMessage('Диалог завершён. Отчет сохранен во вкладке "Отчеты".');
       onNavigateToReports();
     } else {
-      setSuccessMessage("Диалог завершён, но оценка пока не сформирована.");
+      setSuccessMessage("Диалог завершён, но оценка не была получена от сервера. Попробуйте завершить ещё раз.");
     }
   }
 

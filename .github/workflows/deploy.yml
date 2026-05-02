@@ -62,4 +62,7 @@ jobs:
               sleep 5
             done
 
+            echo "Extracting dist folder for Host Nginx..."
+            docker compose cp frontend:/usr/share/nginx/html ./dist
+
             docker image prune -f

@@ -47,43 +47,40 @@ interface RenderSectionCard {
 
 const roleContent = {
   student: {
-    emptyTitle: "Последний отчет еще не сохранен",
+    emptyTitle: "Отчеты пока не сохранены",
     emptyDescription:
-      "Завершите диалог в тренажере. После этого здесь появится один последний отчет с предпросмотром и выгрузкой.",
+      "Завершите диалог в тренажере — здесь появятся все ваши отчеты с предпросмотром и выгрузкой.",
     infoLines: [
-      "После завершения диалога сохраняется только один последний отчет.",
-      "Новый отчет перезаписывает предыдущий без отдельной базы данных.",
+      "После каждого завершенного диалога сохраняется новый отчет.",
+      "Все отчеты хранятся локально на устройстве.",
       "Из этой вкладки доступны предпросмотр, PDF и CSV."
     ]
   },
   manager: {
-    emptyTitle: "Последний отчет по практике еще не сохранен",
+    emptyTitle: "Отчеты по практике пока не сохранены",
     emptyDescription:
-      "После завершения диалога руководитель увидит здесь только последний сохраненный отчет по текущей практике.",
+      "После завершения диалога руководитель увидит здесь все отчеты по практикам.",
     infoLines: [
-      "Хранится только последний отчет по завершенной практике.",
-      "Если пройти новый диалог, предыдущий отчет будет заменен.",
-      "Во вкладке доступны предпросмотр, PDF и CSV."
+      "Отчеты сохраняются локально после каждого завершения диалога.",
+      "Из этой вкладки доступны предпросмотр, PDF и CSV."
     ]
   },
   hr: {
-    emptyTitle: "Последний отчет еще не поступил",
+    emptyTitle: "Отчеты пока не поступили",
     emptyDescription:
-      "Когда в текущей сессии будет завершен диалог и сохранен отчет, он появится здесь как единственный актуальный артефакт.",
+      "Когда диалог будет завершен и сохранен, отчет появится здесь.",
     infoLines: [
-      "На MVP этапе без БД хранится только один последний отчет.",
-      "Выгрузки строятся прямо из этого сохраненного отчета.",
-      "История отчетов появится позже вместе с постоянным хранилищем."
+      "Все отчеты хранятся локально на устройстве.",
+      "Выгрузки строятся прямо из сохраненных отчетов."
     ]
   },
   admin: {
-    emptyTitle: "Последний отчет еще не зафиксирован",
+    emptyTitle: "Отчеты пока не зафиксированы",
     emptyDescription:
-      "Пока ни один завершенный диалог не сохранил актуальный отчет в runtime-хранилище приложения.",
+      "Пока ни один завершенный диалог не сохранил отчет.",
     infoLines: [
-      "Сейчас нет отдельного файлового или серверного архива отчетов.",
-      "Сохраняется только последний отчет в памяти приложения.",
-      "PDF и CSV формируются из этой записи по запросу."
+      "Все отчеты хранятся локально на устройстве.",
+      "PDF и CSV формируются по запросу."
     ]
   }
 } as const;
@@ -95,7 +92,7 @@ function buildSafeFilename(report: ReportCard, extension: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
 
-  return `${normalizedTitle || "latest-report"}.${extension}`;
+  return `${normalizedTitle || "report"}.${extension}`;
 }
 
 function escapeCsvCell(value: string): string {
@@ -325,10 +322,10 @@ function drawHeroCard(ctx: CanvasRenderingContext2D, report: ReportCard): number
   });
 
   const pillY = reportPagePadding + heroHeight - 72;
-  const pills = [report.ownerLabel, report.updatedAt, "Последний отчет"];
+  const pills = [report.ownerLabel, report.updatedAt];
   let pillX = reportPagePadding + 34;
   ctx.font = `700 16px ${browserFontStack}`;
-  pills.forEach((label, index) => {
+  pills.forEach((label) => {
     const pillWidth = ctx.measureText(label).width + 36;
     drawRoundedRect(
       ctx,
@@ -337,10 +334,10 @@ function drawHeroCard(ctx: CanvasRenderingContext2D, report: ReportCard): number
       pillWidth,
       36,
       18,
-      index === 2 ? reportExportTheme.semantic.actionPrimary : "#FFFFFF",
-      index === 2 ? reportExportTheme.semantic.actionPrimary : reportExportTheme.semantic.border
+      "#FFFFFF",
+      reportExportTheme.semantic.border
     );
-    ctx.fillStyle = index === 2 ? "#FFFFFF" : reportExportTheme.semantic.textPrimary;
+    ctx.fillStyle = reportExportTheme.semantic.textPrimary;
     ctx.fillText(label, pillX + 18, pillY + 24);
     pillX += pillWidth + 12;
   });
@@ -455,7 +452,7 @@ function drawPageFooter(
   ctx.fillStyle = reportExportTheme.semantic.textMuted;
   ctx.font = `600 16px ${browserFontStack}`;
   ctx.fillText(
-    "Экспортировано из web MVP-платформы. В памяти приложения хранится только последний отчет.",
+    "Экспортировано из AI Sales Academy.",
     reportPagePadding,
     baselineY
   );
@@ -527,10 +524,16 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeExport, setActiveExport] = useState<ExportFormat | null>(null);
 
-  const latestReport = useMemo(
-    () => reports.find((report) => report.id === highlightReportId) ?? reports[0] ?? null,
-    [highlightReportId, reports]
-  );
+  const sortedReports = useMemo(() => {
+    if (highlightReportId) {
+      const highlighted = reports.find((r) => r.id === highlightReportId);
+      if (highlighted) {
+        return [highlighted, ...reports.filter((r) => r.id !== highlightReportId)];
+      }
+    }
+    return reports;
+  }, [highlightReportId, reports]);
+
   const reportWidth = layout.isDesktop ? "56%" : "100%";
   const content = roleContent[activeRole];
 
@@ -589,7 +592,7 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
         `Отчет: ${report.title}`,
         `Формат: ${format.toUpperCase()}`,
         "На web файл создается по кнопке автоматически.",
-        "На других платформах пока доступен только предпросмотр последнего сохраненного отчета."
+        "На других платформах пока доступен только предпросмотр."
       ]
     });
   }
@@ -602,7 +605,7 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
         </AppCard>
       ) : null}
 
-      {latestReport === null ? (
+      {sortedReports.length === 0 ? (
         <EmptyState
           title={content.emptyTitle}
           description={content.emptyDescription}
@@ -611,54 +614,57 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
         />
       ) : (
         <View style={[styles.reportsGrid, layout.isDesktop && styles.reportsGridDesktop]}>
-          <View style={{ width: reportWidth }}>
-            <AppCard tone="mint">
-              <View style={styles.rowBetween}>
-                <View style={styles.flexBlock}>
-                  <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{latestReport.title}</Text>
-                  <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{latestReport.summary}</Text>
-                  <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-                    {latestReport.ownerLabel} · {latestReport.updatedAt}
-                  </Text>
+          {sortedReports.map((report, index) => (
+            <View key={report.id} style={{ width: reportWidth }}>
+              <AppCard tone="mint">
+                <View style={styles.rowBetween}>
+                  <View style={styles.flexBlock}>
+                    <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
+                    <Text
+                      style={[styles.body, { color: theme.semantic.textSecondary }]}
+                      numberOfLines={3}
+                    >
+                      {report.summary}
+                    </Text>
+                    <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+                      {report.ownerLabel} · {report.updatedAt}
+                    </Text>
+                  </View>
+                  {index === 0 ? <StatusPill label="Последний" tone="success" /> : null}
                 </View>
-                <StatusPill label="Последний" tone="success" />
-              </View>
 
-              <Text style={[styles.note, { color: theme.semantic.textSecondary }]}>
-                Хранится только один последний отчет. Следующее завершение диалога перезапишет текущий.
-              </Text>
-
-              <View style={styles.buttonRow}>
-                <AppButton label="Предпросмотр" onPress={() => openPreview(latestReport)} tone="primary" />
-                <AppButton
-                  label={activeExport === "pdf" ? "PDF..." : "PDF"}
-                  onPress={() => {
-                    void openExport(latestReport, "pdf");
-                  }}
-                  tone="secondary"
-                  disabled={activeExport !== null}
-                />
-                <AppButton
-                  label={activeExport === "csv" ? "CSV..." : "CSV"}
-                  onPress={() => {
-                    void openExport(latestReport, "csv");
-                  }}
-                  tone="ghost"
-                  disabled={activeExport !== null}
-                />
-              </View>
-            </AppCard>
-          </View>
+                <View style={styles.buttonRow}>
+                  <AppButton label="Предпросмотр" onPress={() => openPreview(report)} tone="primary" />
+                  <AppButton
+                    label={activeExport === "pdf" ? "PDF..." : "PDF"}
+                    onPress={() => {
+                      void openExport(report, "pdf");
+                    }}
+                    tone="secondary"
+                    disabled={activeExport !== null}
+                  />
+                  <AppButton
+                    label={activeExport === "csv" ? "CSV..." : "CSV"}
+                    onPress={() => {
+                      void openExport(report, "csv");
+                    }}
+                    tone="ghost"
+                    disabled={activeExport !== null}
+                  />
+                </View>
+              </AppCard>
+            </View>
+          ))}
         </View>
       )}
 
       <AppCard tone="mint">
-        <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>MVP-хранение</Text>
+        <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Локальное хранение</Text>
         <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-          Без отдельной базы данных и архива сейчас хранится только один последний отчет на все приложение.
+          Все отчеты сохраняются локально на вашем устройстве. Хранится до 50 последних отчетов.
         </Text>
         <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-          Текущая роль: {roleLabels[activeRole]} · Новый завершенный диалог заменяет предыдущий отчет.
+          Текущая роль: {roleLabels[activeRole]} · Отчетов: {sortedReports.length}
         </Text>
       </AppCard>
 
@@ -671,8 +677,8 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
         }
         description={
           sheetState?.kind === "preview"
-            ? `Отчет доступен из общего MVP-хранилища и открыт для роли: ${roleLabels[activeRole]}.`
-            : "Последний отчет обрабатывается прямо во вкладке без отдельного серверного архива."
+            ? `Отчет для роли: ${roleLabels[activeRole]}.`
+            : "Отчет сформирован по завершенному диалогу."
         }
         onClose={() => setSheetState(null)}
       >

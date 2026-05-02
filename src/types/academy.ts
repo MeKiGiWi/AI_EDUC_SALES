@@ -399,6 +399,14 @@ export interface AdminSettings {
   actionItems: ActionItem[];
 }
 
+export interface SavedSimulatorReport {
+  id: string;
+  scenarioTitle: string;
+  displayName: string;
+  createdAt: string;
+  evaluation: SimulatorEvaluationPayloadDto;
+}
+
 export interface ReportCard {
   id: string;
   title: string;

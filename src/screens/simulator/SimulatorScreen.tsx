@@ -66,6 +66,9 @@ export function SimulatorScreen({
   const theme = useTheme();
   const apiEnabled = simulatorApiService.isEnabled();
   const [apiScenarios, setApiScenarios] = useState<Scenario[]>([]);
+  const [simulatorUnavailableReason, setSimulatorUnavailableReason] = useState<string | null>(null);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [selectedMaterial, setSelectedMaterial] = useState<KnowledgeMaterial | null>(null);
   const apiSimulatorModule = useMemo<LearningModule>(
     () => ({
@@ -81,12 +84,12 @@ export function SimulatorScreen({
   );
   const simulatorModules = useMemo(() => {
     if (!apiEnabled) {
-      return modules;
+      return [apiSimulatorModule];
     }
 
     return [apiSimulatorModule];
-  }, [apiEnabled, apiSimulatorModule, modules]);
-  const catalogScenarios = apiEnabled ? apiScenarios : scenarios;
+  }, [apiEnabled, apiSimulatorModule]);
+  const catalogScenarios = apiScenarios;
   const initialScenario = useMemo(
     () => catalogScenarios.find((scenario) => scenario.id === activeScenarioId) ?? catalogScenarios[0],
     [activeScenarioId, catalogScenarios]
@@ -157,10 +160,20 @@ export function SimulatorScreen({
 
     async function loadApiScenarios() {
       if (!apiEnabled) {
+        if (!isMounted) {
+          return;
+        }
+
+        setApiScenarios([]);
+        setSimulatorUnavailableReason(
+          "Тренажер временно недоступен. Идут технические работы. Попробуйте зайти позже."
+        );
         return;
       }
 
       try {
+        setIsCatalogLoading(true);
+        setSimulatorUnavailableReason(null);
         const items = await simulatorApiService.fetchSimulatorScenarios();
         if (!isMounted) {
           return;
@@ -190,22 +203,16 @@ export function SimulatorScreen({
           return;
         }
 
-        const fallbackScenarios = [
-          mapApiScenarioToScenario(
-            {
-              id: "baseline-fallback",
-              title: "Baseline (Fallback)",
-              openingMessage: "Оффлайн режим",
-              status: "ready"
-            },
-            API_SIMULATOR_MODULE_ID
-          )
-        ];
-
-        setApiScenarios(fallbackScenarios);
+        setApiScenarios([]);
         setSelectedModuleId(API_SIMULATOR_MODULE_ID);
-        setSelectedScenarioId(fallbackScenarios[0].id);
-        setSuccessMessage("Тренажер работает в оффлайн-режиме (нет связи с backend).");
+        setSelectedScenarioId(undefined);
+        setSimulatorUnavailableReason(
+          "Тренажер временно недоступен. Идут технические работы. Попробуйте обновить страницу через несколько минут."
+        );
+      } finally {
+        if (isMounted) {
+          setIsCatalogLoading(false);
+        }
       }
     }
 
@@ -214,51 +221,29 @@ export function SimulatorScreen({
     return () => {
       isMounted = false;
     };
-  }, [apiEnabled]);
+  }, [apiEnabled, reloadToken]);
 
   useEffect(() => {
     if (apiEnabled) {
       setSelectedModuleId(API_SIMULATOR_MODULE_ID);
       return;
     }
-
-    if (initialScenario) {
-      setSelectedModuleId(initialScenario.moduleId);
-      setSelectedScenarioId(initialScenario.id);
-      return;
-    }
-
-    setSelectedModuleId((current) => {
-      if (current && simulatorModules.some((module) => module.id === current)) {
-        return current;
-      }
-
-      return fallbackModuleId;
-    });
   }, [apiEnabled, fallbackModuleId, initialScenario, simulatorModules]);
 
   useEffect(() => {
-    if (!selectedModuleId) {
+    if (!selectedModuleId || !apiEnabled) {
       setSelectedScenarioId(undefined);
       return;
     }
 
-    if (apiEnabled) {
-      const firstApiScenarioId = apiScenarios[0]?.id;
-      setSelectedScenarioId((current) =>
-        current && apiScenarios.some((scenario) => scenario.id === current) ? current : firstApiScenarioId
-      );
-      return;
-    }
-
-    const firstScenarioId = catalogScenarios.find((scenario) => scenario.moduleId === selectedModuleId)?.id;
+    const firstScenarioId = apiScenarios.find((scenario) => scenario.moduleId === selectedModuleId)?.id;
     setSelectedScenarioId((current) =>
       current &&
-      catalogScenarios.some((scenario) => scenario.moduleId === selectedModuleId && scenario.id === current)
+      apiScenarios.some((scenario) => scenario.moduleId === selectedModuleId && scenario.id === current)
         ? current
         : firstScenarioId
     );
-  }, [apiEnabled, apiScenarios, catalogScenarios, selectedModuleId]);
+  }, [apiEnabled, apiScenarios, selectedModuleId]);
 
   useEffect(() => {
     if (selectedScenario) {
@@ -266,11 +251,7 @@ export function SimulatorScreen({
       return;
     }
 
-    if (!apiEnabled) {
-      setMessages([createSystemMessage(buildMissingApiUrlText())]);
-    } else {
-      setMessages((current) => current.filter((message) => message.speakerRole === "system"));
-    }
+    setMessages((current) => current.filter((message) => message.speakerRole === "system"));
     setDraft("");
     setSessionId(null);
     setSelectedMaterial(null);
@@ -288,6 +269,12 @@ export function SimulatorScreen({
 
   function buildMissingApiUrlText(): string {
     return "Ошибка конфигурации: EXPO_PUBLIC_SIMULATOR_API_URL не задан. Тренажер работает только через backend.";
+  }
+
+  function retrySimulatorConnection() {
+    setSuccessMessage(null);
+    setSimulatorUnavailableReason(null);
+    setReloadToken((current) => current + 1);
   }
 
   function formatSystemErrorText(operation: string, error: unknown): string {
@@ -548,6 +535,43 @@ export function SimulatorScreen({
     }
 
     setSelectedMaterial(materialHint);
+  }
+
+  if (simulatorUnavailableReason) {
+    return (
+      <View style={styles.trainerContent}>
+        <AppCard style={styles.dialogFullWidth}>
+          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Тренажер временно недоступен</Text>
+          <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+            {simulatorUnavailableReason}
+          </Text>
+          <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+            Мы уже восстанавливаем сервис. Повторите попытку позже.
+          </Text>
+          <View style={styles.buttonRow}>
+            <AppButton
+              label="Проверить снова"
+              onPress={retrySimulatorConnection}
+              tone="primary"
+              disabled={isCatalogLoading}
+            />
+          </View>
+        </AppCard>
+      </View>
+    );
+  }
+
+  if (isCatalogLoading && catalogScenarios.length === 0) {
+    return (
+      <View style={styles.trainerContent}>
+        <AppCard style={styles.dialogFullWidth}>
+          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Подключаем тренажер</Text>
+          <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+            Загружаем сценарии и проверяем доступность сервиса.
+          </Text>
+        </AppCard>
+      </View>
+    );
   }
 
   return (

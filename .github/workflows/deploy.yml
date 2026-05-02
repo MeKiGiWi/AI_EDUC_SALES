@@ -28,7 +28,11 @@ jobs:
             cd /opt/ai-educ-sales
 
             git fetch origin main
+            git checkout main
             git reset --hard origin/main
+            echo "Deploying commit $(git rev-parse --short HEAD)"
 
-            docker compose up -d --build
+            docker compose build --pull --no-cache frontend
+            docker compose build --pull backend
+            docker compose up -d --force-recreate
             docker image prune -f

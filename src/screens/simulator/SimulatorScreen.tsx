@@ -32,6 +32,7 @@ interface SimulatorScreenProps {
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
   }) => void | Promise<void>;
+  onNavigateToReports: () => void;
 }
 
 type DialoguePhase = "idle" | "active" | "finished";
@@ -57,7 +58,8 @@ export function SimulatorScreen({
   activeScenarioId,
   activeMaterialId,
   onOpenReports,
-  onReportSaved
+  onReportSaved,
+  onNavigateToReports
 }: SimulatorScreenProps) {
   const theme = useTheme();
   const apiEnabled = simulatorApiService.isEnabled();
@@ -100,6 +102,7 @@ export function SimulatorScreen({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [dialoguePhase, setDialoguePhase] = useState<DialoguePhase>("idle");
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
 
   const visibleScenarios = useMemo(
     () => catalogScenarios.filter((scenario) => scenario.moduleId === selectedModuleId),
@@ -161,7 +164,22 @@ export function SimulatorScreen({
           return;
         }
 
-        const mappedScenarios = items.map((item) => mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID));
+        let mappedScenarios = items.map((item) => mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID));
+        
+        if (mappedScenarios.length === 0) {
+          mappedScenarios = [
+            mapApiScenarioToScenario(
+              {
+                id: "baseline",
+                title: "Baseline",
+                openingMessage: "Добрый день.",
+                status: "ready"
+              },
+              API_SIMULATOR_MODULE_ID
+            )
+          ];
+        }
+
         setApiScenarios(mappedScenarios);
         setSelectedModuleId(API_SIMULATOR_MODULE_ID);
         setSelectedScenarioId(mappedScenarios[0]?.id);
@@ -170,8 +188,22 @@ export function SimulatorScreen({
           return;
         }
 
-        setApiScenarios([]);
-        appendSystemErrorMessage("fetchSimulatorScenarios", error);
+        const fallbackScenarios = [
+          mapApiScenarioToScenario(
+            {
+              id: "baseline-fallback",
+              title: "Baseline (Fallback)",
+              openingMessage: "Оффлайн режим",
+              status: "ready"
+            },
+            API_SIMULATOR_MODULE_ID
+          )
+        ];
+
+        setApiScenarios(fallbackScenarios);
+        setSelectedModuleId(API_SIMULATOR_MODULE_ID);
+        setSelectedScenarioId(fallbackScenarios[0].id);
+        setSuccessMessage("Тренажер работает в оффлайн-режиме (нет связи с backend).");
       }
     }
 
@@ -319,18 +351,19 @@ export function SimulatorScreen({
     }
 
     const response = await simulatorApiService.finishDialogueSession(sessionId);
+    setDialoguePhase("finished");
+    setDraft("");
+
     if (response.evaluation) {
       await onReportSaved({
         scenarioTitle: currentScenario.title,
         evaluation: response.evaluation
       });
       setSuccessMessage('Диалог завершён. Отчет сохранен во вкладке "Отчеты".');
+      onNavigateToReports();
     } else {
       setSuccessMessage("Диалог завершён, но оценка пока не сформирована.");
     }
-
-    setDialoguePhase("finished");
-    setDraft("");
   }
 
   async function startScenario() {
@@ -438,6 +471,17 @@ export function SimulatorScreen({
       return;
     }
 
+    const userMessageCount = messages.filter((msg) => msg.speakerRole === "learner").length;
+    if (userMessageCount < 10) {
+      setShowFinishConfirm(true);
+      return;
+    }
+
+    await finishActiveScenario();
+  }
+
+  async function confirmFinishScenario() {
+    setShowFinishConfirm(false);
     await finishActiveScenario();
   }
 
@@ -636,6 +680,38 @@ export function SimulatorScreen({
           </>
         ) : null}
       </AppBottomSheet>
+
+      <AppBottomSheet
+        visible={showFinishConfirm}
+        title="Недостаточно реплик"
+        description={`Вы отправили ${messages.filter((m) => m.speakerRole === "learner").length} из рекомендуемых 10 реплик. Этого мало для хорошей точности оценки.`}
+        onClose={() => setShowFinishConfirm(false)}
+        hideCloseButton
+        centeredHeader
+      >
+        <Text style={[styles.body, { color: theme.semantic.textSecondary, textAlign: "center" }]}>
+          Чем больше реплик вы отправите, тем точнее будет оценка ваших навыков. Рекомендуем продолжить диалог.
+        </Text>
+        <View style={styles.confirmButtonRow}>
+          <View style={styles.confirmButtonItem}>
+            <AppButton
+              label="Завершить"
+              onPress={() => { void confirmFinishScenario(); }}
+              tone="secondary"
+              fullWidth
+              disabled={isBusy}
+            />
+          </View>
+          <View style={styles.confirmButtonItem}>
+            <AppButton
+              label="Продолжить"
+              onPress={() => setShowFinishConfirm(false)}
+              tone="primary"
+              fullWidth
+            />
+          </View>
+        </View>
+      </AppBottomSheet>
     </>
   );
 }
@@ -721,6 +797,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10
+  },
+  confirmButtonRow: {
+    flexDirection: "row",
+    gap: 10
+  },
+  confirmButtonItem: {
+    flex: 1
   },
   chatArea: {
     gap: 12

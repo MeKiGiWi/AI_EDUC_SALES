@@ -11,6 +11,9 @@ interface AppBottomSheetProps {
   description?: string;
   children?: ReactNode;
   onClose: () => void;
+  hideCloseButton?: boolean;
+  centeredHeader?: boolean;
+  minHeight?: number;
 }
 
 export function AppBottomSheet({
@@ -18,7 +21,10 @@ export function AppBottomSheet({
   title,
   description,
   children,
-  onClose
+  onClose,
+  hideCloseButton,
+  centeredHeader,
+  minHeight
 }: AppBottomSheetProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
@@ -43,14 +49,15 @@ export function AppBottomSheet({
               borderRadius: isDesktop ? theme.radius.xl : undefined,
               borderTopLeftRadius: isDesktop ? undefined : theme.radius.xl,
               borderTopRightRadius: isDesktop ? undefined : theme.radius.xl,
-              borderColor: theme.semantic.border
+              borderColor: theme.semantic.border,
+              ...(minHeight ? { minHeight } : {})
             }
           ]}
         >
           <View style={styles.header}>
             {!isDesktop ? <View style={[styles.handle, { backgroundColor: theme.semantic.border }]} /> : null}
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{title}</Text>
-            {description ? <Text style={[styles.description, { color: theme.semantic.textSecondary }]}>{description}</Text> : null}
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }, centeredHeader && styles.titleCentered]}>{title}</Text>
+            {description ? <Text style={[styles.description, { color: theme.semantic.textSecondary }, centeredHeader && styles.descriptionCentered]}>{description}</Text> : null}
           </View>
           <ScrollView
             style={styles.scrollArea}
@@ -60,7 +67,7 @@ export function AppBottomSheet({
           >
             {children}
           </ScrollView>
-          <AppButton label="Закрыть" onPress={onClose} tone="secondary" fullWidth />
+          {!hideCloseButton ? <AppButton label="Закрыть" onPress={onClose} tone="secondary" fullWidth /> : null}
         </View>
       </View>
     </Modal>
@@ -80,10 +87,10 @@ const styles = StyleSheet.create({
   },
   sheetBase: {
     borderWidth: 1,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 28,
-    gap: 18,
+    paddingHorizontal: 24,
+    paddingTop: 36,
+    paddingBottom: 32,
+    gap: 20,
     maxHeight: "82%"
   },
   sheetMobile: {
@@ -95,7 +102,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1
   },
   header: {
-    gap: 8
+    gap: 16
   },
   handle: {
     alignSelf: "center",
@@ -107,6 +114,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
     fontWeight: "800"
+  },
+  titleCentered: {
+    textAlign: "center"
+  },
+  descriptionCentered: {
+    textAlign: "center"
   },
   description: {
     fontSize: 15,

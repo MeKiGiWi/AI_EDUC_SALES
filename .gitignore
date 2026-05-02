@@ -22,6 +22,7 @@ coverage.xml
 .mypy_cache/
 .pytest_cache/
 .hypothesis/
+log_dialog/
 
 # Distribution / packaging
 .Python

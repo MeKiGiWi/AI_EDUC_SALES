@@ -79,7 +79,7 @@ export function AppNavigator() {
         academyDataService.getManagerDashboard(),
         academyDataService.getHrDashboard(),
         academyDataService.getAdminSettings(),
-        academyDataService.getReports()
+        academyDataService.getReports(activeRole)
       ]);
 
       setStudentDashboard(studentData);
@@ -127,12 +127,12 @@ export function AppNavigator() {
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
   }) {
-    const report = await academyDataService.saveLatestSimulatorReport({
+    const allReports = await academyDataService.saveLatestSimulatorReport({
       role: activeRole,
       scenarioTitle: payload.scenarioTitle,
       evaluation: payload.evaluation
     });
-    setReports([report]);
+    setReports(allReports);
   }
 
   const footer = useMemo(
@@ -217,6 +217,7 @@ export function AppNavigator() {
           activeMaterialId={simulatorParams?.materialId}
           onOpenReports={() => navigate("Reports")}
           onReportSaved={handleSimulatorReportSaved}
+          onNavigateToReports={() => navigate("Reports")}
         />
       ) : null}
 

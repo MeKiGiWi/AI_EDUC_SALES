@@ -14,18 +14,19 @@ import type {
   KnowledgeSection,
   ManagerDashboard,
   ReportCard,
+  SavedSimulatorReport,
   Scenario,
   SimulatorEvaluationPayloadDto,
   StudentDashboard,
   UserRole
 } from "../types/academy";
+import { reportStorageService } from "./reportStorageService";
 
 const simulateLatency = async <T>(data: T): Promise<T> =>
   new Promise((resolve) => {
     setTimeout(() => resolve(data), 120);
   });
 
-const latestReportId = "latest-simulator-report";
 const roleOwnerLabels: Record<UserRole, string> = {
   student: "Ученик",
   manager: "Руководитель",
@@ -38,12 +39,12 @@ const competencyLevelRank = {
   Senior: 3
 } as const;
 
-let latestSimulatorReport: ReportCard | null = null;
-
-function formatLatestReportTimestamp(date: Date): string {
+function formatReportTimestamp(date: Date): string {
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const hours = `${date.getHours()}`.padStart(2, "0");
   const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `Сегодня, ${hours}:${minutes}`;
+  return `${day}.${month} ${hours}:${minutes}`;
 }
 
 function buildCompetencyLines(evaluation: SimulatorEvaluationPayloadDto): string[] {
@@ -99,6 +100,71 @@ function buildDevelopmentLines(evaluation: SimulatorEvaluationPayloadDto): strin
   });
 }
 
+function savedReportToReportCard(
+  saved: SavedSimulatorReport,
+  role: UserRole
+): ReportCard {
+  const evaluation = saved.evaluation;
+  const recommendationLines = buildRecommendationLines(evaluation);
+  const quoteLines = buildQuoteLines(evaluation);
+  const updatedAt = formatReportTimestamp(new Date(saved.createdAt));
+
+  return {
+    id: saved.id,
+    title: saved.displayName,
+    role,
+    reportType: "student_progress",
+    summary: evaluation.overall_comment,
+    format: "pdf",
+    updatedAt,
+    ownerLabel: roleOwnerLabels[role],
+    availableFormats: ["pdf", "csv"],
+    previewSections: [
+      {
+        id: `${saved.id}-resume`,
+        title: "Краткое резюме",
+        lines: [
+          `Кейс: ${saved.scenarioTitle}`,
+          `Общий уровень: ${evaluation.overall_level}`,
+          evaluation.overall_comment
+        ]
+      },
+      {
+        id: `${saved.id}-competencies`,
+        title: "Компетенции",
+        lines: buildCompetencyLines(evaluation)
+      },
+      {
+        id: `${saved.id}-strengths`,
+        title: "Сильные стороны",
+        lines: buildStrengthLines(evaluation)
+      },
+      {
+        id: `${saved.id}-development`,
+        title: "Зоны развития",
+        lines: buildDevelopmentLines(evaluation)
+      },
+      {
+        id: `${saved.id}-recommendations`,
+        title: "Рекомендации",
+        lines:
+          recommendationLines.length > 0
+            ? recommendationLines
+            : ["Продолжить практику и собрать больше реплик для следующей оценки."]
+      },
+      ...(quoteLines.length > 0
+        ? [
+            {
+              id: `${saved.id}-quotes`,
+              title: "Цитаты из диалога",
+              lines: quoteLines
+            }
+          ]
+        : [])
+    ]
+  };
+}
+
 export const academyDataService = {
   getCurrentUser(role: UserRole): Promise<AcademyUser> {
     return simulateLatency(usersByRole[role]);
@@ -121,73 +187,23 @@ export const academyDataService = {
   getAdminSettings(): Promise<AdminSettings> {
     return simulateLatency(adminSettingsData);
   },
-  getReports(): Promise<ReportCard[]> {
-    return simulateLatency(latestSimulatorReport ? [latestSimulatorReport] : []);
+
+  getReports(role: UserRole): Promise<ReportCard[]> {
+    const saved = reportStorageService.getAll();
+    const cards = saved.map((item) => savedReportToReportCard(item, role));
+    return simulateLatency(cards);
   },
+
   saveLatestSimulatorReport(params: {
     role: UserRole;
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
-  }): Promise<ReportCard> {
-    const updatedAt = formatLatestReportTimestamp(new Date());
-    const recommendationLines = buildRecommendationLines(params.evaluation);
-    const quoteLines = buildQuoteLines(params.evaluation);
-
-    latestSimulatorReport = {
-      id: latestReportId,
-      title: `Отчет по диалогу: ${params.scenarioTitle}`,
-      role: params.role,
-      reportType: "student_progress",
-      summary: params.evaluation.overall_comment,
-      format: "pdf",
-      updatedAt,
-      ownerLabel: roleOwnerLabels[params.role],
-      availableFormats: ["pdf", "csv"],
-      previewSections: [
-        {
-          id: `${latestReportId}-resume`,
-          title: "Краткое резюме",
-          lines: [
-            `Кейс: ${params.scenarioTitle}`,
-            `Общий уровень: ${params.evaluation.overall_level}`,
-            params.evaluation.overall_comment
-          ]
-        },
-        {
-          id: `${latestReportId}-competencies`,
-          title: "Компетенции",
-          lines: buildCompetencyLines(params.evaluation)
-        },
-        {
-          id: `${latestReportId}-strengths`,
-          title: "Сильные стороны",
-          lines: buildStrengthLines(params.evaluation)
-        },
-        {
-          id: `${latestReportId}-development`,
-          title: "Зоны развития",
-          lines: buildDevelopmentLines(params.evaluation)
-        },
-        {
-          id: `${latestReportId}-recommendations`,
-          title: "Рекомендации",
-          lines:
-            recommendationLines.length > 0
-              ? recommendationLines
-              : ["Продолжить практику и собрать больше реплик для следующей оценки."]
-        },
-        ...(quoteLines.length > 0
-          ? [
-              {
-                id: `${latestReportId}-quotes`,
-                title: "Цитаты из диалога",
-                lines: quoteLines
-              }
-            ]
-          : [])
-      ]
-    };
-
-    return simulateLatency(latestSimulatorReport);
+  }): Promise<ReportCard[]> {
+    const saved = reportStorageService.save(params.scenarioTitle, params.evaluation);
+    const allSaved = reportStorageService.getAll();
+    const cards = allSaved.map((item) =>
+      savedReportToReportCard(item, params.role)
+    );
+    return simulateLatency(cards);
   }
 };

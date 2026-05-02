@@ -161,7 +161,22 @@ export function SimulatorScreen({
           return;
         }
 
-        const mappedScenarios = items.map((item) => mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID));
+        let mappedScenarios = items.map((item) => mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID));
+        
+        if (mappedScenarios.length === 0) {
+          mappedScenarios = [
+            mapApiScenarioToScenario(
+              {
+                id: "baseline",
+                title: "Baseline",
+                openingMessage: "Добрый день.",
+                status: "ready"
+              },
+              API_SIMULATOR_MODULE_ID
+            )
+          ];
+        }
+
         setApiScenarios(mappedScenarios);
         setSelectedModuleId(API_SIMULATOR_MODULE_ID);
         setSelectedScenarioId(mappedScenarios[0]?.id);
@@ -170,8 +185,22 @@ export function SimulatorScreen({
           return;
         }
 
-        setApiScenarios([]);
-        appendSystemErrorMessage("fetchSimulatorScenarios", error);
+        const fallbackScenarios = [
+          mapApiScenarioToScenario(
+            {
+              id: "baseline-fallback",
+              title: "Baseline (Fallback)",
+              openingMessage: "Оффлайн режим",
+              status: "ready"
+            },
+            API_SIMULATOR_MODULE_ID
+          )
+        ];
+
+        setApiScenarios(fallbackScenarios);
+        setSelectedModuleId(API_SIMULATOR_MODULE_ID);
+        setSelectedScenarioId(fallbackScenarios[0].id);
+        setSuccessMessage("Тренажер работает в оффлайн-режиме (нет связи с backend).");
       }
     }
 

@@ -3,7 +3,7 @@ from pathlib import Path
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.agents import BuyerAgent, RudeClassifierAgent
+from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
 from app.graph import create_graph
 from app.models import GraphDependencies
 from app.store import InMemorySessionStore
@@ -17,6 +17,9 @@ def render_graph_artifacts() -> None:
             session_store=InMemorySessionStore(),
             rude_classifier=RudeClassifierAgent(
                 RunnableLambda(lambda _: AIMessage(content='{"rude":"no","confidence":0.5}'))
+            ),
+            topic_classifier=TopicClassifierAgent(
+                RunnableLambda(lambda _: AIMessage(content='{"on_topic":"yes","confidence":0.5}'))
             ),
             buyer_agent=BuyerAgent(RunnableLambda(lambda _: AIMessage(content="Понял. Что именно вы хотите уточнить?"))),
         )

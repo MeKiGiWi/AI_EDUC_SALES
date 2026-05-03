@@ -2,7 +2,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.agents import BuyerAgent, RudeClassifierAgent
+from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
 from app.graph import create_graph
 from app.models import GraphDependencies
 from app.prompts import BASELINE_OPENING_MESSAGE, BUYER_SCENARIO_CONTEXT_PROMPT, BUYER_SYSTEM_PROMPT
@@ -10,11 +10,16 @@ from app.scenario_repository import get_scenario_info
 from app.store import InMemorySessionStore
 
 
-def build_graph_with_reply(reply_text: str, rude_json='{"rude":"no","confidence":0.77}'):
+def build_graph_with_reply(
+    reply_text: str,
+    rude_json='{"rude":"no","confidence":0.77}',
+    topic_json='{"on_topic":"yes","confidence":0.88}',
+):
     return create_graph(
         GraphDependencies(
             session_store=InMemorySessionStore(),
             rude_classifier=RudeClassifierAgent(RunnableLambda(lambda _: AIMessage(content=rude_json))),
+            topic_classifier=TopicClassifierAgent(RunnableLambda(lambda _: AIMessage(content=topic_json))),
             buyer_agent=BuyerAgent(RunnableLambda(lambda _: AIMessage(content=reply_text))),
         )
     )
@@ -77,4 +82,77 @@ async def test_graph_starts_with_scenario_context_and_opening_message() -> None:
     )
     assert isinstance(started["messages"][2], AIMessage)
     assert started["messages"][2].content == BASELINE_OPENING_MESSAGE
+    assert started["messages"][2].content == BASELINE_OPENING_MESSAGE
     assert started["customer_message"] == started["messages"][2].content
+
+
+@pytest.mark.asyncio
+async def test_graph_returns_buyer_reply_when_user_message_is_on_topic() -> None:
+    graph = build_graph_with_reply(
+        "Нам важно не сорвать внедрение.",
+        topic_json='{"on_topic":"yes","confidence":0.9}',
+    )
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
+    result = await graph.ainvoke(
+        {
+            "action": "reply_to_sales",
+            "session_id": started["session_id"],
+            "sales_message": "Какие у вас критерии выбора поставщика?",
+        }
+    )
+
+    assert result["status"] == "active"
+    assert result["dialog_route"] == "continue_with_customer_reply"
+    assert result["session"].offtopic_messages_count == 0
+    assert result["session"].messages[-1].content == "Нам важно не сорвать внедрение."
+
+
+@pytest.mark.asyncio
+async def test_graph_warns_after_first_offtopic_message() -> None:
+    graph = build_graph_with_reply(
+        "Не должно вызваться",
+        topic_json='{"on_topic":"no","confidence":0.92}',
+    )
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
+    result = await graph.ainvoke(
+        {
+            "action": "reply_to_sales",
+            "session_id": started["session_id"],
+            "sales_message": "Напиши мне рецепт борща",
+        }
+    )
+
+    assert result["status"] == "active"
+    assert result["dialog_route"] == "continue_after_offtopic_warning"
+    assert result["session"].offtopic_messages_count == 1
+    assert "вернёмся" in result["customer_message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_graph_finishes_after_second_offtopic_message() -> None:
+    graph = build_graph_with_reply(
+        "Не должно вызваться",
+        topic_json='{"on_topic":"no","confidence":0.92}',
+    )
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
+
+    first = await graph.ainvoke(
+        {
+            "action": "reply_to_sales",
+            "session_id": started["session_id"],
+            "sales_message": "Расскажи анекдот",
+        }
+    )
+    second = await graph.ainvoke(
+        {
+            "action": "reply_to_sales",
+            "session_id": first["session_id"],
+            "sales_message": "А теперь рецепт пасты",
+        }
+    )
+
+    assert first["status"] == "active"
+    assert second["status"] == "finished"
+    assert second["dialog_route"] == "stop_after_offtopic_limit"
+    assert second["session"].offtopic_messages_count == 2
+    assert "заверш" in second["customer_message"].lower()

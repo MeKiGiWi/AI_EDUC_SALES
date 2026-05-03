@@ -4,7 +4,7 @@ services:
             context: .
             dockerfile: Dockerfile
             args:
-                EXPO_PUBLIC_SIMULATOR_API_URL: ${EXPO_PUBLIC_SIMULATOR_API_URL:-/}
+                EXPO_PUBLIC_SIMULATOR_API_URL: /
         ports:
             - "3000:80"
         restart: unless-stopped

@@ -20,6 +20,7 @@ import type {
   StudentDashboard,
   UserRole
 } from "../types/academy";
+import { Platform } from "react-native";
 import { reportApiService } from "./reportApiService";
 import { reportStorageService } from "./reportStorageService";
 
@@ -197,19 +198,21 @@ export const academyDataService = {
   },
 
   async getReports(role: UserRole): Promise<ReportCard[]> {
-    const saved = await reportStorageService.getAll(role);
-    const fallbackCards = mapSavedReportsToCards(saved, role);
-
     if (reportApiService.isEnabled()) {
       try {
         // MVP: show the shared backend pool until we add user-level ownership.
         const cards = await reportApiService.fetchReports(role);
         return simulateLatency(cards);
       } catch (error) {
-        console.warn("[reports] backend fetch failed, returning local copy", error);
+        console.warn("[reports] backend fetch failed", error);
+        if (Platform.OS === "web") {
+          return simulateLatency([]);
+        }
       }
     }
 
+    const saved = await reportStorageService.getAll(role);
+    const fallbackCards = mapSavedReportsToCards(saved, role);
     return simulateLatency(fallbackCards);
   },
 
@@ -219,8 +222,18 @@ export const academyDataService = {
     evaluation: SimulatorEvaluationPayloadDto;
     sessionId?: string | null;
   }): Promise<ReportCard[]> {
-    // Save locally first so the finished-dialog flow still resolves on Safari/iOS
-    // even when the backend roundtrip is slow or temporarily unavailable.
+    if (Platform.OS === "web" && reportApiService.isEnabled()) {
+      await reportApiService.createReport({
+        role: params.role,
+        scenarioTitle: params.scenarioTitle,
+        evaluation: params.evaluation,
+        sessionId: params.sessionId
+      });
+      const syncedCards = await reportApiService.fetchReports(params.role);
+      return simulateLatency(syncedCards);
+    }
+
+    // Native/local fallback stays in place until we have full auth-bound syncing.
     const saved = await reportStorageService.save(
       params.role,
       params.scenarioTitle,

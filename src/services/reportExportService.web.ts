@@ -1,6 +1,5 @@
 import type { ExportFormat, ReportCard } from "../types/academy";
 import { themeTokens } from "../theme/tokens";
-import { reportApiService } from "./reportApiService";
 
 const reportExportTheme = themeTokens;
 const browserFontStack = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -57,16 +56,60 @@ function buildCsv(report: ReportCard): string {
   return rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
 }
 
-function downloadBlob(filename: string, blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+function isSafariLikeBrowser(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
 
+  const userAgent = navigator.userAgent;
+  const isAppleMobileDevice =
+    /iPad|iPhone|iPod/.test(userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isSafariEngine =
+    /Safari/i.test(userAgent) &&
+    !/Chrome|CriOS|Edg|EdgiOS|OPR|FxiOS|Firefox|Android/i.test(userAgent);
+
+  return isAppleMobileDevice || isSafariEngine;
+}
+
+function downloadBlob(
+  filename: string,
+  blob: Blob,
+  options?: {
+    pendingWindow?: Window | null;
+    preferWindowOpen?: boolean;
+  }
+): void {
+  const url = URL.createObjectURL(blob);
+  const cleanup = () => {
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 60_000);
+  };
+
+  if (options?.preferWindowOpen && blob.type === "application/pdf") {
+    if (options.pendingWindow && !options.pendingWindow.closed) {
+      options.pendingWindow.location.href = url;
+      cleanup();
+      return;
+    }
+
+    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+    if (openedWindow) {
+      cleanup();
+      return;
+    }
+  }
+
+  const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  link.rel = "noopener";
+  link.style.display = "none";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  cleanup();
 }
 
 function createCanvasContext(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
@@ -456,11 +499,6 @@ async function buildPdfBlob(report: ReportCard): Promise<Blob> {
 }
 
 export async function openExport(report: ReportCard, format: ExportFormat): Promise<void> {
-  if (reportApiService.isEnabled() && (format === "pdf" || format === "csv")) {
-    await reportApiService.openExport(report.id, format);
-    return;
-  }
-
   if (format === "csv") {
     const blob = new Blob([`\uFEFF${buildCsv(report)}`], {
       type: "text/csv;charset=utf-8"
@@ -470,8 +508,24 @@ export async function openExport(report: ReportCard, format: ExportFormat): Prom
   }
 
   if (format === "pdf") {
-    const blob = await buildPdfBlob(report);
-    downloadBlob(buildSafeFilename(report, "pdf"), blob);
+    const preferWindowOpen = isSafariLikeBrowser();
+    const pendingWindow =
+      preferWindowOpen && typeof window !== "undefined"
+        ? window.open("", "_blank", "noopener,noreferrer")
+        : null;
+
+    try {
+      const blob = await buildPdfBlob(report);
+      downloadBlob(buildSafeFilename(report, "pdf"), blob, {
+        pendingWindow,
+        preferWindowOpen
+      });
+    } catch (error) {
+      if (pendingWindow && !pendingWindow.closed) {
+        pendingWindow.close();
+      }
+      throw error;
+    }
     return;
   }
 }

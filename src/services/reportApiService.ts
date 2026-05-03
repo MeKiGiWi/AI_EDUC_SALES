@@ -44,19 +44,6 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-function triggerDownload(path: string): void {
-  if (typeof document === "undefined") {
-    throw new Error("Скачивание доступно только в web-версии.");
-  }
-
-  const link = document.createElement("a");
-  link.href = buildUrl(path);
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
 export const reportApiService = {
   isEnabled(): boolean {
     return backendApiUrl.length > 0;
@@ -82,9 +69,5 @@ export const reportApiService = {
         session_id: payload.sessionId ?? null
       })
     });
-  },
-
-  async openExport(reportId: string, format: "pdf" | "csv"): Promise<void> {
-    triggerDownload(`/api/v1/reports/${reportId}/export/${format}`);
   }
 };

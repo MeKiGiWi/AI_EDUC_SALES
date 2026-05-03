@@ -26,7 +26,7 @@ graph TD;
 	check_if_sales_message_is_on_topic -. &nbsp;continue_after_offtopic_warning&nbsp; .-> append_customer_offtopic_warning_message;
 	check_if_sales_message_is_on_topic -. &nbsp;continue_with_customer_reply&nbsp; .-> append_customer_reply_message;
 	check_if_sales_message_is_rude -. &nbsp;stop_after_rudeness&nbsp; .-> append_customer_left_message;
-	check_if_sales_message_is_rude -. &nbsp;continue_with_customer_reply&nbsp; .-> check_if_sales_message_is_on_topic;
+	check_if_sales_message_is_rude -. &nbsp;go_to_topic_check&nbsp; .-> check_if_sales_message_is_on_topic;
 	load_session_for_next_action -. &nbsp;reply_to_sales&nbsp; .-> append_sales_message_to_history;
 	load_session_for_next_action -. &nbsp;close_session&nbsp; .-> finish_session_now;
 	append_customer_left_message --> __end__;

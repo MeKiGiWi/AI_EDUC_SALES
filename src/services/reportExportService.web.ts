@@ -56,22 +56,6 @@ function buildCsv(report: ReportCard): string {
   return rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
 }
 
-function isSafariLikeBrowser(): boolean {
-  if (typeof navigator === "undefined") {
-    return false;
-  }
-
-  const userAgent = navigator.userAgent;
-  const isAppleMobileDevice =
-    /iPad|iPhone|iPod/.test(userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isSafariEngine =
-    /Safari/i.test(userAgent) &&
-    !/Chrome|CriOS|Edg|EdgiOS|OPR|FxiOS|Firefox|Android/i.test(userAgent);
-
-  return isAppleMobileDevice || isSafariEngine;
-}
-
 function downloadBlob(
   filename: string,
   blob: Blob,
@@ -508,7 +492,7 @@ export async function openExport(report: ReportCard, format: ExportFormat): Prom
   }
 
   if (format === "pdf") {
-    const preferWindowOpen = isSafariLikeBrowser();
+    const preferWindowOpen = typeof window !== "undefined";
     const pendingWindow =
       preferWindowOpen && typeof window !== "undefined"
         ? window.open("", "_blank", "noopener,noreferrer")

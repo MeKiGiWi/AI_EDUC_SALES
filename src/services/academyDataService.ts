@@ -222,15 +222,19 @@ export const academyDataService = {
     evaluation: SimulatorEvaluationPayloadDto;
     sessionId?: string | null;
   }): Promise<ReportCard[]> {
-    if (Platform.OS === "web" && reportApiService.isEnabled()) {
-      await reportApiService.createReport({
-        role: params.role,
-        scenarioTitle: params.scenarioTitle,
-        evaluation: params.evaluation,
-        sessionId: params.sessionId
-      });
-      const syncedCards = await reportApiService.fetchReports(params.role);
-      return simulateLatency(syncedCards);
+    if (reportApiService.isEnabled()) {
+      try {
+        await reportApiService.createReport({
+          role: params.role,
+          scenarioTitle: params.scenarioTitle,
+          evaluation: params.evaluation,
+          sessionId: params.sessionId
+        });
+        const syncedCards = await reportApiService.fetchReports(params.role);
+        return simulateLatency(syncedCards);
+      } catch (error) {
+        console.warn("[reports] backend sync failed, saving local fallback", error);
+      }
     }
 
     // Native/local fallback stays in place until we have full auth-bound syncing.
@@ -245,22 +249,6 @@ export const academyDataService = {
     const normalizedSaved = hasSaved ? allSaved : [saved, ...allSaved];
 
     const fallbackCards = mapSavedReportsToCards(normalizedSaved, params.role);
-
-    if (reportApiService.isEnabled()) {
-      try {
-        await reportApiService.createReport({
-          role: params.role,
-          scenarioTitle: params.scenarioTitle,
-          evaluation: params.evaluation,
-          sessionId: params.sessionId
-        });
-        const syncedCards = await reportApiService.fetchReports(params.role);
-        return simulateLatency(syncedCards);
-      } catch (error) {
-        console.warn("[reports] backend sync failed, returning local copy", error);
-      }
-    }
-
     return simulateLatency(fallbackCards);
   }
 };

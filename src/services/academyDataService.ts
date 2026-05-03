@@ -199,11 +199,20 @@ export const academyDataService = {
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
   }): Promise<ReportCard[]> {
-    const saved = await reportStorageService.save(params.role, params.scenarioTitle, params.evaluation);
+    const saved = await reportStorageService.save(
+      params.role,
+      params.scenarioTitle,
+      params.evaluation
+    );
+
     const allSaved = await reportStorageService.getAll(params.role);
-    const cards = allSaved.map((item) =>
+    const hasSaved = allSaved.some((item) => item.id === saved.id);
+    const normalizedSaved = hasSaved ? allSaved : [saved, ...allSaved];
+
+    const cards = normalizedSaved.map((item) =>
       savedReportToReportCard(item, params.role)
     );
+
     return simulateLatency(cards);
   }
 };

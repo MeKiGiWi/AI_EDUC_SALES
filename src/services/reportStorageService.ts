@@ -11,47 +11,54 @@ function getRoleKey(role: UserRole): string {
 let memoryFallback: Record<string, SavedSimulatorReport[]> = {};
 
 async function readAll(role: UserRole): Promise<SavedSimulatorReport[]> {
-  if (Platform.OS === "web" && typeof localStorage !== "undefined") {
-    try {
-      const raw = localStorage.getItem(getRoleKey(role));
-      if (raw) {
-        return JSON.parse(raw) as SavedSimulatorReport[];
+  if (Platform.OS === "web") {
+    if (typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem(getRoleKey(role));
+        if (raw) {
+          return JSON.parse(raw) as SavedSimulatorReport[];
+        }
+      } catch (error) {
+        console.warn("[reports] localStorage read failed, using memory fallback", error);
       }
-    } catch {
-      // corrupted data — reset
     }
-    return [];
-  } else {
-    try {
-      const raw = await AsyncStorage.getItem(getRoleKey(role));
-      if (raw) {
-        return JSON.parse(raw) as SavedSimulatorReport[];
-      }
-    } catch {
-      // ignore
+    return memoryFallback[role] ? [...memoryFallback[role]] : [];
+  }
+
+  try {
+    const raw = await AsyncStorage.getItem(getRoleKey(role));
+    if (raw) {
+      return JSON.parse(raw) as SavedSimulatorReport[];
     }
+  } catch (error) {
+    console.warn("[reports] AsyncStorage read failed, using memory fallback", error);
   }
 
   return memoryFallback[role] ? [...memoryFallback[role]] : [];
 }
 
 async function writeAll(role: UserRole, reports: SavedSimulatorReport[]): Promise<void> {
-  if (Platform.OS === "web" && typeof localStorage !== "undefined") {
+  memoryFallback[role] = [...reports];
+
+  if (Platform.OS === "web") {
+    if (typeof localStorage === "undefined") {
+      console.warn("[reports] localStorage is unavailable, using memory fallback");
+      return;
+    }
+
     try {
       localStorage.setItem(getRoleKey(role), JSON.stringify(reports));
-    } catch {
-      // storage full — ignore
+    } catch (error) {
+      console.warn("[reports] localStorage write failed, using memory fallback", error);
     }
     return;
-  } else {
-    try {
-      await AsyncStorage.setItem(getRoleKey(role), JSON.stringify(reports));
-    } catch {
-      // ignore
-    }
   }
 
-  memoryFallback[role] = [...reports];
+  try {
+    await AsyncStorage.setItem(getRoleKey(role), JSON.stringify(reports));
+  } catch (error) {
+    console.warn("[reports] AsyncStorage write failed, using memory fallback", error);
+  }
 }
 
 function buildDisplayName(scenarioTitle: string, date: Date): string {

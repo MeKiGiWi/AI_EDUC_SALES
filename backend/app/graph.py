@@ -52,7 +52,7 @@ def create_graph(deps: GraphDependencies):
         lambda state: state["dialog_route"],
         {
             "stop_after_rudeness": "append_customer_left_message",
-            "continue_with_customer_reply": "check_if_sales_message_is_on_topic",
+            "continue_with_customer_reply": "append_customer_reply_message",
         },
     )
     graph.add_conditional_edges(

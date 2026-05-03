@@ -17,7 +17,7 @@ interface DesktopSidebarProps {
 
 const routeLabels: Record<RouteName, string> = {
   Landing: "Лендинг",
-  StudentHome: "Главная",
+  StudentHome: "Личный кабинет",
   KnowledgeBase: "База знаний",
   Simulator: "Тренажер",
   ManagerDashboard: "Панель команды",
@@ -52,7 +52,9 @@ export function DesktopSidebar({
             {roleLabels[activeRole]} · {user.title}
           </Text>
           <Text style={[styles.userMeta, { color: theme.semantic.textMuted }]}>{user.teamName}</Text>
-          <AppButton label="На лендинг" onPress={onGoToLanding} tone="ghost" fullWidth />
+          {activeRole === "student" ? null : (
+            <AppButton label="На лендинг" onPress={onGoToLanding} tone="ghost" fullWidth />
+          )}
         </View>
 
         <View style={styles.block}>

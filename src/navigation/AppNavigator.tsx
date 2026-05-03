@@ -5,6 +5,7 @@ import { hrDashboardData, roleWorkspaceOptions } from "../data/academyData";
 import { DesktopSidebar } from "../components/layout/DesktopSidebar";
 import { MobileHeader } from "../components/layout/MobileHeader";
 import { BottomTabs } from "../components/layout/BottomTabs";
+import { StudentWorkspaceNav } from "../components/student/StudentWorkspaceNav";
 import { AppScreen } from "../components/ui/AppScreen";
 import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
 import { LandingScreen } from "../screens/landing/LandingScreen";
@@ -22,10 +23,8 @@ import type {
   HrDashboard,
   KnowledgeSection,
   KnowledgeMaterial,
-  LearningModule,
   ManagerDashboard,
   ReportCard,
-  Scenario,
   SimulatorEvaluationPayloadDto,
   StudentDashboard,
   UserRole
@@ -53,8 +52,6 @@ export function AppNavigator() {
   const [currentUser, setCurrentUser] = useState<AcademyUser | null>(null);
   const [studentDashboard, setStudentDashboard] = useState<StudentDashboard | null>(null);
   const [knowledgeSections, setKnowledgeSections] = useState<KnowledgeSection[]>([]);
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [learningModules, setLearningModules] = useState<LearningModule[]>([]);
   const [managerDashboard, setManagerDashboard] = useState<ManagerDashboard | null>(null);
   const [hrDashboard, setHrDashboard] = useState<HrDashboard | null>(null);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
@@ -67,7 +64,6 @@ export function AppNavigator() {
       const [
         studentData,
         knowledgeData,
-        scenarioData,
         managerData,
         hrData,
         adminData,
@@ -75,7 +71,6 @@ export function AppNavigator() {
       ] = await Promise.all([
         academyDataService.getStudentDashboard(),
         academyDataService.getKnowledgeSections(),
-        academyDataService.getScenarios(),
         academyDataService.getManagerDashboard(),
         academyDataService.getHrDashboard(),
         academyDataService.getAdminSettings(),
@@ -83,9 +78,7 @@ export function AppNavigator() {
       ]);
 
       setStudentDashboard(studentData);
-      setLearningModules(studentData.modules);
       setKnowledgeSections(knowledgeData);
-      setScenarios(scenarioData);
       setManagerDashboard(managerData);
       setHrDashboard(hrData);
       setAdminSettings(adminData);
@@ -139,7 +132,7 @@ export function AppNavigator() {
     () =>
       routeState.name === "Landing" || layout.isDesktop ? null : (
         <BottomTabs
-          routes={tabsByRole[activeRole]}
+          routes={visibleRoutesForRole(activeRole)}
           activeRoute={routeState.name}
           onNavigate={(route) => navigate(route)}
         />
@@ -171,19 +164,22 @@ export function AppNavigator() {
       ? (routeState.params as RootStackParamList["Reports"] | undefined)
       : undefined;
   const isLanding = routeState.name === "Landing";
+  const studentWorkspaceRoute =
+    activeRole === "student" && isStudentWorkspaceRoute(routeState.name) ? routeState.name : null;
 
   return (
     <AppScreen
       footer={footer ?? undefined}
       variant={isLanding ? "landing" : "app"}
       disableBottomPadding={isLanding && layout.isDesktop}
+      fullBleed={routeState.name === "Simulator" && layout.isDesktop}
       sidebar={
-        !isLanding ? (
+        !isLanding && routeState.name !== "Simulator" ? (
           <DesktopSidebar
             activeRole={activeRole}
             activeRoute={routeState.name}
             user={currentUser}
-            routes={tabsByRole[activeRole]}
+            routes={visibleRoutesForRole(activeRole)}
             onNavigate={navigate}
             onGoToLanding={goToLanding}
           />
@@ -195,12 +191,21 @@ export function AppNavigator() {
       ) : null}
 
       {!isLanding ? (
-        <MobileHeader
-          title={currentRouteConfig.title}
-          subtitle={currentRouteConfig.description}
-          user={currentUser}
-          actionLabel="На лендинг"
-          onActionPress={goToLanding}
+        routeState.name === "Simulator" && layout.isDesktop ? null : (
+          <MobileHeader
+            title={currentRouteConfig.title}
+            subtitle={currentRouteConfig.description}
+            user={currentUser}
+            actionLabel={activeRole === "student" ? undefined : "На лендинг"}
+            onActionPress={activeRole === "student" ? undefined : goToLanding}
+          />
+        )
+      ) : null}
+
+      {studentWorkspaceRoute && !layout.isDesktop ? (
+        <StudentWorkspaceNav
+          activeRoute={studentWorkspaceRoute}
+          onNavigate={(route) => navigate(route)}
         />
       ) : null}
 
@@ -210,12 +215,9 @@ export function AppNavigator() {
 
       {routeState.name === "Simulator" ? (
         <SimulatorScreen
-          scenarios={scenarios}
-          modules={learningModules}
-          materials={knowledgeMaterials}
           activeScenarioId={simulatorParams?.scenarioId}
-          activeMaterialId={simulatorParams?.materialId}
           onOpenReports={() => navigate("Reports")}
+          onNavigateStudentRoute={(route) => navigate(route)}
           onReportSaved={handleSimulatorReportSaved}
           onNavigateToReports={() => navigate("Reports")}
         />
@@ -246,6 +248,14 @@ export function AppNavigator() {
 
 function hrDashboardDataOverride(dashboard: HrDashboard): HrDashboard {
   return dashboard.tracks.length > 0 ? dashboard : hrDashboardData;
+}
+
+function visibleRoutesForRole(role: UserRole): RouteName[] {
+  return tabsByRole[role];
+}
+
+function isStudentWorkspaceRoute(route: RouteName): route is "StudentHome" | "Simulator" | "Reports" {
+  return route === "StudentHome" || route === "Simulator" || route === "Reports";
 }
 
 const styles = StyleSheet.create({

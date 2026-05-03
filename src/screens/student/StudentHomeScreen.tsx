@@ -39,6 +39,11 @@ export function StudentHomeScreen({ dashboard, materials, onNavigate }: StudentH
     [dashboard.modules, selectedModuleId]
   );
   const findMaterial = (materialId: string) => materials.find((material) => material.id === materialId);
+  const openScenarioTraining = () => {
+    onNavigate("Simulator", {
+      scenarioId: dashboard.highlightedScenario.id
+    });
+  };
 
   const openModuleSheet = (module: LearningModule) => {
     setSelectedModuleId(module.id);
@@ -99,17 +104,8 @@ export function StudentHomeScreen({ dashboard, materials, onNavigate }: StudentH
         <View style={styles.buttonRow}>
           <AppButton
             label="Продолжить обучение"
-            onPress={() => openModuleSheet(selectedModule)}
+            onPress={openScenarioTraining}
             tone="primary"
-          />
-          <AppButton
-            label="Открыть тренажер"
-            onPress={() =>
-              onNavigate("Simulator", {
-                scenarioId: dashboard.highlightedScenario.id
-              })
-            }
-            tone="secondary"
           />
           <AppButton
             label="Объяснить материал"
@@ -165,7 +161,7 @@ export function StudentHomeScreen({ dashboard, materials, onNavigate }: StudentH
               </View>
               <AppButton
                 label="Продолжить обучение"
-                onPress={() => openModuleSheet(module)}
+                onPress={openScenarioTraining}
                 tone="secondary"
               />
             </View>
@@ -259,10 +255,10 @@ export function StudentHomeScreen({ dashboard, materials, onNavigate }: StudentH
               Следующий шаг: {sheetState.module.nextStep}
             </Text>
             <AppButton
-              label="Начать тренировку"
+              label="Перейти к обучению"
               onPress={() => {
                 setSheetState(null);
-                onNavigate("Simulator");
+                openScenarioTraining();
               }}
               tone="primary"
             />

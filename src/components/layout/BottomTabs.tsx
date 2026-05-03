@@ -13,9 +13,9 @@ interface BottomTabsProps {
 
 const tabIcons: Record<RouteName, string> = {
   Landing: "Старт",
-  StudentHome: "Дом",
+  StudentHome: "ЛК",
   KnowledgeBase: "База",
-  Simulator: "Практика",
+  Simulator: "Тренажер",
   ManagerDashboard: "Команда",
   HrDashboard: "HR",
   Admin: "Доступ",
@@ -24,9 +24,9 @@ const tabIcons: Record<RouteName, string> = {
 
 const tabLabels: Record<RouteName, string> = {
   Landing: "Старт",
-  StudentHome: "Домой",
+  StudentHome: "Личный кабинет",
   KnowledgeBase: "База",
-  Simulator: "Практика",
+  Simulator: "Тренажер",
   ManagerDashboard: "Команда",
   HrDashboard: "HR/L&D",
   Admin: "Админ",
@@ -90,8 +90,10 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: "700",
-    textAlign: "center"
+    textAlign: "center",
+    flexShrink: 1
   }
 });

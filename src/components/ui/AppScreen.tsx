@@ -12,6 +12,7 @@ interface AppScreenProps {
   variant?: "app" | "landing";
   disableBottomPadding?: boolean;
   sidebar?: ReactNode;
+  fullBleed?: boolean;
 }
 
 export function AppScreen({
@@ -20,13 +21,16 @@ export function AppScreen({
   contentContainerStyle,
   variant = "app",
   disableBottomPadding = false,
-  sidebar
+  sidebar,
+  fullBleed = false
 }: AppScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const hasDesktopSidebar = layout.isDesktop && Boolean(sidebar);
   const maxWidth =
-    variant === "landing"
+    fullBleed
+      ? undefined
+      : variant === "landing"
       ? layout.isWide
         ? 1280
         : layout.isDesktop
@@ -39,6 +43,8 @@ export function AppScreen({
           : layout.contentMaxWidth;
   const bottomPadding = disableBottomPadding
     ? theme.spacing.screenBottom
+    : fullBleed
+      ? 0
     : footer && !layout.isDesktop
       ? theme.spacing.screenBottom + 92
       : theme.spacing.screenBottom + 24;
@@ -51,7 +57,7 @@ export function AppScreen({
           <ScrollView
             contentContainerStyle={[
               {
-                paddingTop: theme.spacing.screenTop,
+                paddingTop: fullBleed ? 0 : theme.spacing.screenTop,
                 paddingBottom: bottomPadding
               }
             ]}
@@ -61,9 +67,10 @@ export function AppScreen({
             <View
               style={[
                 styles.content,
+                fullBleed && styles.fullBleedContent,
                 {
                   maxWidth,
-                  paddingHorizontal: layout.screenPadding
+                  paddingHorizontal: fullBleed ? 0 : layout.screenPadding
                 },
                 contentContainerStyle
               ]}
@@ -98,6 +105,11 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
     gap: 18
+  },
+  fullBleedContent: {
+    maxWidth: "100%",
+    alignSelf: "stretch",
+    gap: 0
   },
   footer: {
     position: "absolute",

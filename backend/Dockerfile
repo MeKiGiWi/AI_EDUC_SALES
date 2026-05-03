@@ -10,11 +10,14 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
-COPY app ./app
-COPY kb ./kb
 
 RUN python -m pip install --upgrade pip \
-  && pip install --no-cache-dir -e .
+  && python -c "import tomllib; from pathlib import Path; data = tomllib.loads(Path('pyproject.toml').read_text()); Path('requirements.txt').write_text('\\n'.join(data['project']['dependencies']) + '\\n')" \
+  && pip install --no-cache-dir -r requirements.txt \
+  && rm requirements.txt
+
+COPY app ./app
+COPY kb ./kb
 
 EXPOSE 8000
 

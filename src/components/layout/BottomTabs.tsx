@@ -11,16 +11,6 @@ interface BottomTabsProps {
   onNavigate: (route: RouteName) => void;
 }
 
-const tabIcons: Record<RouteName, string> = {
-  Landing: "Старт",
-  StudentHome: "Дом",
-  Simulator: "Практика",
-  ManagerDashboard: "Команда",
-  HrDashboard: "HR",
-  Admin: "Доступ",
-  Reports: "Отчеты"
-};
-
 const tabLabels: Record<RouteName, string> = {
   Landing: "Старт",
   StudentHome: "Домой",
@@ -54,9 +44,6 @@ export function BottomTabs({ routes, activeRoute, onNavigate }: BottomTabsProps)
               }
             ]}
           >
-            <Text style={[styles.icon, { color: active ? theme.semantic.actionSecondaryText : theme.semantic.textMuted }]}>
-              {tabIcons[route]}
-            </Text>
             <Text style={[styles.label, { color: active ? theme.semantic.actionSecondaryText : theme.semantic.textMuted }]}>
               {tabLabels[route]}
             </Text>
@@ -82,10 +69,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4
-  },
-  icon: {
-    fontSize: 11,
-    fontWeight: "700"
   },
   label: {
     fontSize: 12,

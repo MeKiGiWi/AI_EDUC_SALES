@@ -96,12 +96,17 @@ server {
 }
 ```
 
+Для HTTPS оставляйте существующие `ssl_certificate` / `ssl_certificate_key` / Certbot include как есть и меняйте только `location`-логику на такой же `proxy_pass http://127.0.0.1:3000;`.
+
 Готовый пример также лежит в [docs/nginx.production.example.conf](/Users/daniil/code/Sales_educ_ai/docs/nginx.production.example.conf).
 
 Важно:
 - Do not copy dist to host.
 - Do not configure host Nginx root to `./dist`.
+- Do not configure host Nginx root to `/opt/ai-educ-sales/dist` or `/var/www/...` for the active app domain.
+- Do not add a separate host-level `location /api/` or direct `proxy_pass http://127.0.0.1:8000` for the active app domain.
 - The only source of frontend static files in production is the frontend Docker image.
+- All public requests, including `/api/` and `/health`, must go first to `http://127.0.0.1:3000`.
 - Production deploy больше не копирует `frontend` build artifacts из контейнера на хост, и директория `./dist` на VPS не используется для раздачи фронтенда.
 
 ### Fast Docker deploys / build cache

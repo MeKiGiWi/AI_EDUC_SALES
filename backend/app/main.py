@@ -1,14 +1,15 @@
 from contextlib import asynccontextmanager
 import json
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.render_mermaid_graph import render_graph_artifacts
-from app.database import initialize_database
-from app.api_reports import router as reports_router
 from app.api import router as simulator_router
+from app.api_reports import router as reports_router
+from app.database import initialize_database
+from app.render_mermaid_graph import render_graph_artifacts
 
 OPENAPI_PATH = Path(__file__).resolve().parents[1] / "openapi.json"
 
@@ -18,9 +19,6 @@ def write_openapi_contract(application: FastAPI) -> None:
         json.dumps(application.openapi(), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-
-
-import os
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):

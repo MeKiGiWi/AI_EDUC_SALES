@@ -49,8 +49,8 @@ export const reportApiService = {
     return backendApiUrl.length > 0;
   },
 
-  async fetchReports(role: UserRole): Promise<ReportCard[]> {
-    const response = await requestJson<{ items: ReportCard[] }>(`/api/v1/reports?role=${role}`);
+  async fetchReports(_role?: UserRole): Promise<ReportCard[]> {
+    const response = await requestJson<{ items: ReportCard[] }>("/api/v1/reports");
     return response.items;
   },
 

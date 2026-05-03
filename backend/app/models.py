@@ -11,7 +11,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
-    from app.agents import BuyerAgent, RudeClassifierAgent
+    from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
     from app.store import InMemorySessionStore
 
 
@@ -24,6 +24,7 @@ class ChatSession(BaseModel):
     messages: list[BaseMessage] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
+    offtopic_messages_count: int = 0
 
 
 class GraphState(TypedDict, total=False):
@@ -34,8 +35,14 @@ class GraphState(TypedDict, total=False):
     session: ChatSession
     messages: list[BaseMessage]
     status: Literal["active", "finished"]
-    dialog_route: Literal["stop_after_rudeness", "continue_with_customer_reply"]
+    dialog_route: Literal[
+        "stop_after_rudeness",
+        "continue_with_customer_reply",
+        "continue_after_offtopic_warning",
+        "stop_after_offtopic_limit",
+    ]
     confidence: float
+    topic_confidence: float
     customer_message: str
 
 
@@ -43,6 +50,7 @@ class GraphState(TypedDict, total=False):
 class GraphDependencies:
     session_store: InMemorySessionStore
     rude_classifier: RudeClassifierAgent
+    topic_classifier: TopicClassifierAgent
     buyer_agent: BuyerAgent
 
 

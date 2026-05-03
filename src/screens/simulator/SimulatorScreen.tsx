@@ -40,18 +40,12 @@ interface SimulatorScreenProps {
 type DialoguePhase = "idle" | "active" | "finished";
 
 const API_SIMULATOR_MODULE_ID = "mod-simulator-api";
-const difficultyOptions = ["Легкий", "Средний", "Сложный"] as const;
 const TRAINING_INTRO_MESSAGE = `Коллега, приветствую!
 Ты получил входящий запрос от клиента – руководителя производства, который ищет кондиционер для цеха. Он разослал запросы нескольким поставщикам, ты – один из них.
 Твоя задача – стать единственным.
 Общайся так, как обычно ведёшь диалог с потенциальным покупателем. Диалог завершится, когда клиент примет решение о следующем шаге или окончательно уйдёт после повторного "подумаю". Минимальная длина диалога для честной оценки — 10 твоих реплик. Если хочешь завершить раньше, напиши Стоп.
 По итогам получишь обратную связь по своим профессиональным навыкам. Поехали?
 Нажми начать, чтобы начать`;
-const backendDifficultyMap: Record<(typeof difficultyOptions)[number], string> = {
-  "Легкий": "easy",
-  "Средний": "medium",
-  "Сложный": "hard"
-};
 
 export function SimulatorScreen({
   modules,
@@ -99,7 +93,6 @@ export function SimulatorScreen({
   );
   const [messages, setMessages] = useSessionStorage<ScenarioMessage[]>("sim_messages", []);
   const [draft, setDraft] = useSessionStorage("sim_draft", "");
-  const [difficulty, setDifficulty] = useState<(typeof difficultyOptions)[number]>("Средний");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionId, setSessionId] = useSessionStorage<string | null>("sim_session_id", null);
   const [isBusy, setIsBusy] = useState(false);
@@ -138,7 +131,6 @@ export function SimulatorScreen({
 
     return [companyLabel, painPointsLabel, moodLabel, objectionStyleLabel].filter(Boolean);
   }, [selectedScenario]);
-  const difficultyOptionsArray = Array.from(difficultyOptions);
 
   useEffect(() => {
     let isMounted = true;
@@ -351,7 +343,7 @@ export function SimulatorScreen({
       setIsBusy(true);
       const response = await simulatorApiService.startDialogueSession(
         selectedScenario.id,
-        backendDifficultyMap[difficulty]
+        "medium"
       );
       setSessionId(response.session_id);
       setMessages([mapApiMessageToChatMessage(response.message, selectedScenario)]);
@@ -541,24 +533,6 @@ export function SimulatorScreen({
       ) : null}
 
       <View style={styles.trainerContent}>
-        {dialoguePhase === "idle" && selectedScenario ? (
-          <AppCard style={styles.dialogFullWidth}>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Настройка диалога</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              Выберите сложность для сценария "{selectedScenario.title}".
-            </Text>
-            <View style={styles.buttonRow}>
-              {difficultyOptionsArray.map((opt) => (
-                <AppButton
-                  key={opt}
-                  label={opt}
-                  onPress={() => setDifficulty(opt)}
-                  tone={difficulty === opt ? "primary" : "ghost"}
-                />
-              ))}
-            </View>
-          </AppCard>
-        ) : null}
 
         <AppCard style={styles.dialogFullWidth}>
           <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Диалог</Text>

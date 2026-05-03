@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models import ReportCardDto, ReportCreateDto, WorkspaceRole
+from app.models import ReportCardDto, ReportCreateDto
 from app.report_mapper import create_report_record, to_report_card
 from app.report_repository import ReportRepository
 
@@ -22,8 +22,8 @@ class ReportService:
         saved = self.repository.create(record)
         return to_report_card(saved)
 
-    def list_reports(self, role: WorkspaceRole) -> list[ReportCardDto]:
-        records = self.repository.list_by_role(role.value)
+    def list_reports(self) -> list[ReportCardDto]:
+        records = self.repository.list_all()
         return [to_report_card(record) for record in records]
 
     def get_report(self, report_id: str) -> ReportCardDto:

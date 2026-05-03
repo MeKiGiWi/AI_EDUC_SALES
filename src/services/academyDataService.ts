@@ -202,6 +202,7 @@ export const academyDataService = {
 
     if (reportApiService.isEnabled()) {
       try {
+        // MVP: show the shared backend pool until we add user-level ownership.
         const cards = await reportApiService.fetchReports(role);
         return simulateLatency(cards);
       } catch (error) {

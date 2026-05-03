@@ -72,18 +72,26 @@ def sqlite_database(monkeypatch, tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_create_list_and_get_report(sqlite_database: Path) -> None:
-    payload = {
+    student_payload = {
         "role": "student",
         "scenario_title": "Baseline сценарий",
         "session_id": "session-123",
         "evaluation": build_evaluation_payload(),
     }
+    manager_payload = {
+        "role": "manager",
+        "scenario_title": "Manager сценарий",
+        "session_id": "session-456",
+        "evaluation": build_evaluation_payload(),
+    }
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
-        created = await client.post("/api/v1/reports", json=payload)
+        created = await client.post("/api/v1/reports", json=student_payload)
         created_payload = created.json()
+        created_manager = await client.post("/api/v1/reports", json=manager_payload)
+        created_manager_payload = created_manager.json()
 
-        listed = await client.get("/api/v1/reports", params={"role": "student"})
+        listed = await client.get("/api/v1/reports")
         listed_payload = listed.json()
 
         report_id = created_payload["id"]
@@ -97,8 +105,11 @@ async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     assert any(section["title"] == "Рекомендации" for section in created_payload["previewSections"])
 
     assert listed.status_code == status.HTTP_200_OK
-    assert len(listed_payload["items"]) == 1
-    assert listed_payload["items"][0]["id"] == report_id
+    assert len(listed_payload["items"]) == 2
+    assert {item["id"] for item in listed_payload["items"]} == {
+        report_id,
+        created_manager_payload["id"],
+    }
 
     assert fetched.status_code == status.HTTP_200_OK
     assert fetched_payload["id"] == report_id

@@ -16,10 +16,9 @@ class ReportRepository:
         self.session.refresh(report)
         return report
 
-    def list_by_role(self, role: str) -> list[ReportRecord]:
+    def list_all(self) -> list[ReportRecord]:
         statement = (
             select(ReportRecord)
-            .where(ReportRecord.role == role)
             .order_by(ReportRecord.updated_at.desc(), ReportRecord.created_at.desc())
         )
         return list(self.session.scalars(statement))

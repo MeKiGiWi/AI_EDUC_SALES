@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db_session
-from app.models import ReportCardDto, ReportCreateDto, ReportListResponseDto, WorkspaceRole
+from app.models import ReportCardDto, ReportCreateDto, ReportListResponseDto
 from app.report_service import ReportService
 
 router = APIRouter(prefix="/api/v1/reports", tags=["reports"])
@@ -24,10 +24,9 @@ async def create_report(
 
 @router.get("", response_model=ReportListResponseDto)
 async def list_reports(
-    role: WorkspaceRole,
     service: ReportService = Depends(get_report_service),
 ) -> ReportListResponseDto:
-    return ReportListResponseDto(items=service.list_reports(role))
+    return ReportListResponseDto(items=service.list_reports())
 
 
 @router.get("/{report_id}", response_model=ReportCardDto)

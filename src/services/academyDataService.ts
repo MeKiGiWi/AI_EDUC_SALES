@@ -20,6 +20,7 @@ import type {
   StudentDashboard,
   UserRole
 } from "../types/academy";
+import { reportApiService } from "./reportApiService";
 import { reportStorageService } from "./reportStorageService";
 
 const simulateLatency = async <T>(data: T): Promise<T> =>
@@ -189,6 +190,10 @@ export const academyDataService = {
   },
 
   async getReports(role: UserRole): Promise<ReportCard[]> {
+    if (reportApiService.isEnabled()) {
+      return reportApiService.fetchReports(role);
+    }
+
     const saved = await reportStorageService.getAll(role);
     const cards = saved.map((item) => savedReportToReportCard(item, role));
     return simulateLatency(cards);
@@ -198,7 +203,18 @@ export const academyDataService = {
     role: UserRole;
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
+    sessionId?: string | null;
   }): Promise<ReportCard[]> {
+    if (reportApiService.isEnabled()) {
+      await reportApiService.createReport({
+        role: params.role,
+        scenarioTitle: params.scenarioTitle,
+        evaluation: params.evaluation,
+        sessionId: params.sessionId
+      });
+      return reportApiService.fetchReports(params.role);
+    }
+
     const saved = await reportStorageService.save(
       params.role,
       params.scenarioTitle,

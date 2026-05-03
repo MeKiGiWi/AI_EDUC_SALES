@@ -1,5 +1,6 @@
 import type { ExportFormat, ReportCard } from "../types/academy";
 import { themeTokens } from "../theme/tokens";
+import { reportApiService } from "./reportApiService";
 
 const reportExportTheme = themeTokens;
 const browserFontStack = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -455,6 +456,11 @@ async function buildPdfBlob(report: ReportCard): Promise<Blob> {
 }
 
 export async function openExport(report: ReportCard, format: ExportFormat): Promise<void> {
+  if (reportApiService.isEnabled() && (format === "pdf" || format === "csv")) {
+    await reportApiService.openExport(report.id, format);
+    return;
+  }
+
   if (format === "csv") {
     const blob = new Blob([`\uFEFF${buildCsv(report)}`], {
       type: "text/csv;charset=utf-8"

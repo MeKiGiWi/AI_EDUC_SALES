@@ -3,8 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: npm run web -- --non-interactive --port 19006
+    command: npm run web -- --port 19006
     environment:
+      CI: "1"
       CHOKIDAR_USEPOLLING: "true"
       EXPO_PUBLIC_SIMULATOR_API_URL: http://localhost:8000
       WATCHPACK_POLLING: "true"
@@ -28,8 +29,31 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/ai_sales_academy
       WATCHFILES_FORCE_POLLING: "true"
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ai_sales_academy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_sales_academy"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres_data:

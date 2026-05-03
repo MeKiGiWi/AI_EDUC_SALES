@@ -33,6 +33,7 @@ interface SimulatorScreenProps {
   onReportSaved: (payload: {
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
+    sessionId?: string | null;
   }) => void | Promise<void>;
   onNavigateToReports: () => void;
 }
@@ -318,7 +319,8 @@ export function SimulatorScreen({
     if (evaluation) {
       await onReportSaved({
         scenarioTitle: currentScenario.title,
-        evaluation
+        evaluation,
+        sessionId: capturedSessionId
       });
       setSuccessMessage('Диалог завершён. Отчет сохранен во вкладке "Отчеты".');
       onNavigateToReports();

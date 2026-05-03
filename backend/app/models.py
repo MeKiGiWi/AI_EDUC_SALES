@@ -192,3 +192,53 @@ class SessionFinishResponseDto(BaseModel):
     session_id: str
     status: SessionStatus
     evaluation: EvaluationResultRaw | None = None
+
+
+class WorkspaceRole(str, Enum):
+    STUDENT = "student"
+    MANAGER = "manager"
+    HR = "hr"
+    ADMIN = "admin"
+
+
+class ExportFormat(str, Enum):
+    PDF = "pdf"
+    XLSX = "xlsx"
+    CSV = "csv"
+
+
+class ReportType(str, Enum):
+    STUDENT_PROGRESS = "student_progress"
+    TEAM_PERFORMANCE = "team_performance"
+    LEARNING_ADOPTION = "learning_adoption"
+    COMPETENCY_DYNAMICS = "competency_dynamics"
+
+
+class ReportPreviewSectionDto(BaseModel):
+    id: str
+    title: str
+    lines: list[str]
+
+
+class ReportCardDto(BaseModel):
+    id: str
+    title: str
+    role: WorkspaceRole
+    reportType: ReportType
+    summary: str
+    format: ExportFormat
+    updatedAt: str
+    ownerLabel: str
+    availableFormats: list[ExportFormat]
+    previewSections: list[ReportPreviewSectionDto]
+
+
+class ReportListResponseDto(BaseModel):
+    items: list[ReportCardDto]
+
+
+class ReportCreateDto(BaseModel):
+    role: WorkspaceRole
+    scenario_title: str = Field(min_length=1, max_length=300)
+    evaluation: EvaluationResultRaw
+    session_id: str | None = Field(default=None, max_length=200)

@@ -94,7 +94,7 @@ export function AppNavigator() {
     }
 
     loadData().catch(() => setLoading(false));
-  }, []);
+  }, [activeRole]);
 
   useEffect(() => {
     academyDataService.getCurrentUser(activeRole).then(setCurrentUser);
@@ -126,11 +126,13 @@ export function AppNavigator() {
   async function handleSimulatorReportSaved(payload: {
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
+    sessionId?: string | null;
   }) {
     const allReports = await academyDataService.saveLatestSimulatorReport({
       role: activeRole,
       scenarioTitle: payload.scenarioTitle,
-      evaluation: payload.evaluation
+      evaluation: payload.evaluation,
+      sessionId: payload.sessionId
     });
     setReports(allReports);
   }

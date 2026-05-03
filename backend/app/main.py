@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.render_mermaid_graph import render_graph_artifacts
+from app.database import initialize_database
+from app.api_reports import router as reports_router
 from app.api import router as simulator_router
 
 OPENAPI_PATH = Path(__file__).resolve().parents[1] / "openapi.json"
@@ -22,6 +24,7 @@ import os
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    initialize_database()
     if os.getenv("WRITE_RUNTIME_ARTIFACTS", "false").lower() == "true":
         try:
             render_graph_artifacts()
@@ -51,6 +54,7 @@ def create_app() -> FastAPI:
         return {"status": "ok", "message": "Сервис работает стабильно."}
 
     application.include_router(simulator_router)
+    application.include_router(reports_router)
     return application
 
 

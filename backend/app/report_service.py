@@ -7,19 +7,8 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models import ReportCardDto, ReportCreateDto, WorkspaceRole
-from app.report_csv_service import build_csv_content
 from app.report_mapper import create_report_record, to_report_card
-from app.report_pdf_service import build_pdf_bytes
 from app.report_repository import ReportRepository
-
-
-def build_safe_filename(title: str, extension: str) -> str:
-    normalized = "".join(
-        character.lower() if character.isascii() and character.isalnum() else "-"
-        for character in title
-    )
-    compact = "-".join(fragment for fragment in normalized.split("-") if fragment).strip("-")[:48]
-    return f"{compact or 'ai-sales-academy-report'}.{extension}"
 
 
 class ReportService:
@@ -42,12 +31,3 @@ class ReportService:
         if record is None:
             raise HTTPException(status_code=404, detail="Отчет не найден.")
         return to_report_card(record)
-
-    def build_pdf_export(self, report_id: str) -> tuple[str, bytes]:
-        report = self.get_report(report_id)
-        return build_safe_filename(report.title, "pdf"), build_pdf_bytes(report)
-
-    def build_csv_export(self, report_id: str) -> tuple[str, bytes]:
-        report = self.get_report(report_id)
-        content = f"\ufeff{build_csv_content(report)}".encode("utf-8")
-        return build_safe_filename(report.title, "csv"), content

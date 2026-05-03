@@ -4,7 +4,6 @@ version = "0.2.0"
 description = "Minimal LangChain + LangGraph backend for the AI Sales Academy simulator."
 requires-python = ">=3.11"
 dependencies = [
-  "Pillow>=11.0.0,<12.0.0",
   "fastapi>=0.115.0,<1.0.0",
   "httpx>=0.28.0,<1.0.0",
   "langchain-core>=0.3.0,<1.0.0",
@@ -14,7 +13,6 @@ dependencies = [
   "psycopg[binary]>=3.2.0,<4.0.0",
   "python-dotenv>=1.0.0,<2.0.0",
   "PyYAML>=6.0.2,<7.0.0",
-  "reportlab>=4.2.0,<5.0.0",
   "SQLAlchemy>=2.0.36,<3.0.0",
   "uvicorn[standard]>=0.32.0,<1.0.0",
 ]

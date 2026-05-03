@@ -317,13 +317,22 @@ export function SimulatorScreen({
     setDraft("");
 
     if (evaluation) {
-      await onReportSaved({
-        scenarioTitle: currentScenario.title,
-        evaluation,
-        sessionId: capturedSessionId
-      });
-      setSuccessMessage('Диалог завершён. Отчет сохранен во вкладке "Отчеты".');
-      onNavigateToReports();
+      setSuccessMessage("Сохраняем отчет...");
+
+      try {
+        await onReportSaved({
+          scenarioTitle: currentScenario.title,
+          evaluation,
+          sessionId: capturedSessionId
+        });
+        setSuccessMessage('Диалог завершён. Отчет сохранен во вкладке "Отчеты".');
+        onNavigateToReports();
+      } catch (error) {
+        console.error("[reports] failed to persist finished evaluation", error);
+        setSuccessMessage(
+          "Диалог завершён, но сохранить отчет не удалось. Попробуйте открыть вкладку «Отчеты» еще раз."
+        );
+      }
     } else {
       setSuccessMessage("Диалог завершён, но оценка не была получена от сервера. Попробуйте завершить ещё раз.");
     }

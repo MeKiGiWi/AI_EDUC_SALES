@@ -71,7 +71,7 @@ def sqlite_database(monkeypatch, tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_create_list_and_export_report(sqlite_database: Path) -> None:
+async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     payload = {
         "role": "student",
         "scenario_title": "Baseline сценарий",
@@ -87,8 +87,8 @@ async def test_create_list_and_export_report(sqlite_database: Path) -> None:
         listed_payload = listed.json()
 
         report_id = created_payload["id"]
-        pdf_response = await client.get(f"/api/v1/reports/{report_id}/export/pdf")
-        csv_response = await client.get(f"/api/v1/reports/{report_id}/export/csv")
+        fetched = await client.get(f"/api/v1/reports/{report_id}")
+        fetched_payload = fetched.json()
 
     assert created.status_code == status.HTTP_201_CREATED
     assert created_payload["role"] == "student"
@@ -100,12 +100,6 @@ async def test_create_list_and_export_report(sqlite_database: Path) -> None:
     assert len(listed_payload["items"]) == 1
     assert listed_payload["items"][0]["id"] == report_id
 
-    assert pdf_response.status_code == status.HTTP_200_OK
-    assert pdf_response.headers["content-type"] == "application/pdf"
-    assert "attachment;" in pdf_response.headers["content-disposition"]
-    assert pdf_response.content.startswith(b"%PDF")
-    assert len(pdf_response.content) > 10000
-
-    assert csv_response.status_code == status.HTTP_200_OK
-    assert csv_response.headers["content-type"].startswith("text/csv")
-    assert "Baseline сценарий" in csv_response.content.decode("utf-8-sig")
+    assert fetched.status_code == status.HTTP_200_OK
+    assert fetched_payload["id"] == report_id
+    assert fetched_payload["summary"] == created_payload["summary"]

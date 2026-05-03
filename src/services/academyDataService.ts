@@ -166,6 +166,13 @@ function savedReportToReportCard(
   };
 }
 
+function mapSavedReportsToCards(
+  savedReports: SavedSimulatorReport[],
+  role: UserRole
+): ReportCard[] {
+  return savedReports.map((item) => savedReportToReportCard(item, role));
+}
+
 export const academyDataService = {
   getCurrentUser(role: UserRole): Promise<AcademyUser> {
     return simulateLatency(usersByRole[role]);
@@ -190,13 +197,19 @@ export const academyDataService = {
   },
 
   async getReports(role: UserRole): Promise<ReportCard[]> {
+    const saved = await reportStorageService.getAll(role);
+    const fallbackCards = mapSavedReportsToCards(saved, role);
+
     if (reportApiService.isEnabled()) {
-      return reportApiService.fetchReports(role);
+      try {
+        const cards = await reportApiService.fetchReports(role);
+        return simulateLatency(cards);
+      } catch (error) {
+        console.warn("[reports] backend fetch failed, returning local copy", error);
+      }
     }
 
-    const saved = await reportStorageService.getAll(role);
-    const cards = saved.map((item) => savedReportToReportCard(item, role));
-    return simulateLatency(cards);
+    return simulateLatency(fallbackCards);
   },
 
   async saveLatestSimulatorReport(params: {
@@ -205,16 +218,8 @@ export const academyDataService = {
     evaluation: SimulatorEvaluationPayloadDto;
     sessionId?: string | null;
   }): Promise<ReportCard[]> {
-    if (reportApiService.isEnabled()) {
-      await reportApiService.createReport({
-        role: params.role,
-        scenarioTitle: params.scenarioTitle,
-        evaluation: params.evaluation,
-        sessionId: params.sessionId
-      });
-      return reportApiService.fetchReports(params.role);
-    }
-
+    // Save locally first so the finished-dialog flow still resolves on Safari/iOS
+    // even when the backend roundtrip is slow or temporarily unavailable.
     const saved = await reportStorageService.save(
       params.role,
       params.scenarioTitle,
@@ -225,10 +230,23 @@ export const academyDataService = {
     const hasSaved = allSaved.some((item) => item.id === saved.id);
     const normalizedSaved = hasSaved ? allSaved : [saved, ...allSaved];
 
-    const cards = normalizedSaved.map((item) =>
-      savedReportToReportCard(item, params.role)
-    );
+    const fallbackCards = mapSavedReportsToCards(normalizedSaved, params.role);
 
-    return simulateLatency(cards);
+    if (reportApiService.isEnabled()) {
+      try {
+        await reportApiService.createReport({
+          role: params.role,
+          scenarioTitle: params.scenarioTitle,
+          evaluation: params.evaluation,
+          sessionId: params.sessionId
+        });
+        const syncedCards = await reportApiService.fetchReports(params.role);
+        return simulateLatency(syncedCards);
+      } catch (error) {
+        console.warn("[reports] backend sync failed, returning local copy", error);
+      }
+    }
+
+    return simulateLatency(fallbackCards);
   }
 };

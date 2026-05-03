@@ -6,7 +6,7 @@ services:
             args:
                 EXPO_PUBLIC_SIMULATOR_API_URL: /
         ports:
-            - "3000:80"
+            - "127.0.0.1:3000:80"
         restart: unless-stopped
         depends_on:
             backend:
@@ -28,7 +28,7 @@ services:
         env_file:
             - ./backend/.env
         environment:
-            DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/ai_sales_academy
+            DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@postgres:5432/ai_sales_academy}
         healthcheck:
             test:
                 [

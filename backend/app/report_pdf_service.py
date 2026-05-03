@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from io import BytesIO
+from functools import lru_cache
 from pathlib import Path
 from typing import Iterable
 
@@ -75,6 +76,7 @@ def hex_to_rgba(value: str, alpha: int = 255) -> tuple[int, int, int, int]:
     return red, green, blue, alpha
 
 
+@lru_cache(maxsize=1)
 def get_font_paths() -> tuple[Path | None, Path | None]:
     for regular_path, bold_path in FONT_CANDIDATES:
         if regular_path.exists():
@@ -85,9 +87,12 @@ def get_font_paths() -> tuple[Path | None, Path | None]:
 def load_font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     regular_path, bold_path = get_font_paths()
     font_path = bold_path if bold and bold_path else regular_path
-    if font_path:
-        return ImageFont.truetype(str(font_path), size=size)
-    return ImageFont.load_default()
+    if font_path is None:
+        raise RuntimeError(
+            "Не найден Unicode-шрифт для генерации PDF. "
+            "Установите DejaVu Sans или добавьте доступный TTF в FONT_CANDIDATES."
+        )
+    return ImageFont.truetype(str(font_path), size=size)
 
 
 def build_fonts() -> FontPack:

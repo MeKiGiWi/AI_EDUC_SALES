@@ -60,6 +60,11 @@ export function AppNavigator() {
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
   const [reports, setReports] = useState<ReportCard[]>([]);
 
+  async function loadReportsForRole(role: UserRole) {
+    const reportData = await academyDataService.getReports(role);
+    setReports(reportData);
+  }
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -70,16 +75,14 @@ export function AppNavigator() {
         scenarioData,
         managerData,
         hrData,
-        adminData,
-        reportData
+        adminData
       ] = await Promise.all([
         academyDataService.getStudentDashboard(),
         academyDataService.getKnowledgeSections(),
         academyDataService.getScenarios(),
         academyDataService.getManagerDashboard(),
         academyDataService.getHrDashboard(),
-        academyDataService.getAdminSettings(),
-        academyDataService.getReports(activeRole)
+        academyDataService.getAdminSettings()
       ]);
 
       setStudentDashboard(studentData);
@@ -89,12 +92,22 @@ export function AppNavigator() {
       setManagerDashboard(managerData);
       setHrDashboard(hrData);
       setAdminSettings(adminData);
-      setReports(reportData);
+      await loadReportsForRole(activeRole);
       setLoading(false);
     }
 
     loadData().catch(() => setLoading(false));
   }, [activeRole]);
+
+  useEffect(() => {
+    if (routeState.name !== "Reports") {
+      return;
+    }
+
+    loadReportsForRole(activeRole).catch((error) => {
+      console.warn("[reports] refresh on Reports route failed", error);
+    });
+  }, [activeRole, routeState.name]);
 
   useEffect(() => {
     academyDataService.getCurrentUser(activeRole).then(setCurrentUser);

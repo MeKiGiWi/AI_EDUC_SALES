@@ -11,7 +11,7 @@ async def test_topic_classifier_parses_json_output() -> None:
         RunnableLambda(lambda _: AIMessage(content='{"on_topic":"no","confidence":0.91}'))
     )
 
-    result = await agent.check("Напиши рецепт борща")
+    result = await agent.check("Напиши рецепт борща", [])
 
     assert result.on_topic == "no"
     assert result.confidence == pytest.approx(0.91)

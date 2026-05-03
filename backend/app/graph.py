@@ -52,7 +52,7 @@ def create_graph(deps: GraphDependencies):
         lambda state: state["dialog_route"],
         {
             "stop_after_rudeness": "append_customer_left_message",
-            "continue_with_customer_reply": "append_customer_reply_message",
+            "go_to_topic_check": "check_if_sales_message_is_on_topic",
         },
     )
     graph.add_conditional_edges(
@@ -133,7 +133,7 @@ def _classify_sales_tone(deps: GraphDependencies):
     async def node(state: GraphState) -> GraphState:
         result = await deps.rude_classifier.check(state["sales_message"])
         return {
-            "dialog_route": "stop_after_rudeness" if result.rude == "yes" else "continue_with_customer_reply",
+            "dialog_route": "stop_after_rudeness" if result.rude == "yes" else "go_to_topic_check",
             "confidence": result.confidence,
         }
 
@@ -161,7 +161,10 @@ def _append_customer_left_message(deps: GraphDependencies):
 
 def _classify_sales_topic(deps: GraphDependencies):
     async def node(state: GraphState) -> GraphState:
-        result = await deps.topic_classifier.check(state["sales_message"])
+        result = await deps.topic_classifier.check(
+            message=state["sales_message"],
+            messages=state["messages"]
+        )
         session = state["session"]
 
         if result.on_topic == "yes":

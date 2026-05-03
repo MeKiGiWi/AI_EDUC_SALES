@@ -621,13 +621,13 @@ export function SimulatorScreen({
                   label="Открыть отчеты"
                   onPress={onOpenReports}
                   tone="primary"
-                  disabled={!selectedScenario || isBusy}
+                  disabled={isBusy}
                 />
                 <AppButton
                   label="Повторить сценарий"
                   onPress={() => resetScenario(true)}
                   tone="ghost"
-                  disabled={!selectedScenario || isBusy}
+                  disabled={isBusy}
                 />
               </>
             )}
@@ -636,7 +636,7 @@ export function SimulatorScreen({
                 label="Повторить сценарий"
                 onPress={() => resetScenario(true)}
                 tone="ghost"
-                disabled={!selectedScenario || isBusy}
+                disabled={isBusy}
               />
             ) : null}
           </View>

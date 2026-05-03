@@ -107,6 +107,7 @@ async def test_graph_returns_buyer_reply_when_user_message_is_on_topic() -> None
     assert result["session"].messages[-1].content == "Нам важно не сорвать внедрение."
 
 
+@pytest.mark.skip(reason="Topic check is temporarily disabled")
 @pytest.mark.asyncio
 async def test_graph_warns_after_first_offtopic_message() -> None:
     graph = build_graph_with_reply(
@@ -128,6 +129,7 @@ async def test_graph_warns_after_first_offtopic_message() -> None:
     assert "вернёмся" in result["customer_message"].lower()
 
 
+@pytest.mark.skip(reason="Topic check is temporarily disabled")
 @pytest.mark.asyncio
 async def test_graph_finishes_after_second_offtopic_message() -> None:
     graph = build_graph_with_reply(

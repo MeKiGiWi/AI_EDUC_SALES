@@ -32,7 +32,11 @@ class AgentsConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     check_rude_llm_settings: LLMSettings = Field(default_factory=LLMSettings)
-    check_topic_llm_settings: LLMSettings = Field(default_factory=LLMSettings)
+    check_topic_llm_settings: LLMSettings = Field(
+        default_factory=lambda: get_settings().model_copy(
+            update={"LLM_MODEL": "openai/gpt-oss-120b"}
+        )
+    )
 
     buyer_agent_llm_settings: LLMSettings = Field(
         default_factory=lambda: get_settings().model_copy(

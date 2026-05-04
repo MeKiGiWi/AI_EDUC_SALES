@@ -23,6 +23,7 @@ import {
     type LandingSectionId,
 } from "../../data/landingContent";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
+import { roleLabels } from "../../navigation/routes";
 import { useTheme } from "../../theme/useTheme";
 import type { RoleWorkspaceOption, UserRole } from "../../types/academy";
 
@@ -2137,17 +2138,96 @@ export function LandingScreen({
                 onClose={() => setSheetState(null)}
             >
                 {sheetState?.kind === "roles" ? (
-                    <View style={styles.demoRoleGrid}>
+                    <View style={styles.buttonColumn}>
                         {roleOptions.map((option) => (
-                            <AppButton
+                            <Pressable
                                 key={option.role}
-                                label={option.title}
                                 onPress={() => {
                                     setSheetState(null);
                                     onEnterRole(option.role);
                                 }}
-                                tone="secondary"
-                            />
+                                accessible={true}
+                                accessibilityRole="button"
+                                style={[
+                                    styles.roleCard,
+                                    {
+                                        borderColor: theme.semantic.border,
+                                        backgroundColor:
+                                            theme.semantic.cardSubtle,
+                                    },
+                                ]}
+                            >
+                                <View style={styles.roleHeader}>
+                                    <Text
+                                        style={[
+                                            styles.cardTitle,
+                                            {
+                                                color: theme.semantic
+                                                    .textPrimary,
+                                            },
+                                        ]}
+                                    >
+                                        {option.title}
+                                    </Text>
+                                    <StatusPill
+                                        label={option.accessLabel}
+                                        tone="success"
+                                    />
+                                </View>
+                                <Text
+                                    style={[
+                                        styles.bodyText,
+                                        {
+                                            color: theme.semantic
+                                                .textSecondary,
+                                        },
+                                    ]}
+                                >
+                                    {option.summary}
+                                </Text>
+                                <View style={styles.bulletList}>
+                                    {option.capabilities.map((capability) => (
+                                        <View
+                                            key={capability}
+                                            style={styles.bulletRow}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.bulletDot,
+                                                    {
+                                                        backgroundColor:
+                                                            theme.semantic
+                                                                .actionPrimary,
+                                                    },
+                                                ]}
+                                            />
+                                            <Text
+                                                style={[
+                                                    styles.bulletText,
+                                                    {
+                                                        color: theme.semantic
+                                                            .textPrimary,
+                                                    },
+                                                ]}
+                                            >
+                                                {capability}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                                <Text
+                                    style={[
+                                        styles.roleEnterLabel,
+                                        {
+                                            color: theme.semantic
+                                                .actionPrimary,
+                                        },
+                                    ]}
+                                >
+                                    Перейти в кабинет{" "}
+                                    {roleLabels[option.role].toLowerCase()}
+                                </Text>
+                            </Pressable>
                         ))}
                     </View>
                 ) : sheetState?.kind === "direction" ? (
@@ -3136,5 +3216,22 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
         gap: 10,
+    },
+    buttonColumn: {
+        gap: 10,
+    },
+    roleCard: {
+        borderWidth: 1,
+        borderRadius: 24,
+        padding: 18,
+        gap: 10,
+    },
+    roleHeader: {
+        gap: 8,
+    },
+    roleEnterLabel: {
+        fontSize: 14,
+        lineHeight: 20,
+        fontWeight: "700",
     },
 });

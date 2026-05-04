@@ -1,5 +1,6 @@
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
+    AccessibilityInfo,
     Animated,
     Easing,
     LayoutChangeEvent,
@@ -43,33 +44,45 @@ type LandingSheetState =
 function Reveal({
     children,
     delay = 0,
+    distance = 18,
+    duration = 640,
+    reduceMotion = false,
     style,
 }: {
     children: ReactNode;
     delay?: number;
+    distance?: number;
+    duration?: number;
+    reduceMotion?: boolean;
     style?: object;
 }) {
     const opacity = useRef(new Animated.Value(0)).current;
-    const translateY = useRef(new Animated.Value(18)).current;
+    const translateY = useRef(new Animated.Value(distance)).current;
 
     useEffect(() => {
+        if (reduceMotion) {
+            opacity.setValue(1);
+            translateY.setValue(0);
+            return;
+        }
+
         Animated.parallel([
             Animated.timing(opacity, {
                 toValue: 1,
-                duration: 640,
+                duration,
                 delay,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: true,
             }),
             Animated.timing(translateY, {
                 toValue: 0,
-                duration: 640,
+                duration,
                 delay,
                 easing: Easing.out(Easing.cubic),
                 useNativeDriver: true,
             }),
         ]).start();
-    }, [delay, opacity, translateY]);
+    }, [delay, duration, opacity, reduceMotion, translateY]);
 
     return (
         <Animated.View
@@ -93,6 +106,7 @@ function TriggeredReveal({
     duration = 920,
     variant = "up",
     distance = 34,
+    reduceMotion = false,
     style,
 }: {
     children: ReactNode;
@@ -101,6 +115,7 @@ function TriggeredReveal({
     duration?: number;
     variant?: "up" | "left" | "right" | "fade";
     distance?: number;
+    reduceMotion?: boolean;
     style?: object;
 }) {
     const hasAnimated = useRef(false);
@@ -115,6 +130,14 @@ function TriggeredReveal({
     ).current;
 
     useEffect(() => {
+        if (reduceMotion) {
+            opacity.setValue(1);
+            translateX.setValue(0);
+            translateY.setValue(0);
+            hasAnimated.current = true;
+            return;
+        }
+
         if (!active || hasAnimated.current) {
             return;
         }
@@ -144,7 +167,7 @@ function TriggeredReveal({
                 useNativeDriver: true,
             }),
         ]).start();
-    }, [active, delay, duration, opacity, translateX, translateY]);
+    }, [active, delay, duration, opacity, reduceMotion, translateX, translateY]);
 
     return (
         <Animated.View
@@ -169,6 +192,7 @@ export function LandingScreen({
     const layout = useResponsiveLayout();
     const scrollRef = useRef<ScrollView>(null);
     const floatingMotion = useRef(new Animated.Value(0)).current;
+    const mobileMenuProgress = useRef(new Animated.Value(0)).current;
     const [sheetState, setSheetState] = useState<LandingSheetState>(null);
     const [activeNavId, setActiveNavId] = useState<LandingSectionId>("problem");
     const [sectionOffsets, setSectionOffsets] = useState<
@@ -182,11 +206,24 @@ export function LandingScreen({
     const [submittedKind, setSubmittedKind] = useState<CtaSheetKind | null>(
         null,
     );
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [reduceMotion, setReduceMotion] = useState(false);
 
     const isDesktop = layout.isDesktop;
+    const isMobile = layout.isMobile;
+    const isCompactMobile = layout.isCompactMobile;
+    const isSmallMobile = layout.isSmallMobile;
     const cardWidth = isDesktop ? "48.6%" : "100%";
-    const metricWidth = layout.isWide ? "23.4%" : isDesktop ? "48.6%" : "100%";
-    const stageWidth = layout.isWide ? "31.8%" : isDesktop ? "48.6%" : "100%";
+    const metricWidth = isDesktop
+        ? layout.isWide
+            ? "23.4%"
+            : "48.6%"
+        : !isCompactMobile
+          ? "48.4%"
+          : "100%";
+    const stageWidth = isDesktop ? (layout.isWide ? "31.8%" : "48.6%") : "100%";
+    const motionDistance = isMobile ? 18 : 34;
+    const motionDuration = isMobile ? 520 : 640;
     const containerStyle = useMemo(
         () => [
             styles.container,
@@ -197,9 +234,54 @@ export function LandingScreen({
         ],
         [layout.screenPadding],
     );
+    const mobileMenuAnimatedStyle = useMemo(
+        () => ({
+            opacity: mobileMenuProgress,
+            maxHeight: mobileMenuProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 360],
+            }),
+            transform: [
+                {
+                    translateY: mobileMenuProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-8, 0],
+                    }),
+                },
+            ],
+        }),
+        [mobileMenuProgress],
+    );
 
     useEffect(() => {
-        Animated.loop(
+        let mounted = true;
+        AccessibilityInfo.isReduceMotionEnabled()
+            .then((enabled) => {
+                if (mounted) {
+                    setReduceMotion(enabled);
+                }
+            })
+            .catch(() => undefined);
+
+        const subscription = AccessibilityInfo.addEventListener(
+            "reduceMotionChanged",
+            setReduceMotion,
+        );
+
+        return () => {
+            mounted = false;
+            subscription.remove();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (reduceMotion || isMobile) {
+            floatingMotion.stopAnimation();
+            floatingMotion.setValue(0);
+            return;
+        }
+
+        const loop = Animated.loop(
             Animated.sequence([
                 Animated.timing(floatingMotion, {
                     toValue: -10,
@@ -214,16 +296,40 @@ export function LandingScreen({
                     useNativeDriver: true,
                 }),
             ]),
-        ).start();
-    }, [floatingMotion]);
+        );
+
+        loop.start();
+
+        return () => {
+            loop.stop();
+            floatingMotion.stopAnimation();
+        };
+    }, [floatingMotion, isMobile, reduceMotion]);
+
+    useEffect(() => {
+        Animated.timing(mobileMenuProgress, {
+            toValue: isMobileMenuOpen ? 1 : 0,
+            duration: reduceMotion ? 0 : 220,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false,
+        }).start();
+    }, [isMobileMenuOpen, mobileMenuProgress, reduceMotion]);
+
+    useEffect(() => {
+        if (!isMobile) {
+            setIsMobileMenuOpen(false);
+        }
+    }, [isMobile]);
 
     function openCtaSheet(kind: CtaSheetKind) {
         setSubmittedKind(null);
+        setIsMobileMenuOpen(false);
         setSheetState({ kind });
     }
 
     function openRolePicker() {
         setSubmittedKind(null);
+        setIsMobileMenuOpen(false);
         setSheetState({ kind: "roles" });
     }
 
@@ -238,6 +344,7 @@ export function LandingScreen({
         }
 
         setActiveNavId(sectionId);
+        setIsMobileMenuOpen(false);
     }
 
     function registerSection(sectionId: LandingSectionId) {
@@ -284,6 +391,27 @@ export function LandingScreen({
     const actionSheetKind: CtaSheetKind =
         sheetState?.kind === "implementation" ? "implementation" : "demo";
     const viewportBottom = scrollOffset + layout.height;
+    const compactButtonProps = isMobile ? { fullWidth: true } : {};
+    const sectionTitleStyle = isSmallMobile
+        ? styles.sectionTitleSmallMobile
+        : isCompactMobile
+          ? styles.sectionTitleMobile
+          : null;
+    const heroTitleStyle = isSmallMobile
+        ? styles.heroTitleSmallMobile
+        : isCompactMobile
+          ? styles.heroTitleMobile
+          : null;
+    const finalTitleStyle = isSmallMobile
+        ? styles.finalTitleSmallMobile
+        : isCompactMobile
+          ? styles.finalTitleMobile
+          : null;
+    const securityTitleStyle = isSmallMobile
+        ? styles.securityTitleSmallMobile
+        : isCompactMobile
+          ? styles.securityTitleMobile
+          : null;
 
     function isSectionRevealActive(sectionId: LandingSectionId, offset = 0) {
         const sectionY = sectionOffsets[sectionId];
@@ -328,6 +456,7 @@ export function LandingScreen({
                         <View
                             style={[
                                 styles.headerSurface,
+                                isMobile && styles.headerSurfaceMobile,
                                 {
                                     borderColor: theme.semantic.border,
                                     backgroundColor: "rgba(255,255,255,0.78)",
@@ -342,7 +471,7 @@ export function LandingScreen({
                             <View
                                 style={[
                                     styles.headerTopRow,
-                                    !isDesktop && styles.headerTopRowMobile,
+                                    isMobile && styles.headerTopRowMobile,
                                 ]}
                             >
                                 <View style={styles.brandBlock}>
@@ -364,6 +493,8 @@ export function LandingScreen({
                                         <Text
                                             style={[
                                                 styles.brandTitle,
+                                                isSmallMobile &&
+                                                    styles.brandTitleSmallMobile,
                                                 {
                                                     color: theme.semantic
                                                         .textPrimary,
@@ -375,6 +506,8 @@ export function LandingScreen({
                                         <Text
                                             style={[
                                                 styles.brandSubtitle,
+                                                isMobile &&
+                                                    styles.brandSubtitleMobile,
                                                 {
                                                     color: theme.semantic
                                                         .textMuted,
@@ -386,17 +519,77 @@ export function LandingScreen({
                                     </View>
                                 </View>
 
+                                {isMobile ? (
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={
+                                            isMobileMenuOpen
+                                                ? "Закрыть меню навигации"
+                                                : "Открыть меню навигации"
+                                        }
+                                        accessibilityState={{
+                                            expanded: isMobileMenuOpen,
+                                        }}
+                                        onPress={() =>
+                                            setIsMobileMenuOpen(
+                                                (current) => !current,
+                                            )
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.menuButton,
+                                            {
+                                                borderColor:
+                                                    theme.semantic.border,
+                                                backgroundColor: pressed
+                                                    ? theme.semantic.cardSubtle
+                                                    : "rgba(255,255,255,0.84)",
+                                            },
+                                        ]}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.menuButtonBar,
+                                                {
+                                                    backgroundColor:
+                                                        theme.semantic
+                                                            .textPrimary,
+                                                },
+                                            ]}
+                                        />
+                                        <View
+                                            style={[
+                                                styles.menuButtonBar,
+                                                {
+                                                    backgroundColor:
+                                                        theme.semantic
+                                                            .textPrimary,
+                                                },
+                                            ]}
+                                        />
+                                        <View
+                                            style={[
+                                                styles.menuButtonBar,
+                                                {
+                                                    backgroundColor:
+                                                        theme.semantic
+                                                            .textPrimary,
+                                                },
+                                            ]}
+                                        />
+                                    </Pressable>
+                                ) : null}
+
                                 <View
                                     style={[
                                         styles.headerActions,
-                                        !isDesktop &&
-                                            styles.headerActionsMobile,
+                                        isMobile &&
+                                            styles.headerActionsHiddenMobile,
                                     ]}
                                 >
                                     <View
                                         style={[
                                             styles.navRow,
-                                            !isDesktop && styles.navRowMobile,
+                                            isMobile && styles.navRowMobile,
                                         ]}
                                     >
                                         {landingContent.navLinks.map((link) => (
@@ -485,19 +678,129 @@ export function LandingScreen({
                                     />
                                 </View>
                             </View>
+
+                            {isMobile ? (
+                                <Animated.View
+                                    pointerEvents={
+                                        isMobileMenuOpen ? "auto" : "none"
+                                    }
+                                    style={[
+                                        styles.mobileMenuWrap,
+                                        mobileMenuAnimatedStyle,
+                                    ]}
+                                >
+                                    <View style={styles.mobileMenuActions}>
+                                        <View style={styles.mobileMenuNavList}>
+                                            {landingContent.navLinks.map(
+                                                (link) => (
+                                                    <Pressable
+                                                        key={link.id}
+                                                        accessibilityRole="button"
+                                                        accessibilityLabel={
+                                                            link.label
+                                                        }
+                                                        onPress={() =>
+                                                            scrollToSection(
+                                                                link.id,
+                                                            )
+                                                        }
+                                                        style={({ pressed }) => [
+                                                            styles.mobileMenuNavItem,
+                                                            {
+                                                                borderColor:
+                                                                    activeNavId ===
+                                                                    link.id
+                                                                        ? theme
+                                                                              .semantic
+                                                                              .actionPrimary
+                                                                        : theme
+                                                                              .semantic
+                                                                              .border,
+                                                                backgroundColor:
+                                                                    activeNavId ===
+                                                                    link.id
+                                                                        ? theme
+                                                                              .colors
+                                                                              .primaryPale
+                                                                        : pressed
+                                                                          ? theme
+                                                                                .semantic
+                                                                                .cardSubtle
+                                                                          : theme
+                                                                                .semantic
+                                                                                .card,
+                                                            },
+                                                        ]}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.mobileMenuNavText,
+                                                                {
+                                                                    color:
+                                                                        activeNavId ===
+                                                                        link.id
+                                                                            ? theme
+                                                                                  .semantic
+                                                                                  .actionSecondaryText
+                                                                            : theme
+                                                                                  .semantic
+                                                                                  .textPrimary,
+                                                                },
+                                                            ]}
+                                                        >
+                                                            {link.label}
+                                                        </Text>
+                                                    </Pressable>
+                                                ),
+                                            )}
+                                        </View>
+                                        <View
+                                            style={styles.mobileMenuButtonColumn}
+                                        >
+                                            <AppButton
+                                                label="Войти"
+                                                onPress={openRolePicker}
+                                                tone="secondary"
+                                                fullWidth
+                                                accessibilityLabel="Открыть демо-кабинеты"
+                                            />
+                                            <AppButton
+                                                label="Записаться на демо"
+                                                onPress={() =>
+                                                    openCtaSheet("demo")
+                                                }
+                                                tone="primary"
+                                                fullWidth
+                                                accessibilityLabel="Записаться на демо"
+                                            />
+                                        </View>
+                                    </View>
+                                </Animated.View>
+                            ) : null}
                         </View>
                     </View>
                 </View>
 
                 <View style={containerStyle}>
-                    <Reveal delay={50}>
+                    <Reveal
+                        delay={50}
+                        distance={motionDistance}
+                        duration={motionDuration}
+                        reduceMotion={reduceMotion}
+                    >
                         <View
                             style={[
                                 styles.heroSection,
                                 isDesktop && styles.heroDesktop,
+                                isMobile && styles.heroSectionMobile,
                             ]}
                         >
-                            <View style={styles.heroCopy}>
+                            <View
+                                style={[
+                                    styles.heroCopy,
+                                    isMobile && styles.heroCopyMobile,
+                                ]}
+                            >
                                 <StatusPill
                                     label={landingContent.hero.eyebrow}
                                     tone="success"
@@ -505,6 +808,7 @@ export function LandingScreen({
                                 <Text
                                     style={[
                                         styles.heroTitle,
+                                        heroTitleStyle,
                                         { color: theme.semantic.textPrimary },
                                     ]}
                                 >
@@ -513,21 +817,32 @@ export function LandingScreen({
                                 <Text
                                     style={[
                                         styles.heroDescription,
+                                        isMobile &&
+                                            styles.heroDescriptionMobile,
                                         { color: theme.semantic.textSecondary },
                                     ]}
                                 >
                                     {landingContent.hero.description}
                                 </Text>
-                                <View style={styles.heroActions}>
+                                <View
+                                    style={[
+                                        styles.heroActions,
+                                        isMobile
+                                            ? styles.heroActionsMobile
+                                            : styles.heroActionsDesktop,
+                                    ]}
+                                >
                                     <AppButton
                                         label="Войти"
                                         onPress={openRolePicker}
                                         tone="primary"
+                                        {...compactButtonProps}
                                     />
                                     <AppButton
                                         label={landingContent.hero.primaryCta}
                                         onPress={() => openCtaSheet("demo")}
                                         tone="secondary"
+                                        {...compactButtonProps}
                                     />
                                     <AppButton
                                         label={landingContent.hero.secondaryCta}
@@ -535,6 +850,7 @@ export function LandingScreen({
                                             scrollToSection("howItWorks")
                                         }
                                         tone="secondary"
+                                        {...compactButtonProps}
                                     />
                                 </View>
                             </View>
@@ -542,6 +858,7 @@ export function LandingScreen({
                             <Animated.View
                                 style={[
                                     styles.heroVisualWrap,
+                                    isMobile && styles.heroVisualWrapMobile,
                                     {
                                         transform: [
                                             { translateY: floatingMotion },
@@ -552,13 +869,20 @@ export function LandingScreen({
                                 <View
                                     style={[
                                         styles.heroGlow,
+                                        isMobile && styles.heroGlowMobile,
                                         {
                                             backgroundColor:
                                                 theme.colors.mintGlow,
                                         },
                                     ]}
                                 />
-                                <AppCard style={styles.heroVisualCard}>
+                                <AppCard
+                                    style={[
+                                        styles.heroVisualCard,
+                                        isMobile &&
+                                            styles.heroVisualCardMobile,
+                                    ]}
+                                >
                                     <View style={styles.heroMockHeader}>
                                         <StatusPill
                                             label="ИИ-тренажёр"
@@ -592,6 +916,8 @@ export function LandingScreen({
                                         <View
                                             style={[
                                                 styles.mockBubble,
+                                                isMobile &&
+                                                    styles.mockBubbleMobile,
                                                 styles.mockBubbleClient,
                                                 {
                                                     backgroundColor:
@@ -629,6 +955,8 @@ export function LandingScreen({
                                         <View
                                             style={[
                                                 styles.mockBubble,
+                                                isMobile &&
+                                                    styles.mockBubbleMobile,
                                                 styles.mockBubbleManager,
                                                 {
                                                     backgroundColor:
@@ -667,10 +995,18 @@ export function LandingScreen({
                                         </View>
                                     </View>
 
-                                    <View style={styles.mockStatsRow}>
+                                    <View
+                                        style={[
+                                            styles.mockStatsRow,
+                                            isMobile &&
+                                                styles.mockStatsRowMobile,
+                                        ]}
+                                    >
                                         <View
                                             style={[
                                                 styles.mockStatCard,
+                                                isMobile &&
+                                                    styles.mockStatCardMobile,
                                                 {
                                                     backgroundColor:
                                                         theme.semantic
@@ -694,6 +1030,8 @@ export function LandingScreen({
                                         <View
                                             style={[
                                                 styles.mockStatCard,
+                                                isMobile &&
+                                                    styles.mockStatCardMobile,
                                                 {
                                                     backgroundColor:
                                                         theme.semantic
@@ -719,6 +1057,8 @@ export function LandingScreen({
                                     <View
                                         style={[
                                             styles.progressPanel,
+                                            isMobile &&
+                                                styles.progressPanelMobile,
                                             {
                                                 borderColor:
                                                     theme.semantic.border,
@@ -758,7 +1098,12 @@ export function LandingScreen({
                         </View>
                     </Reveal>
 
-                    <Reveal delay={120}>
+                    <Reveal
+                        delay={120}
+                        distance={motionDistance}
+                        duration={motionDuration}
+                        reduceMotion={reduceMotion}
+                    >
                         <View style={styles.sectionStack}>
                             <View style={styles.sectionHeading}>
                                 <Text
@@ -783,6 +1128,9 @@ export function LandingScreen({
                                     <Reveal
                                         key={item.value}
                                         delay={140 + index * 70}
+                                        distance={motionDistance}
+                                        duration={motionDuration}
+                                        reduceMotion={reduceMotion}
                                         style={{ width: metricWidth }}
                                     >
                                         <AppCard
@@ -837,17 +1185,24 @@ export function LandingScreen({
                         onLayout={registerSection("problem")}
                         style={styles.sectionAnchor}
                     >
-                        <Reveal delay={180}>
+                        <Reveal
+                            delay={180}
+                            distance={motionDistance}
+                            duration={motionDuration}
+                            reduceMotion={reduceMotion}
+                        >
                             <View
                                 style={[
                                     styles.problemSection,
                                     isDesktop && styles.problemDesktop,
+                                    isMobile && styles.problemSectionMobile,
                                 ]}
                             >
                                 <View style={styles.problemListColumn}>
                                     <Text
                                         style={[
                                             styles.sectionTitle,
+                                            sectionTitleStyle,
                                             {
                                                 color: theme.semantic
                                                     .textPrimary,
@@ -874,12 +1229,17 @@ export function LandingScreen({
                                                     key={item.title}
                                                     active={isSectionRevealActive(
                                                         "problem",
-                                                        120,
+                                                        isMobile ? 70 : 120,
                                                     )}
                                                     delay={index * 140}
-                                                    duration={980}
-                                                    distance={52}
+                                                    duration={
+                                                        isMobile ? 760 : 980
+                                                    }
+                                                    distance={
+                                                        isMobile ? 18 : 52
+                                                    }
                                                     variant="left"
+                                                    reduceMotion={reduceMotion}
                                                 >
                                                     <AppCard
                                                         style={
@@ -918,6 +1278,8 @@ export function LandingScreen({
                                                             <Text
                                                                 style={[
                                                                     styles.cardTitle,
+                                                                    isCompactMobile &&
+                                                                        styles.cardTitleMobile,
                                                                     {
                                                                         color: theme
                                                                             .semantic
@@ -950,11 +1312,12 @@ export function LandingScreen({
                                 <TriggeredReveal
                                     active={isSectionRevealActive(
                                         "problem",
-                                        250,
+                                        isMobile ? 140 : 250,
                                     )}
                                     delay={80}
-                                    duration={860}
+                                    duration={isMobile ? 680 : 860}
                                     variant="fade"
+                                    reduceMotion={reduceMotion}
                                     style={styles.problemAccentWrap}
                                 >
                                     <View
@@ -980,9 +1343,11 @@ export function LandingScreen({
                                         />
                                         <View style={styles.problemAccentCopy}>
                                             <Text
-                                                style={
-                                                    styles.problemAccentTitle
-                                                }
+                                                style={[
+                                                    styles.problemAccentTitle,
+                                                    isCompactMobile &&
+                                                        styles.problemAccentTitleMobile,
+                                                ]}
                                             >
                                                 {landingContent.problemAccent}
                                             </Text>
@@ -1006,12 +1371,18 @@ export function LandingScreen({
                         onLayout={registerSection("solution")}
                         style={styles.sectionAnchor}
                     >
-                        <Reveal delay={220}>
+                        <Reveal
+                            delay={220}
+                            distance={motionDistance}
+                            duration={motionDuration}
+                            reduceMotion={reduceMotion}
+                        >
                             <View style={styles.sectionStack}>
                                 <View style={styles.sectionHeading}>
                                     <Text
                                         style={[
                                             styles.sectionTitle,
+                                            sectionTitleStyle,
                                             {
                                                 color: theme.semantic
                                                     .textPrimary,
@@ -1039,6 +1410,9 @@ export function LandingScreen({
                                             <Reveal
                                                 key={step.title}
                                                 delay={240 + index * 70}
+                                                distance={motionDistance}
+                                                duration={motionDuration}
+                                                reduceMotion={reduceMotion}
                                                 style={[
                                                     styles.flowStepWrap,
                                                     isDesktop &&
@@ -1128,6 +1502,9 @@ export function LandingScreen({
                                             <Reveal
                                                 key={item.title}
                                                 delay={280 + index * 70}
+                                                distance={motionDistance}
+                                                duration={motionDuration}
+                                                reduceMotion={reduceMotion}
                                                 style={{ width: cardWidth }}
                                             >
                                                 <Pressable
@@ -1275,17 +1652,24 @@ export function LandingScreen({
                         onLayout={registerSection("howItWorks")}
                         style={styles.sectionAnchor}
                     >
-                        <Reveal delay={260}>
+                        <Reveal
+                            delay={260}
+                            distance={motionDistance}
+                            duration={motionDuration}
+                            reduceMotion={reduceMotion}
+                        >
                             <View
                                 style={[
                                     styles.trainerSection,
                                     isDesktop && styles.trainerDesktop,
+                                    isMobile && styles.trainerSectionMobile,
                                 ]}
                             >
                                 <View style={styles.trainerCopy}>
                                     <Text
                                         style={[
                                             styles.sectionTitle,
+                                            sectionTitleStyle,
                                             {
                                                 color: theme.semantic
                                                     .textPrimary,
@@ -1301,12 +1685,17 @@ export function LandingScreen({
                                                     key={item.title}
                                                     active={isSectionRevealActive(
                                                         "howItWorks",
-                                                        110,
+                                                        isMobile ? 60 : 110,
                                                     )}
                                                     delay={index * 140}
-                                                    duration={980}
-                                                    distance={52}
+                                                    duration={
+                                                        isMobile ? 760 : 980
+                                                    }
+                                                    distance={
+                                                        isMobile ? 18 : 52
+                                                    }
                                                     variant="left"
+                                                    reduceMotion={reduceMotion}
                                                 >
                                                     <View
                                                         style={[
@@ -1385,15 +1774,22 @@ export function LandingScreen({
                                 <TriggeredReveal
                                     active={isSectionRevealActive(
                                         "howItWorks",
-                                        230,
+                                        isMobile ? 120 : 230,
                                     )}
                                     delay={90}
-                                    duration={980}
-                                    distance={56}
+                                    duration={isMobile ? 760 : 980}
+                                    distance={isMobile ? 18 : 56}
                                     variant="right"
+                                    reduceMotion={reduceMotion}
                                     style={styles.trainerMockWrap}
                                 >
-                                    <AppCard style={styles.trainerMockCard}>
+                                    <AppCard
+                                        style={[
+                                            styles.trainerMockCard,
+                                            isMobile &&
+                                                styles.trainerMockCardMobile,
+                                        ]}
+                                    >
                                         <View style={styles.mockWindowHeader}>
                                             <Text
                                                 style={[
@@ -1435,6 +1831,8 @@ export function LandingScreen({
                                             <View
                                                 style={[
                                                     styles.mockBubble,
+                                                    isMobile &&
+                                                        styles.mockBubbleMobile,
                                                     styles.mockBubbleClient,
                                                     {
                                                         backgroundColor:
@@ -1473,6 +1871,8 @@ export function LandingScreen({
                                             <View
                                                 style={[
                                                     styles.mockBubble,
+                                                    isMobile &&
+                                                        styles.mockBubbleMobile,
                                                     styles.mockBubbleManager,
                                                     {
                                                         backgroundColor:
@@ -1517,6 +1917,8 @@ export function LandingScreen({
                                         <View
                                             style={[
                                                 styles.feedbackPanel,
+                                                isMobile &&
+                                                    styles.feedbackPanelMobile,
                                                 {
                                                     backgroundColor:
                                                         theme.semantic
@@ -1535,7 +1937,13 @@ export function LandingScreen({
                                             >
                                                 Оценка по компетенциям
                                             </Text>
-                                            <View style={styles.feedbackScores}>
+                                            <View
+                                                style={[
+                                                    styles.feedbackScores,
+                                                    isMobile &&
+                                                        styles.feedbackScoresMobile,
+                                                ]}
+                                            >
                                                 <FeedbackScore
                                                     label="Диагностика"
                                                     value={72}
@@ -1550,11 +1958,17 @@ export function LandingScreen({
                                                 />
                                             </View>
                                             <View
-                                                style={styles.feedbackColumns}
+                                                style={[
+                                                    styles.feedbackColumns,
+                                                    isMobile &&
+                                                        styles.feedbackColumnsMobile,
+                                                ]}
                                             >
                                                 <View
                                                     style={[
                                                         styles.feedbackColumn,
+                                                        isMobile &&
+                                                            styles.feedbackColumnMobile,
                                                         {
                                                             borderColor:
                                                                 theme.semantic
@@ -1593,6 +2007,8 @@ export function LandingScreen({
                                                 <View
                                                     style={[
                                                         styles.feedbackColumn,
+                                                        isMobile &&
+                                                            styles.feedbackColumnMobile,
                                                         {
                                                             borderColor:
                                                                 theme.semantic
@@ -1640,12 +2056,18 @@ export function LandingScreen({
                         onLayout={registerSection("directions")}
                         style={styles.sectionAnchor}
                     >
-                        <Reveal delay={300}>
+                        <Reveal
+                            delay={300}
+                            distance={motionDistance}
+                            duration={motionDuration}
+                            reduceMotion={reduceMotion}
+                        >
                             <View style={styles.sectionStack}>
                                 <View style={styles.sectionHeading}>
                                     <Text
                                         style={[
                                             styles.sectionTitle,
+                                            sectionTitleStyle,
                                             {
                                                 color: theme.semantic
                                                     .textPrimary,
@@ -1669,6 +2091,9 @@ export function LandingScreen({
                                                 <Reveal
                                                     key={direction.title}
                                                     delay={320 + index * 50}
+                                                    distance={motionDistance}
+                                                    duration={motionDuration}
+                                                    reduceMotion={reduceMotion}
                                                 >
                                                     <Pressable
                                                         accessibilityRole="button"
@@ -1805,6 +2230,9 @@ export function LandingScreen({
                                                 <Reveal
                                                     key={direction.title}
                                                     delay={320 + index * 50}
+                                                    distance={motionDistance}
+                                                    duration={motionDuration}
+                                                    reduceMotion={reduceMotion}
                                                 >
                                                     <Pressable
                                                         accessibilityRole="button"
@@ -1913,12 +2341,18 @@ export function LandingScreen({
                         onLayout={registerSection("result")}
                         style={styles.sectionAnchor}
                     >
-                        <Reveal delay={340}>
+                        <Reveal
+                            delay={340}
+                            distance={motionDistance}
+                            duration={motionDuration}
+                            reduceMotion={reduceMotion}
+                        >
                             <View style={styles.sectionStack}>
                                 <View style={styles.sectionHeading}>
                                     <Text
                                         style={[
                                             styles.sectionTitle,
+                                            sectionTitleStyle,
                                             {
                                                 color: theme.semantic
                                                     .textPrimary,
@@ -1934,6 +2368,9 @@ export function LandingScreen({
                                             <Reveal
                                                 key={stage.title}
                                                 delay={360 + index * 55}
+                                                distance={motionDistance}
+                                                duration={motionDuration}
+                                                reduceMotion={reduceMotion}
                                                 style={{ width: stageWidth }}
                                             >
                                                 <AppCard
@@ -2015,17 +2452,28 @@ export function LandingScreen({
                         </Reveal>
                     </View>
 
-                    <Reveal delay={380}>
+                    <Reveal
+                        delay={380}
+                        distance={motionDistance}
+                        duration={motionDuration}
+                        reduceMotion={reduceMotion}
+                    >
                         <View
                             style={[
                                 styles.securitySection,
+                                isMobile && styles.securitySectionMobile,
                                 {
                                     backgroundColor: theme.colors.primaryDeep,
                                     borderColor: theme.colors.primary,
                                 },
                             ]}
                         >
-                            <Text style={styles.securityTitle}>
+                            <Text
+                                style={[
+                                    styles.securityTitle,
+                                    securityTitleStyle,
+                                ]}
+                            >
                                 {landingContent.securityTitle}
                             </Text>
                             <View style={styles.securityGrid}>
@@ -2034,6 +2482,9 @@ export function LandingScreen({
                                         <Reveal
                                             key={item.title}
                                             delay={400 + index * 60}
+                                            distance={motionDistance}
+                                            duration={motionDuration}
+                                            reduceMotion={reduceMotion}
                                             style={{ width: cardWidth }}
                                         >
                                             <View
@@ -2069,10 +2520,16 @@ export function LandingScreen({
                         </View>
                     </Reveal>
 
-                    <Reveal delay={430}>
+                    <Reveal
+                        delay={430}
+                        distance={motionDistance}
+                        duration={motionDuration}
+                        reduceMotion={reduceMotion}
+                    >
                         <View
                             style={[
                                 styles.finalSection,
+                                isMobile && styles.finalSectionMobile,
                                 {
                                     borderColor: theme.semantic.border,
                                     backgroundColor: theme.semantic.card,
@@ -2082,12 +2539,14 @@ export function LandingScreen({
                             <View
                                 style={[
                                     styles.finalGlow,
+                                    isMobile && styles.finalGlowMobile,
                                     { backgroundColor: theme.colors.mintGlow },
                                 ]}
                             />
                             <Text
                                 style={[
                                     styles.finalTitle,
+                                    finalTitleStyle,
                                     { color: theme.semantic.textPrimary },
                                 ]}
                             >
@@ -2101,11 +2560,19 @@ export function LandingScreen({
                             >
                                 {landingContent.finalDescription}
                             </Text>
-                            <View style={styles.heroActions}>
+                            <View
+                                style={[
+                                    styles.heroActions,
+                                    isMobile
+                                        ? styles.heroActionsMobile
+                                        : styles.heroActionsDesktop,
+                                ]}
+                            >
                                 <AppButton
                                     label={landingContent.finalPrimaryCta}
                                     onPress={() => openCtaSheet("demo")}
                                     tone="primary"
+                                    {...compactButtonProps}
                                 />
                                 <AppButton
                                     label={landingContent.finalSecondaryCta}
@@ -2113,6 +2580,7 @@ export function LandingScreen({
                                         openCtaSheet("implementation")
                                     }
                                     tone="secondary"
+                                    {...compactButtonProps}
                                 />
                             </View>
                         </View>
@@ -2440,8 +2908,8 @@ const styles = StyleSheet.create({
     },
     stickyHeader: {
         borderBottomWidth: 1,
-        paddingTop: 10,
-        paddingBottom: 12,
+        paddingTop: 8,
+        paddingBottom: 10,
         zIndex: 20,
     },
     container: {
@@ -2454,6 +2922,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 14,
     },
+    headerSurfaceMobile: {
+        borderRadius: 24,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
     headerTopRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -2461,13 +2934,13 @@ const styles = StyleSheet.create({
         gap: 18,
     },
     headerTopRowMobile: {
-        alignItems: "flex-start",
-        flexDirection: "column",
+        minHeight: 44,
     },
     brandBlock: {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
+        minWidth: 0,
     },
     brandMark: {
         width: 42,
@@ -2483,11 +2956,17 @@ const styles = StyleSheet.create({
     },
     brandTextBlock: {
         gap: 2,
+        minWidth: 0,
     },
     brandTitle: {
         fontSize: 18,
         lineHeight: 22,
         fontWeight: "800",
+        flexShrink: 1,
+    },
+    brandTitleSmallMobile: {
+        fontSize: 16,
+        lineHeight: 20,
     },
     brandSubtitle: {
         fontSize: 12,
@@ -2496,6 +2975,9 @@ const styles = StyleSheet.create({
         textTransform: "uppercase",
         letterSpacing: 1.4,
     },
+    brandSubtitleMobile: {
+        display: "none",
+    },
     headerActions: {
         flex: 1,
         flexDirection: "row",
@@ -2503,10 +2985,8 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 16,
     },
-    headerActionsMobile: {
-        width: "100%",
-        flexDirection: "column",
-        alignItems: "stretch",
+    headerActionsHiddenMobile: {
+        display: "none",
     },
     navRow: {
         flexDirection: "row",
@@ -2529,10 +3009,53 @@ const styles = StyleSheet.create({
         lineHeight: 18,
         fontWeight: "700",
     },
+    menuButton: {
+        width: 44,
+        height: 44,
+        borderWidth: 1,
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
+    },
+    menuButtonBar: {
+        width: 18,
+        height: 2,
+        borderRadius: 999,
+    },
+    mobileMenuWrap: {
+        overflow: "hidden",
+    },
+    mobileMenuActions: {
+        paddingTop: 14,
+        gap: 12,
+    },
+    mobileMenuNavList: {
+        gap: 10,
+    },
+    mobileMenuNavItem: {
+        borderWidth: 1,
+        borderRadius: 18,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    mobileMenuNavText: {
+        fontSize: 15,
+        lineHeight: 20,
+        fontWeight: "700",
+    },
+    mobileMenuButtonColumn: {
+        gap: 10,
+    },
     heroSection: {
         paddingTop: 26,
         paddingBottom: 28,
         gap: 22,
+    },
+    heroSectionMobile: {
+        paddingTop: 18,
+        paddingBottom: 22,
+        gap: 18,
     },
     heroDesktop: {
         flexDirection: "row",
@@ -2542,32 +3065,64 @@ const styles = StyleSheet.create({
         flex: 1,
         gap: 16,
     },
+    heroCopyMobile: {
+        gap: 14,
+    },
     heroTitle: {
         fontSize: 52,
         lineHeight: 56,
         fontWeight: "800",
         letterSpacing: -1.8,
     },
+    heroTitleMobile: {
+        fontSize: 40,
+        lineHeight: 44,
+        letterSpacing: -1.3,
+    },
+    heroTitleSmallMobile: {
+        fontSize: 34,
+        lineHeight: 38,
+        letterSpacing: -1,
+    },
     heroDescription: {
         maxWidth: 640,
         fontSize: 18,
         lineHeight: 28,
+    },
+    heroDescriptionMobile: {
+        fontSize: 16,
+        lineHeight: 24,
     },
     heroActions: {
         flexDirection: "row",
         flexWrap: "wrap",
         gap: 12,
     },
+    heroActionsDesktop: {
+        alignItems: "center",
+    },
+    heroActionsMobile: {
+        flexDirection: "column",
+        alignItems: "stretch",
+    },
     heroVisualWrap: {
         flex: 0.92,
         minHeight: 420,
         justifyContent: "center",
+    },
+    heroVisualWrapMobile: {
+        minHeight: 0,
     },
     heroVisualCard: {
         overflow: "hidden",
         minHeight: 420,
         padding: 24,
         gap: 18,
+    },
+    heroVisualCardMobile: {
+        minHeight: 0,
+        padding: 18,
+        gap: 14,
     },
     heroGlow: {
         position: "absolute",
@@ -2577,6 +3132,14 @@ const styles = StyleSheet.create({
         height: 220,
         borderRadius: 220,
         opacity: 0.28,
+    },
+    heroGlowMobile: {
+        top: 28,
+        right: 12,
+        width: 140,
+        height: 140,
+        borderRadius: 140,
+        opacity: 0.16,
     },
     heroMockHeader: {
         flexDirection: "row",
@@ -2604,6 +3167,12 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         gap: 6,
     },
+    mockBubbleMobile: {
+        maxWidth: "100%",
+        borderRadius: 18,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
     mockBubbleClient: {
         alignSelf: "flex-start",
     },
@@ -2627,12 +3196,20 @@ const styles = StyleSheet.create({
         flexWrap: "wrap",
         gap: 12,
     },
+    mockStatsRowMobile: {
+        gap: 10,
+    },
     mockStatCard: {
         flex: 1,
         minWidth: 160,
         borderRadius: 20,
         padding: 14,
         gap: 10,
+    },
+    mockStatCardMobile: {
+        minWidth: "100%",
+        borderRadius: 18,
+        padding: 12,
     },
     mockStatLabel: {
         fontSize: 13,
@@ -2653,6 +3230,10 @@ const styles = StyleSheet.create({
         borderRadius: 22,
         padding: 16,
         gap: 10,
+    },
+    progressPanelMobile: {
+        borderRadius: 18,
+        padding: 14,
     },
     progressTitle: {
         fontSize: 15,
@@ -2683,6 +3264,16 @@ const styles = StyleSheet.create({
         lineHeight: 42,
         fontWeight: "800",
         letterSpacing: -1.2,
+    },
+    sectionTitleMobile: {
+        fontSize: 32,
+        lineHeight: 36,
+        letterSpacing: -1,
+    },
+    sectionTitleSmallMobile: {
+        fontSize: 28,
+        lineHeight: 32,
+        letterSpacing: -0.8,
     },
     sectionLead: {
         maxWidth: 780,
@@ -2716,6 +3307,9 @@ const styles = StyleSheet.create({
     },
     problemSection: {
         gap: 18,
+    },
+    problemSectionMobile: {
+        gap: 14,
     },
     problemDesktop: {
         flexDirection: "row",
@@ -2812,6 +3406,11 @@ const styles = StyleSheet.create({
         fontWeight: "800",
         marginBottom: 12,
     },
+    problemAccentTitleMobile: {
+        fontSize: 28,
+        lineHeight: 32,
+        marginBottom: 8,
+    },
     problemAccentBody: {
         color: "rgba(255,255,255,0.84)",
         fontSize: 15,
@@ -2821,6 +3420,10 @@ const styles = StyleSheet.create({
         fontSize: 22,
         lineHeight: 28,
         fontWeight: "800",
+    },
+    cardTitleMobile: {
+        fontSize: 19,
+        lineHeight: 24,
     },
     bodyText: {
         fontSize: 15,
@@ -2918,6 +3521,9 @@ const styles = StyleSheet.create({
         gap: 18,
         paddingTop: 12,
     },
+    trainerSectionMobile: {
+        gap: 14,
+    },
     trainerDesktop: {
         flexDirection: "row",
         alignItems: "stretch",
@@ -2963,6 +3569,10 @@ const styles = StyleSheet.create({
         gap: 16,
         justifyContent: "space-between",
     },
+    trainerMockCardMobile: {
+        minHeight: 0,
+        gap: 14,
+    },
     mockWindowHeader: {
         gap: 10,
     },
@@ -2987,6 +3597,11 @@ const styles = StyleSheet.create({
         padding: 16,
         gap: 14,
     },
+    feedbackPanelMobile: {
+        borderRadius: 20,
+        padding: 14,
+        gap: 12,
+    },
     feedbackTitle: {
         fontSize: 18,
         lineHeight: 24,
@@ -2996,6 +3611,9 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
         gap: 10,
+    },
+    feedbackScoresMobile: {
+        gap: 8,
     },
     feedbackScoreCard: {
         flex: 1,
@@ -3020,6 +3638,9 @@ const styles = StyleSheet.create({
         flexWrap: "wrap",
         gap: 10,
     },
+    feedbackColumnsMobile: {
+        gap: 8,
+    },
     feedbackColumn: {
         flex: 1,
         minWidth: 180,
@@ -3027,6 +3648,10 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         padding: 14,
         gap: 8,
+    },
+    feedbackColumnMobile: {
+        minWidth: "100%",
+        padding: 12,
     },
     feedbackColumnTitle: {
         fontSize: 15,
@@ -3114,11 +3739,24 @@ const styles = StyleSheet.create({
         gap: 18,
         overflow: "hidden",
     },
+    securitySectionMobile: {
+        borderRadius: 28,
+        padding: 18,
+        gap: 14,
+    },
     securityTitle: {
         color: "#FFFFFF",
         fontSize: 34,
         lineHeight: 38,
         fontWeight: "800",
+    },
+    securityTitleMobile: {
+        fontSize: 28,
+        lineHeight: 32,
+    },
+    securityTitleSmallMobile: {
+        fontSize: 25,
+        lineHeight: 29,
     },
     securityGrid: {
         flexDirection: "row",
@@ -3153,6 +3791,11 @@ const styles = StyleSheet.create({
         gap: 14,
         overflow: "hidden",
     },
+    finalSectionMobile: {
+        borderRadius: 28,
+        paddingHorizontal: 18,
+        paddingVertical: 22,
+    },
     finalGlow: {
         position: "absolute",
         top: -30,
@@ -3162,12 +3805,30 @@ const styles = StyleSheet.create({
         borderRadius: 220,
         opacity: 0.18,
     },
+    finalGlowMobile: {
+        top: -12,
+        right: -20,
+        width: 140,
+        height: 140,
+        borderRadius: 140,
+        opacity: 0.12,
+    },
     finalTitle: {
         maxWidth: 860,
         fontSize: 38,
         lineHeight: 42,
         fontWeight: "800",
         letterSpacing: -1.2,
+    },
+    finalTitleMobile: {
+        fontSize: 31,
+        lineHeight: 35,
+        letterSpacing: -0.9,
+    },
+    finalTitleSmallMobile: {
+        fontSize: 27,
+        lineHeight: 31,
+        letterSpacing: -0.7,
     },
     finalDescription: {
         maxWidth: 720,

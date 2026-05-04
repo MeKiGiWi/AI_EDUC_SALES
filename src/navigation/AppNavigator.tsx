@@ -187,37 +187,33 @@ export function AppNavigator() {
       : undefined;
   const isLanding = routeState.name === "Landing";
 
+  if (isLanding) {
+    return <LandingScreen roleOptions={roleWorkspaceOptions} onEnterRole={enterWorkspace} />;
+  }
+
   return (
     <AppScreen
       footer={footer ?? undefined}
-      variant={isLanding ? "landing" : "app"}
-      disableBottomPadding={isLanding && layout.isDesktop}
+      variant="app"
+      disableBottomPadding={false}
       sidebar={
-        !isLanding ? (
-          <DesktopSidebar
-            activeRole={activeRole}
-            activeRoute={routeState.name}
-            user={currentUser}
-            routes={tabsByRole[activeRole]}
-            onNavigate={navigate}
-            onGoToLanding={goToLanding}
-          />
-        ) : undefined
+        <DesktopSidebar
+          activeRole={activeRole}
+          activeRoute={routeState.name}
+          user={currentUser}
+          routes={tabsByRole[activeRole]}
+          onNavigate={navigate}
+          onGoToLanding={goToLanding}
+        />
       }
     >
-      {isLanding ? (
-        <LandingScreen roleOptions={roleWorkspaceOptions} onEnterRole={enterWorkspace} />
-      ) : null}
-
-      {!isLanding ? (
-        <MobileHeader
-          title={currentRouteConfig.title}
-          subtitle={currentRouteConfig.description}
-          user={currentUser}
-          actionLabel="На лендинг"
-          onActionPress={goToLanding}
-        />
-      ) : null}
+      <MobileHeader
+        title={currentRouteConfig.title}
+        subtitle={currentRouteConfig.description}
+        user={currentUser}
+        actionLabel="На лендинг"
+        onActionPress={goToLanding}
+      />
 
       {routeState.name === "StudentHome" ? (
         <StudentHomeScreen dashboard={studentDashboard} materials={knowledgeMaterials} onNavigate={navigate} />

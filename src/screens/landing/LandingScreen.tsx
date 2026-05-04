@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
+import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { landingContent } from "../../data/landingContent";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
@@ -54,31 +55,16 @@ export function LandingScreen({ roleOptions, onEnterRole }: LandingScreenProps) 
   return (
     <>
       <View style={[styles.page, { gap: isDesktop ? 28 : 22 }]}>
-        <AppCard tone="mint" style={styles.navbarCard}>
-          <View style={[styles.navbarRow, !isDesktop && styles.stackOnMobile]}>
-            <View style={styles.brandBlock}>
-              <Text style={[styles.brandTitle, { color: theme.semantic.textPrimary }]}>AI Sales Academy</Text>
-              <Text style={[styles.brandSubtitle, { color: theme.semantic.textSecondary }]}>
-                Практика, обратная связь и развитие навыков
-              </Text>
-            </View>
-            <View style={[styles.navLinksRow, isDesktop && styles.navLinksDesktop]}>
-              {landingContent.navLinks.map((link) => (
-                <AppButton
-                  key={link.id}
-                  label={link.label}
-                  onPress={() => {
-                    setActiveNavId(link.id);
-                    setSheetState({ kind: "nav", title: link.label, body: link.summary });
-                  }}
-                  tone={activeNavId === link.id ? "secondary" : "ghost"}
-                />
-              ))}
-            </View>
-            <AppButton label="Войти" onPress={openRolePicker} tone="primary" />
-          </View>
-          <Text style={[styles.navSummary, { color: theme.semantic.textMuted }]}>В фокусе: {navSummary}</Text>
-        </AppCard>
+        <LandingNavbar
+          isDesktop={isDesktop}
+          activeNavId={activeNavId}
+          navSummary={navSummary}
+          onNavClick={(id, label, summary) => {
+            setActiveNavId(id);
+            setSheetState({ kind: "nav", title: label, body: summary });
+          }}
+          onEnterRole={openRolePicker}
+        />
 
         <View style={[styles.heroSection, isDesktop && styles.heroDesktop]}>
           <View style={[styles.heroMain, { backgroundColor: theme.semantic.card }]}>
@@ -269,6 +255,9 @@ export function LandingScreen({ roleOptions, onEnterRole }: LandingScreenProps) 
                 <Pressable
                   key={item.question}
                   onPress={() => setSelectedFaqIndex(opened ? null : index)}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: opened }}
                   style={[
                     styles.faqRow,
                     {
@@ -328,6 +317,8 @@ export function LandingScreen({ roleOptions, onEnterRole }: LandingScreenProps) 
                   setSheetState(null);
                   onEnterRole(option.role);
                 }}
+                accessible={true}
+                accessibilityRole="button"
                 style={[
                   styles.roleCard,
                   {
@@ -423,45 +414,7 @@ const styles = StyleSheet.create({
   page: {
     gap: 22
   },
-  navbarCard: {
-    gap: 14
-  },
-  navbarRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12
-  },
-  stackOnMobile: {
-    alignItems: "flex-start",
-    flexDirection: "column"
-  },
-  brandBlock: {
-    gap: 4
-  },
-  brandTitle: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: "800"
-  },
-  brandSubtitle: {
-    fontSize: 14,
-    lineHeight: 20
-  },
-  navLinksRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8
-  },
-  navLinksDesktop: {
-    flex: 1,
-    justifyContent: "center"
-  },
-  navSummary: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600"
-  },
+
   heroSection: {
     gap: 16
   },

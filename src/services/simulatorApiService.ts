@@ -33,7 +33,13 @@ export class SimulatorApiError extends Error {
 }
 
 function buildUrl(path: string) {
-  return `${simulatorApiUrl.replace(/\/$/, "")}${path}`;
+  const base = simulatorApiUrl.trim();
+  if (!base) {
+    return path;
+  }
+  const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${cleanBase}${cleanPath}`;
 }
 
 function withDebugQuery(path: string) {
@@ -76,7 +82,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
           ? JSON.stringify(detail)
           : rawBody || "Не удалось выполнить запрос к backend симулятора.";
 
-    throw new SimulatorApiError(detailMessage, {
+    throw new SimulatorApiError("Произошла ошибка при обращении к серверу.", {
       status: response.status,
       body: rawBody,
       detail: detail ?? parsedBody
@@ -84,6 +90,18 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+export function getSafeSimulatorErrorMessage(error: unknown): string {
+  if (error instanceof SimulatorApiError) {
+    return error.message || "Не удалось выполнить действие. Проверьте подключение и попробуйте снова.";
+  }
+  if (error instanceof Error) {
+    if (error.name === "AbortError") {
+      return "Превышено время ожидания ответа от сервера.";
+    }
+  }
+  return "Не удалось выполнить действие. Проверьте подключение и попробуйте снова.";
 }
 
 export const simulatorApiService = {
@@ -96,39 +114,68 @@ export const simulatorApiService = {
   },
 
   async fetchSimulatorScenarios(): Promise<SimulatorPublicScenarioDto[]> {
-    const response = await requestJson<SimulatorCatalogResponseDto>("/api/v1/simulator/scenarios");
-    return response.items;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    try {
+      const response = await requestJson<SimulatorCatalogResponseDto>("/api/v1/simulator/scenarios", {
+        signal: controller.signal
+      });
+      return response.items;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   },
 
-  startDialogueSession(
+  async startDialogueSession(
     scenarioId: string,
     difficulty: string
   ): Promise<SimulatorStartSessionResponseDto> {
-    return requestJson<SimulatorStartSessionResponseDto>(withDebugQuery("/api/v1/simulator/sessions"), {
-      method: "POST",
-      body: JSON.stringify({
-        scenario_id: scenarioId,
-        difficulty
-      })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    try {
+      return await requestJson<SimulatorStartSessionResponseDto>(withDebugQuery("/api/v1/simulator/sessions"), {
+        method: "POST",
+        signal: controller.signal,
+        body: JSON.stringify({
+          scenario_id: scenarioId,
+          difficulty
+        })
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
   },
 
-  sendDialogueMessage(
+  async sendDialogueMessage(
     sessionId: string,
     text: string
   ): Promise<SimulatorSendMessageResponseDto> {
-    return requestJson<SimulatorSendMessageResponseDto>(
-      withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/messages`),
-      {
-        method: "POST",
-        body: JSON.stringify({ text })
-      }
-    );
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    try {
+      return await requestJson<SimulatorSendMessageResponseDto>(
+        withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/messages`),
+        {
+          method: "POST",
+          signal: controller.signal,
+          body: JSON.stringify({ text })
+        }
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
   },
 
-  finishDialogueSession(sessionId: string): Promise<SimulatorFinishResponseDto> {
-    return requestJson<SimulatorFinishResponseDto>(withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/finish`), {
-      method: "POST"
-    });
+  async finishDialogueSession(sessionId: string): Promise<SimulatorFinishResponseDto> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    try {
+      return await requestJson<SimulatorFinishResponseDto>(withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/finish`), {
+        method: "POST",
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 };

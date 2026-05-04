@@ -24,6 +24,7 @@ class LLMSettings(BaseSettings):
     LLM_MODEL: str = "qwen-turbo"
     LLM_TEMPERATURE: float = Field(default=0.2, ge=0.0, le=1.0)
     LLM_REASONING_EFFORT: Literal["minimal", "low", "medium", "high", "none"] | None = None
+    # NEVER FUCKING CHANGE THIS CLASS, ALWAYS ASK ME FOR THAT
 
 
 class AgentsConfig(BaseModel):
@@ -31,14 +32,23 @@ class AgentsConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     check_rude_llm_settings: LLMSettings = Field(default_factory=LLMSettings)
-    buyer_agent_llm_settings: LLMSettings = Field(
-        default_factory=lambda: get_settings().model_copy(update={"LLM_MODEL": "deepseek/deepseek-v3.2"})
+    check_topic_llm_settings: LLMSettings = Field(
+        default_factory=lambda: get_settings().model_copy(
+            update={"LLM_MODEL": "openai/gpt-oss-120b"}
+        )
     )
+
+    buyer_agent_llm_settings: LLMSettings = Field(
+        default_factory=lambda: get_settings().model_copy(
+            update={"LLM_MODEL": "deepseek/deepseek-v3.2"}
+        )
+    )
+
     evaluation_agent_llm_settings: LLMSettings = Field(
         default_factory=lambda: get_settings().model_copy(
             update={
                 "LLM_MODEL": "deepseek/deepseek-v3.2",
-                "LLM_REASONING_EFFORT": "medium",
+                "LLM_REASONING_EFFORT": "low",
             }
         )
     )

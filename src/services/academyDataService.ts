@@ -20,6 +20,8 @@ import type {
   StudentDashboard,
   UserRole
 } from "../types/academy";
+import { Platform } from "react-native";
+import { reportApiService } from "./reportApiService";
 import { reportStorageService } from "./reportStorageService";
 
 const simulateLatency = async <T>(data: T): Promise<T> =>
@@ -169,6 +171,13 @@ function savedReportToReportCard(
   };
 }
 
+function mapSavedReportsToCards(
+  savedReports: SavedSimulatorReport[],
+  role: UserRole
+): ReportCard[] {
+  return savedReports.map((item) => savedReportToReportCard(item, role));
+}
+
 export const academyDataService = {
   getCurrentUser(role: UserRole): Promise<AcademyUser> {
     return simulateLatency(usersByRole[role]);
@@ -192,22 +201,58 @@ export const academyDataService = {
     return simulateLatency(adminSettingsData);
   },
 
-  getReports(role: UserRole): Promise<ReportCard[]> {
-    const saved = reportStorageService.getAll();
-    const cards = saved.map((item) => savedReportToReportCard(item, role));
-    return simulateLatency(cards);
+  async getReports(role: UserRole): Promise<ReportCard[]> {
+    if (reportApiService.isEnabled()) {
+      try {
+        // MVP: show the shared backend pool until we add user-level ownership.
+        const cards = await reportApiService.fetchReports(role);
+        return simulateLatency(cards);
+      } catch (error) {
+        console.warn("[reports] backend fetch failed", error);
+        if (Platform.OS === "web") {
+          return simulateLatency([]);
+        }
+      }
+    }
+
+    const saved = await reportStorageService.getAll(role);
+    const fallbackCards = mapSavedReportsToCards(saved, role);
+    return simulateLatency(fallbackCards);
   },
 
-  saveLatestSimulatorReport(params: {
+  async saveLatestSimulatorReport(params: {
     role: UserRole;
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
+    sessionId?: string | null;
   }): Promise<ReportCard[]> {
-    const saved = reportStorageService.save(params.scenarioTitle, params.evaluation);
-    const allSaved = reportStorageService.getAll();
-    const cards = allSaved.map((item) =>
-      savedReportToReportCard(item, params.role)
+    if (reportApiService.isEnabled()) {
+      try {
+        await reportApiService.createReport({
+          role: params.role,
+          scenarioTitle: params.scenarioTitle,
+          evaluation: params.evaluation,
+          sessionId: params.sessionId
+        });
+        const syncedCards = await reportApiService.fetchReports(params.role);
+        return simulateLatency(syncedCards);
+      } catch (error) {
+        console.warn("[reports] backend sync failed, saving local fallback", error);
+      }
+    }
+
+    // Native/local fallback stays in place until we have full auth-bound syncing.
+    const saved = await reportStorageService.save(
+      params.role,
+      params.scenarioTitle,
+      params.evaluation
     );
-    return simulateLatency(cards);
+
+    const allSaved = await reportStorageService.getAll(params.role);
+    const hasSaved = allSaved.some((item) => item.id === saved.id);
+    const normalizedSaved = hasSaved ? allSaved : [saved, ...allSaved];
+
+    const fallbackCards = mapSavedReportsToCards(normalizedSaved, params.role);
+    return simulateLatency(fallbackCards);
   }
 };

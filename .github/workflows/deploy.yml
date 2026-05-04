@@ -21,18 +21,44 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
           script: |
             set -e
 
-            cd /var/www/AI_EDUC_SALES
+            cd /opt/ai-educ-sales
 
             git fetch origin main
             git checkout main
             git reset --hard origin/main
+            git clean -fd -e .env -e backend/.env
+            
+            if [ ! -f backend/.env ]; then
+              echo "Error: backend/.env is missing. Deploy stopped."
+              exit 1
+            fi
+            if ! grep -q "LLM_API_KEY" backend/.env; then
+              echo "Error: LLM_API_KEY not found in backend/.env. Deploy stopped."
+              exit 1
+            fi
+
             echo "Deploying commit $(git rev-parse --short HEAD)"
 
-            docker compose build --pull --no-cache frontend
-            docker compose build --pull backend
-            docker compose up -d --force-recreate
-            docker image prune -f
+            docker compose config
+            docker compose build frontend backend
+            docker compose up -d --remove-orphans
+            docker compose ps
+            
+            echo "Waiting for services to become healthy..."
+            for i in {1..12}; do
+              if curl -fsS http://127.0.0.1:3000/ > /dev/null && curl -fsS http://127.0.0.1:3000/health > /dev/null; then
+                echo "Services are healthy."
+                break
+              fi
+              if [ $i -eq 12 ]; then
+                echo "Timeout waiting for services. Gathering logs:"
+                docker compose ps
+                docker compose logs --tail=80 backend frontend
+                exit 1
+              fi
+              sleep 5
+            done

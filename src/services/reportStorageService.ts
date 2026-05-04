@@ -1,40 +1,64 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import type { SavedSimulatorReport, UserRole } from "../types/academy";
 
-import type { SavedSimulatorReport } from "../types/academy";
+const STORAGE_KEY_PREFIX = "saved_simulator_reports:";
 
-const STORAGE_KEY = "saved_simulator_reports";
-
-let memoryFallback: SavedSimulatorReport[] = [];
-
-function readAll(): SavedSimulatorReport[] {
-  if (Platform.OS === "web" && typeof localStorage !== "undefined") {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        return JSON.parse(raw) as SavedSimulatorReport[];
-      }
-    } catch {
-      // corrupted data — reset
-    }
-
-    return [];
-  }
-
-  return [...memoryFallback];
+function getRoleKey(role: UserRole): string {
+  return `${STORAGE_KEY_PREFIX}${role}`;
 }
 
-function writeAll(reports: SavedSimulatorReport[]): void {
-  if (Platform.OS === "web" && typeof localStorage !== "undefined") {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
-    } catch {
-      // storage full — ignore
+let memoryFallback: Record<string, SavedSimulatorReport[]> = {};
+
+async function readAll(role: UserRole): Promise<SavedSimulatorReport[]> {
+  if (Platform.OS === "web") {
+    if (typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem(getRoleKey(role));
+        if (raw) {
+          return JSON.parse(raw) as SavedSimulatorReport[];
+        }
+      } catch (error) {
+        console.warn("[reports] localStorage read failed, using memory fallback", error);
+      }
+    }
+    return memoryFallback[role] ? [...memoryFallback[role]] : [];
+  }
+
+  try {
+    const raw = await AsyncStorage.getItem(getRoleKey(role));
+    if (raw) {
+      return JSON.parse(raw) as SavedSimulatorReport[];
+    }
+  } catch (error) {
+    console.warn("[reports] AsyncStorage read failed, using memory fallback", error);
+  }
+
+  return memoryFallback[role] ? [...memoryFallback[role]] : [];
+}
+
+async function writeAll(role: UserRole, reports: SavedSimulatorReport[]): Promise<void> {
+  memoryFallback[role] = [...reports];
+
+  if (Platform.OS === "web") {
+    if (typeof localStorage === "undefined") {
+      console.warn("[reports] localStorage is unavailable, using memory fallback");
+      return;
     }
 
+    try {
+      localStorage.setItem(getRoleKey(role), JSON.stringify(reports));
+    } catch (error) {
+      console.warn("[reports] localStorage write failed, using memory fallback", error);
+    }
     return;
   }
 
-  memoryFallback = [...reports];
+  try {
+    await AsyncStorage.setItem(getRoleKey(role), JSON.stringify(reports));
+  } catch (error) {
+    console.warn("[reports] AsyncStorage write failed, using memory fallback", error);
+  }
 }
 
 function buildDisplayName(scenarioTitle: string, date: Date): string {
@@ -48,13 +72,14 @@ function buildUniqueId(): string {
 }
 
 export const reportStorageService = {
-  getAll(): SavedSimulatorReport[] {
-    return readAll().sort(
+  async getAll(role: UserRole): Promise<SavedSimulatorReport[]> {
+    const all = await readAll(role);
+    return all.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   },
 
-  save(scenarioTitle: string, evaluation: SavedSimulatorReport["evaluation"]): SavedSimulatorReport {
+  async save(role: UserRole, scenarioTitle: string, evaluation: SavedSimulatorReport["evaluation"]): Promise<SavedSimulatorReport> {
     const now = new Date();
     const report: SavedSimulatorReport = {
       id: buildUniqueId(),
@@ -63,13 +88,13 @@ export const reportStorageService = {
       createdAt: now.toISOString(),
       evaluation
     };
-    const existing = readAll();
+    const existing = await readAll(role);
     existing.unshift(report);
-    writeAll(existing.slice(0, 50));
+    await writeAll(role, existing.slice(0, 50));
     return report;
   },
 
-  clear(): void {
-    writeAll([]);
+  async clear(role: UserRole): Promise<void> {
+    await writeAll(role, []);
   }
 };

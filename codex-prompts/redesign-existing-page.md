@@ -19,5 +19,4 @@ Do not:
 - preserve Next.js as the desired target architecture
 - add landing-first web sections as the main direction
 - introduce blue/purple accent presets
-- add backend code
 ```

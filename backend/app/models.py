@@ -11,7 +11,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
-    from app.agents import BuyerAgent, RudeClassifierAgent
+    from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
     from app.store import InMemorySessionStore
 
 
@@ -24,6 +24,7 @@ class ChatSession(BaseModel):
     messages: list[BaseMessage] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
+    offtopic_messages_count: int = 0
 
 
 class GraphState(TypedDict, total=False):
@@ -34,8 +35,14 @@ class GraphState(TypedDict, total=False):
     session: ChatSession
     messages: list[BaseMessage]
     status: Literal["active", "finished"]
-    dialog_route: Literal["stop_after_rudeness", "continue_with_customer_reply"]
+    dialog_route: Literal[
+        "stop_after_rudeness",
+        "continue_with_customer_reply",
+        "continue_after_offtopic_warning",
+        "stop_after_offtopic_limit",
+    ]
     confidence: float
+    topic_confidence: float
     customer_message: str
 
 
@@ -43,6 +50,7 @@ class GraphState(TypedDict, total=False):
 class GraphDependencies:
     session_store: InMemorySessionStore
     rude_classifier: RudeClassifierAgent
+    topic_classifier: TopicClassifierAgent
     buyer_agent: BuyerAgent
 
 
@@ -184,3 +192,53 @@ class SessionFinishResponseDto(BaseModel):
     session_id: str
     status: SessionStatus
     evaluation: EvaluationResultRaw | None = None
+
+
+class WorkspaceRole(str, Enum):
+    STUDENT = "student"
+    MANAGER = "manager"
+    HR = "hr"
+    ADMIN = "admin"
+
+
+class ExportFormat(str, Enum):
+    PDF = "pdf"
+    XLSX = "xlsx"
+    CSV = "csv"
+
+
+class ReportType(str, Enum):
+    STUDENT_PROGRESS = "student_progress"
+    TEAM_PERFORMANCE = "team_performance"
+    LEARNING_ADOPTION = "learning_adoption"
+    COMPETENCY_DYNAMICS = "competency_dynamics"
+
+
+class ReportPreviewSectionDto(BaseModel):
+    id: str
+    title: str
+    lines: list[str]
+
+
+class ReportCardDto(BaseModel):
+    id: str
+    title: str
+    role: WorkspaceRole
+    reportType: ReportType
+    summary: str
+    format: ExportFormat
+    updatedAt: str
+    ownerLabel: str
+    availableFormats: list[ExportFormat]
+    previewSections: list[ReportPreviewSectionDto]
+
+
+class ReportListResponseDto(BaseModel):
+    items: list[ReportCardDto]
+
+
+class ReportCreateDto(BaseModel):
+    role: WorkspaceRole
+    scenario_title: str = Field(min_length=1, max_length=300)
+    evaluation: EvaluationResultRaw
+    session_id: str | None = Field(default=None, max_length=200)

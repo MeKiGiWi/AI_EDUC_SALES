@@ -6,7 +6,7 @@ from langchain_core.runnables import RunnableLambda
 
 import app.api as simulator_api
 import app.runtime as simulator_runtime
-from app.agents import BuyerAgent, RudeClassifierAgent
+from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
 from app.graph import create_graph
 from app.main import app
 from app.models import (
@@ -29,6 +29,9 @@ def build_fake_graph(reply_text: str = "Давайте ближе к выгод�
             session_store=simulator_runtime.SESSION_STORE,
             rude_classifier=RudeClassifierAgent(
                 RunnableLambda(lambda _: AIMessage(content='{"rude":"no","confidence":0.66}'))
+            ),
+            topic_classifier=TopicClassifierAgent(
+                RunnableLambda(lambda _: AIMessage(content='{"on_topic":"yes","confidence":0.77}'))
             ),
             buyer_agent=BuyerAgent(RunnableLambda(lambda _: AIMessage(content=reply_text))),
         )

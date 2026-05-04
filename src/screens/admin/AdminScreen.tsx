@@ -83,7 +83,7 @@ export function AdminScreen({ settings, onNavigate }: AdminScreenProps) {
                 kind: "material",
                 title: "Добавить материал",
                 lines: [
-                  "Название: новый материал базы знаний",
+                  "Название: новый учебный материал",
                   "Категория: навыки продаж",
                   "Статус: черновик сохранен"
                 ]
@@ -155,7 +155,7 @@ export function AdminScreen({ settings, onNavigate }: AdminScreenProps) {
       </AppCard>
 
       <AppCard>
-        <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>База знаний: import и статус</Text>
+        <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Учебные материалы: import и статус</Text>
         {settings.knowledgeImports.map((item) => (
           <View key={item.id} style={styles.blockRow}>
             <Text style={[styles.label, { color: theme.semantic.textPrimary }]}>{item.title}</Text>

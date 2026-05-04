@@ -1,12 +1,15 @@
 from contextlib import asynccontextmanager
 import json
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.render_mermaid_graph import render_graph_artifacts
 from app.api import router as simulator_router
+from app.api_reports import router as reports_router
+from app.database import initialize_database
+from app.render_mermaid_graph import render_graph_artifacts
 
 OPENAPI_PATH = Path(__file__).resolve().parents[1] / "openapi.json"
 
@@ -17,11 +20,15 @@ def write_openapi_contract(application: FastAPI) -> None:
         encoding="utf-8",
     )
 
-
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    render_graph_artifacts()
-    write_openapi_contract(application)
+    initialize_database()
+    if os.getenv("WRITE_RUNTIME_ARTIFACTS", "false").lower() == "true":
+        try:
+            render_graph_artifacts()
+            write_openapi_contract(application)
+        except Exception as e:
+            print(f"Failed to write runtime artifacts: {e}")
     yield
 
 
@@ -45,6 +52,7 @@ def create_app() -> FastAPI:
         return {"status": "ok", "message": "Сервис работает стабильно."}
 
     application.include_router(simulator_router)
+    application.include_router(reports_router)
     return application
 
 

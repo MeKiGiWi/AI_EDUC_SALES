@@ -18,7 +18,6 @@ interface DesktopSidebarProps {
 const routeLabels: Record<RouteName, string> = {
   Landing: "Лендинг",
   StudentHome: "Личный кабинет",
-  KnowledgeBase: "База знаний",
   Simulator: "Чат",
   Scenarios: "Сценарии",
   ManagerDashboard: "Панель команды",

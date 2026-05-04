@@ -6,7 +6,7 @@ You are building and extending the mobile product direction for `AI Sales Academ
 
 This repository should now evolve toward a React Native mobile-first application, not a Next.js landing or web-first product. The active visual and product preset is a green AI Sales Academy interface for practical sales training, simulation, feedback, and capability growth.
 
-Do not introduce alternate product directions, legacy landing-first assumptions, blue/purple SaaS presets, or backend implementation in this repository unless the user explicitly asks.
+Do not introduce alternate product directions, legacy landing-first assumptions, or blue/purple SaaS presets unless the user explicitly asks.
 
 ## Product direction
 
@@ -25,7 +25,6 @@ Do not introduce alternate product directions, legacy landing-first assumptions,
 - Do not use API routes.
 - Do not use server actions.
 - Do not add a Node.js backend.
-- Do not implement backend code in this repository at this stage.
 - The future backend will be a separate Python layer, likely `FastAPI` or a similar Python backend.
 
 ## Code rules
@@ -100,7 +99,7 @@ Translate the green design system into mobile product surfaces:
 - Keep this repository aligned with the green React Native mobile MVP direction.
 - Remove or avoid new Next.js-first assumptions in prompts, docs, and future implementation guidance.
 - Keep the current design system as a reference source, but prepare React Native-oriented theme files and component guidance.
-- Treat backend work as future Python integration, not current implementation scope.
+- Backend work is Python integration.
 
 ## Self-review before final answer
 

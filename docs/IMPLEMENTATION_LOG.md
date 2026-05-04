@@ -4,16 +4,16 @@
 
 - Лендинг возвращен как первый экран `Expo / React Native` приложения, а не как runtime-часть Next.js.
 - Старый `app/page.tsx` и `components/landing/*` использованы только как источник структуры, секций и смыслового контента.
-- Добавлен typed landing content слой: `apps/mobile/src/data/landingContent.ts`.
-- Добавлен новый стартовый экран: `apps/mobile/src/screens/landing/LandingScreen.tsx`.
-- Начальный маршрут приложения переведен на `Landing` в `apps/mobile/src/navigation/AppNavigator.tsx`.
+- Добавлен typed landing content слой: `src/data/landingContent.ts`.
+- Добавлен новый стартовый экран: `src/screens/landing/LandingScreen.tsx`.
+- Начальный маршрут приложения переведен на `Landing` в `src/navigation/AppNavigator.tsx`.
 - Expo Web настроен в существующем mobile-приложении:
   - установлены `react-dom`, `react-native-web`, `@expo/metro-runtime`;
   - добавлены scripts `web`, `start:web`, `doctor`, `check`, `typecheck`;
-  - подтвержден `expo.web.bundler = metro` в `apps/mobile/app.json`.
+  - подтвержден `expo.web.bundler = metro` в `app.json`.
 - Добавлена responsive foundation для mobile/tablet/desktop:
-  - `apps/mobile/src/theme/breakpoints.ts`
-  - `apps/mobile/src/hooks/useResponsiveLayout.ts`
+  - `src/theme/breakpoints.ts`
+  - `src/hooks/useResponsiveLayout.ts`
 - Обновлены shell и layout-паттерны:
   - `AppScreen` теперь понимает `variant="landing" | "app"`;
   - на desktop кабинеты открываются в широком контейнере, без mobile-only нижних отступов;
@@ -24,7 +24,6 @@
   - desktop/web: centered modal.
 - Существующие экраны доработаны под wide layout без отдельного web frontend:
   - `StudentHomeScreen`
-  - `KnowledgeBaseScreen`
   - `SimulatorScreen`
   - `ManagerDashboardScreen`
   - `HrDashboardScreen`
@@ -39,7 +38,7 @@
 
 ## Команды, выполненные в рамках этого шага
 
-- `cd apps/mobile`
+- `cd root`
 - `npx expo install react-dom react-native-web @expo/metro-runtime`
 - `npm run typecheck`
 - `npx expo install --check`
@@ -63,11 +62,10 @@
 - Добавлены документы с продуктовой рамкой, frontend-контрактом и будущим Python backend-контрактом.
 - Добавлен React Native-oriented theme reference в `src/theme/tokens.ts`.
 - `codex-prompts/` переписаны под mobile-first, green academy style, typed mocks и future Python backend.
-- Создан отдельный `Expo + TypeScript` mobile skeleton в `apps/mobile`.
-- Внутри `apps/mobile/src` собраны theme tokens, typed domain models, mock data, mock service layer, typed local navigation, layout components, UI primitives и экраны-заготовки.
+- Создан отдельный `Expo + TypeScript` mobile skeleton в `root`.
+- Внутри `src` собраны theme tokens, typed domain models, mock data, mock service layer, typed local navigation, layout components, UI primitives и экраны-заготовки.
 - Реализован полноценный student mobile-first UX для:
   - `StudentHomeScreen`
-  - `KnowledgeBaseScreen`
   - `SimulatorScreen`
 - Реализованы mobile-first MVP кабинеты для:
   - `ManagerDashboardScreen`
@@ -118,33 +116,33 @@
 
 ## Созданная mobile-структура
 
-- `apps/mobile/App.tsx`
-- `apps/mobile/app.json`
-- `apps/mobile/package.json`
-- `apps/mobile/tsconfig.json`
-- `apps/mobile/src/theme/*`
-- `apps/mobile/src/types/academy.ts`
-- `apps/mobile/src/data/mockAcademyData.ts`
-- `apps/mobile/src/services/academyMockService.ts`
-- `apps/mobile/src/navigation/*`
-- `apps/mobile/src/components/ui/*`
-- `apps/mobile/src/components/layout/*`
-- `apps/mobile/src/screens/*`
+- `App.tsx`
+- `app.json`
+- `package.json`
+- `tsconfig.json`
+- `src/theme/*`
+- `src/types/academy.ts`
+- `src/data/mockAcademyData.ts`
+- `src/services/academyMockService.ts`
+- `src/navigation/*`
+- `src/components/ui/*`
+- `src/components/layout/*`
+- `src/screens/*`
 
 ## Текущий статус проекта
 
-- Текущий статус: `mixed`, с новым рабочим `Expo / React Native` skeleton в `apps/mobile`.
+- Текущий статус: `mixed`, с новым рабочим `Expo / React Native` skeleton в `root`.
 - Признаки:
   - `package.json` содержит только `next dev`, `next build`, `next start`, `next lint`;
   - зависимости ориентированы на `next`, `react`, `react-dom`, `tailwindcss`;
   - `app/` содержит web App Router structure;
   - `tsconfig.json` в root содержит Next-specific plugin и web-oriented JSX settings;
-  - новый мобильный контур живет отдельно в `apps/mobile`;
-  - в `apps/mobile` есть Expo runtime setup, app entry, package scripts и typed TSX app structure.
+  - новый мобильный контур живет отдельно в `root`;
+  - в `root` есть Expo runtime setup, app entry, package scripts и typed TSX app structure.
 
 ## Архитектурное решение
 
-- Выбран безопасный monorepo-путь: `apps/mobile`.
+- Выбран безопасный monorepo-путь: `root`.
 - Root не переинициализировался и не ломался.
 - Next.js не рассматривается как основная продуктовая цель.
 - Навигация выбрана локальная и строго типизированная через `AppNavigator` и `RootStackParamList`, без тяжелых внешних UI/navigation библиотек.
@@ -152,10 +150,10 @@
 
 ## Где лежат mock data и сервисы
 
-- Typed domain models: `apps/mobile/src/types/academy.ts`
-- Mock data: `apps/mobile/src/data/mockAcademyData.ts`
-- Mock service layer: `apps/mobile/src/services/academyMockService.ts`
-- Навигация: `apps/mobile/src/navigation/AppNavigator.tsx` и `apps/mobile/src/navigation/routes.ts`
+- Typed domain models: `src/types/academy.ts`
+- Mock data: `src/data/mockAcademyData.ts`
+- Mock service layer: `src/services/academyMockService.ts`
+- Навигация: `src/navigation/AppNavigator.tsx` и `src/navigation/routes.ts`
 
 ## Что сделано для ученика
 
@@ -169,7 +167,6 @@
   - точки роста;
   - рекомендации ИИ;
   - персональный план развития.
-- `KnowledgeBaseScreen` теперь содержит:
   - горизонтальный фильтр категорий;
   - локальный поиск;
   - карточки материалов;
@@ -190,11 +187,9 @@
 
 - `Продолжить обучение` открывает детали текущего модуля в bottom sheet.
 - `Начать симуляцию` ведет в `Simulator`.
-- `Объяснить материал` ведет в `KnowledgeBase` с предвыбранной категорией / материалом.
 - `Посмотреть обратную связь` открывает feedback bottom sheet.
 - `Добавить в план` меняет local state и показывает success.
 - `Скачать план` открывает mock export bottom sheet.
-- В `KnowledgeBase` работают local search и category filters.
 - `Открыть материал`, `Объясни проще`, `Дай пример ответа клиенту`, `Добавить в план развития`, `Начать тренировку по теме` все имеют поведение.
 - В `Simulator` работают:
   - запуск сценария;
@@ -278,21 +273,21 @@
 - `sed -n '1,220p' tsconfig.json`
 - `sed -n '1,240p' README.md`
 - `npm run typecheck`
-- `mkdir -p apps/mobile/...`
-- `npm install` in `apps/mobile`
-- `npm run typecheck` in `apps/mobile`
-- `npx expo start --offline` in `apps/mobile`
-- `npm run typecheck` in `apps/mobile` after student UX update
-- `npx expo start --offline` in `apps/mobile` after student UX update
-- `npm run typecheck` in `apps/mobile` after manager/hr/admin/reports update
-- `npx expo start --offline` in `apps/mobile` after manager/hr/admin/reports update
+- `mkdir -p ...`
+- `npm install` in `root`
+- `npm run typecheck` in `root`
+- `npx expo start --offline` in `root`
+- `npm run typecheck` in `root` after student UX update
+- `npx expo start --offline` in `root` after student UX update
+- `npm run typecheck` in `root` after manager/hr/admin/reports update
+- `npx expo start --offline` in `root` after manager/hr/admin/reports update
 
 ## Результат проверки
 
 - `npm run typecheck` выполнен успешно.
-- В `apps/mobile` успешно выполнен `npm run typecheck`.
-- `Expo` проект в `apps/mobile` стартовал через `npx expo start --offline`, после чего сервер был остановлен вручную.
-- Отдельного `lint` script в `apps/mobile` сейчас нет.
+- В `root` успешно выполнен `npm run typecheck`.
+- `Expo` проект в `root` стартовал через `npx expo start --offline`, после чего сервер был остановлен вручную.
+- Отдельного `lint` script в `root` сейчас нет.
 
 ## Следующий шаг
 
@@ -315,7 +310,6 @@
 
 - Проверена навигация по всем основным экранам:
   - `StudentHome`
-  - `KnowledgeBase`
   - `Simulator`
   - `ManagerDashboard`
   - `HrDashboard`
@@ -339,15 +333,14 @@
 
 ## Какие места потом подключать к Python API
 
-- `apps/mobile/src/services/academyMockService.ts`
-- `apps/mobile/src/navigation/AppNavigator.tsx`
-- `apps/mobile/src/screens/student/StudentHomeScreen.tsx`
-- `apps/mobile/src/screens/knowledge/KnowledgeBaseScreen.tsx`
-- `apps/mobile/src/screens/simulator/SimulatorScreen.tsx`
-- `apps/mobile/src/screens/manager/ManagerDashboardScreen.tsx`
-- `apps/mobile/src/screens/hr/HrDashboardScreen.tsx`
-- `apps/mobile/src/screens/admin/AdminScreen.tsx`
-- `apps/mobile/src/screens/reports/ReportsScreen.tsx`
+- `src/services/academyMockService.ts`
+- `src/navigation/AppNavigator.tsx`
+- `src/screens/student/StudentHomeScreen.tsx`
+- `src/screens/simulator/SimulatorScreen.tsx`
+- `src/screens/manager/ManagerDashboardScreen.tsx`
+- `src/screens/hr/HrDashboardScreen.tsx`
+- `src/screens/admin/AdminScreen.tsx`
+- `src/screens/reports/ReportsScreen.tsx`
 - Следующий backend-этап должен подключать:
   - reports exports;
   - access settings;
@@ -356,4 +349,4 @@
   - dialogue transcripts;
   - scheduled report rules
   через отдельный Python API layer.
-- Нужна отдельная продуктовая команда на следующий шаг: удаляем ли web-first артефакты сейчас или держим их временно рядом с `apps/mobile`.
+- Нужна отдельная продуктовая команда на следующий шаг: удаляем ли web-first артефакты сейчас или держим их временно рядом с `root`.

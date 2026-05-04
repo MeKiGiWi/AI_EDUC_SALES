@@ -1,13 +1,13 @@
 import json
 from typing import Literal
 
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from pydantic import BaseModel, Field
 
 from app.models import EvaluationResultRaw
-from app.prompts import EVALUATION_SYSTEM_PROMPT, RUDE_CLASSIFIER_SYSTEM_PROMPT
+from app.prompts import EVALUATION_SYSTEM_PROMPT, RUDE_CLASSIFIER_SYSTEM_PROMPT, TOPIC_CLASSIFIER_PROMPT
 
 
 class RudeCheckResult(BaseModel):
@@ -18,6 +18,17 @@ class RudeCheckResult(BaseModel):
         ge=0.0,
         le=1.0,
         description="Model confidence for the rudeness decision, from 0 to 1.",
+    )
+
+
+class TopicCheckResult(BaseModel):
+    on_topic: Literal["yes", "no"] = Field(
+        description="Whether the sales message is relevant to the B2B sales training dialogue."
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Model confidence for the topic relevance decision, from 0 to 1.",
     )
 
 
@@ -41,6 +52,38 @@ class RudeClassifierAgent:
     async def check(self, message: str) -> RudeCheckResult:
         result = await self.chain.ainvoke({"message": message})
         return RudeCheckResult.model_validate(result)
+
+
+def format_messages_for_topic_check(messages: list[BaseMessage]) -> str:
+    lines = []
+    for message in messages:
+        if isinstance(message, SystemMessage):
+            continue
+        role = "Покупатель" if isinstance(message, AIMessage) else "Продавец"
+        lines.append(f"{role}: {message.content}")
+    return "\n".join(lines)
+
+
+class TopicClassifierAgent:
+    def __init__(self, llm) -> None:
+        self.parser = JsonOutputParser(pydantic_object=TopicCheckResult)
+        self.prompt_template = PromptTemplate(
+            template=(
+                TOPIC_CLASSIFIER_PROMPT
+                + "\n\n"
+                + "{format_instructions}"
+            ),
+            input_variables=["sales_message", "history"],
+            partial_variables={
+                "format_instructions": self.parser.get_format_instructions(),
+            },
+        )
+        self.chain = self.prompt_template | llm | self.parser
+
+    async def check(self, message: str, messages: list[BaseMessage]) -> TopicCheckResult:
+        history = format_messages_for_topic_check(messages)
+        result = await self.chain.ainvoke({"sales_message": message, "history": history})
+        return TopicCheckResult.model_validate(result)
 
 
 class BuyerAgent:

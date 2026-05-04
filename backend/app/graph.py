@@ -5,7 +5,13 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from app.models import ChatSession, GraphDependencies, GraphState
-from app.prompts import BASELINE_OPENING_MESSAGE, BUYER_SCENARIO_CONTEXT_PROMPT, BUYER_SYSTEM_PROMPT
+from app.prompts import (
+    BASELINE_OPENING_MESSAGE,
+    BUYER_SCENARIO_CONTEXT_PROMPT,
+    BUYER_SYSTEM_PROMPT,
+    OFFTOPIC_REFUSAL_MESSAGE,
+    OFFTOPIC_WARNING_MESSAGE,
+)
 from app.scenario_repository import get_scenario_by_id, get_scenario_info
 
 
@@ -17,6 +23,9 @@ def create_graph(deps: GraphDependencies):
     graph.add_node("append_sales_message_to_history", _append_sales_message(deps))
     graph.add_node("check_if_sales_message_is_rude", _classify_sales_tone(deps))
     graph.add_node("append_customer_left_message", _append_customer_left_message(deps))
+    graph.add_node("check_if_sales_message_is_on_topic", _classify_sales_topic(deps))
+    graph.add_node("append_customer_offtopic_warning_message", _append_customer_offtopic_warning_message(deps))
+    graph.add_node("append_customer_offtopic_refusal_message", _append_customer_offtopic_refusal_message(deps))
     graph.add_node("append_customer_reply_message", _append_customer_reply_message(deps))
     graph.add_node("finish_session_now", _close_existing_session(deps))
 
@@ -43,9 +52,20 @@ def create_graph(deps: GraphDependencies):
         lambda state: state["dialog_route"],
         {
             "stop_after_rudeness": "append_customer_left_message",
-            "continue_with_customer_reply": "append_customer_reply_message",
+            "go_to_topic_check": "check_if_sales_message_is_on_topic",
         },
     )
+    graph.add_conditional_edges(
+        "check_if_sales_message_is_on_topic",
+        lambda state: state["dialog_route"],
+        {
+            "continue_with_customer_reply": "append_customer_reply_message",
+            "continue_after_offtopic_warning": "append_customer_offtopic_warning_message",
+            "stop_after_offtopic_limit": "append_customer_offtopic_refusal_message",
+        },
+    )
+    graph.add_edge("append_customer_offtopic_warning_message", END)
+    graph.add_edge("append_customer_offtopic_refusal_message", END)
     graph.add_edge("start_session_with_opening_message", END)
     graph.add_edge("append_customer_left_message", END)
     graph.add_edge("append_customer_reply_message", END)
@@ -113,7 +133,7 @@ def _classify_sales_tone(deps: GraphDependencies):
     async def node(state: GraphState) -> GraphState:
         result = await deps.rude_classifier.check(state["sales_message"])
         return {
-            "dialog_route": "stop_after_rudeness" if result.rude == "yes" else "continue_with_customer_reply",
+            "dialog_route": "stop_after_rudeness" if result.rude == "yes" else "go_to_topic_check",
             "confidence": result.confidence,
         }
 
@@ -134,6 +154,81 @@ def _append_customer_left_message(deps: GraphDependencies):
             "messages": new_messages,
             "status": updated_session.status,
             "customer_message": "КЛИЕНТ УШЕЛ",
+        }
+
+    return node
+
+
+def _classify_sales_topic(deps: GraphDependencies):
+    async def node(state: GraphState) -> GraphState:
+        result = await deps.topic_classifier.check(
+            message=state["sales_message"],
+            messages=state["messages"]
+        )
+        session = state["session"]
+
+        if result.on_topic == "yes":
+            return {
+                "dialog_route": "continue_with_customer_reply",
+                "topic_confidence": result.confidence,
+                "confidence": result.confidence,
+            }
+
+        offtopic_count = session.offtopic_messages_count + 1
+        updated_session = session.model_copy(update={"offtopic_messages_count": offtopic_count})
+        deps.session_store.save(updated_session)
+
+        route = (
+            "stop_after_offtopic_limit"
+            if offtopic_count >= 2
+            else "continue_after_offtopic_warning"
+        )
+
+        return {
+            "session": updated_session,
+            "dialog_route": route,
+            "topic_confidence": result.confidence,
+            "confidence": result.confidence,
+        }
+
+    return node
+
+
+def _append_customer_offtopic_warning_message(deps: GraphDependencies):
+    def node(state: GraphState) -> GraphState:
+        warning_message = OFFTOPIC_WARNING_MESSAGE
+        new_messages = [*state["messages"], AIMessage(content=warning_message)]
+        updated_session = state["session"].model_copy(update={"messages": new_messages})
+        deps.session_store.save(updated_session)
+
+        return {
+            "session": updated_session,
+            "messages": new_messages,
+            "status": updated_session.status,
+            "customer_message": warning_message,
+        }
+
+    return node
+
+
+def _append_customer_offtopic_refusal_message(deps: GraphDependencies):
+    def node(state: GraphState) -> GraphState:
+        refusal_message = OFFTOPIC_REFUSAL_MESSAGE
+        new_messages = [*state["messages"], AIMessage(content=refusal_message)]
+        updated_session = state["session"].model_copy(
+            update={
+                "messages": new_messages,
+                "status": "finished",
+                "completed_at": datetime.now(timezone.utc),
+            }
+        )
+        deps.session_store.save(updated_session)
+
+        return {
+            "session": updated_session,
+            "messages": new_messages,
+            "status": updated_session.status,
+            "customer_message": refusal_message,
         }
 
     return node

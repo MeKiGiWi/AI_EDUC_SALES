@@ -167,7 +167,15 @@ function TriggeredReveal({
                 useNativeDriver: true,
             }),
         ]).start();
-    }, [active, delay, duration, opacity, reduceMotion, translateX, translateY]);
+    }, [
+        active,
+        delay,
+        duration,
+        opacity,
+        reduceMotion,
+        translateX,
+        translateY,
+    ]);
 
     return (
         <Animated.View
@@ -372,18 +380,18 @@ export function LandingScreen({
         sheetState?.kind === "roles"
             ? "Открыть демо-кабинет"
             : sheetState?.kind === "implementation"
-            ? "Обсудить внедрение"
-            : sheetState?.kind === "direction"
-              ? sheetState.direction.title
-              : "Записаться на демо";
+              ? "Обсудить внедрение"
+              : sheetState?.kind === "direction"
+                ? sheetState.direction.title
+                : "Записаться на демо";
     const ctaDescription =
         sheetState?.kind === "roles"
             ? "Выберите роль и сразу откройте демонстрационный контур продукта для показа сервиса."
             : sheetState?.kind === "implementation"
-            ? "Соберите задачу внедрения под ваш контур: сценарии, знания, отчёты и интеграции."
-            : sheetState?.kind === "direction"
-              ? `${sheetState.direction.audience}. ${sheetState.direction.outcome}.`
-              : "Оставьте задачу команды, и мы покажем, как может выглядеть база знаний, тренажёр и отчёты.";
+              ? "Соберите задачу внедрения под ваш контур: сценарии, знания, отчёты и интеграции."
+              : sheetState?.kind === "direction"
+                ? `${sheetState.direction.audience}. ${sheetState.direction.outcome}.`
+                : "Оставьте задачу команды, и мы покажем, как может выглядеть база знаний, тренажёр и отчёты.";
     const actionSheetKind: CtaSheetKind =
         sheetState?.kind === "implementation" ? "implementation" : "demo";
     const viewportBottom = scrollOffset + layout.height;
@@ -706,7 +714,9 @@ export function LandingScreen({
                                                                 link.id,
                                                             )
                                                         }
-                                                        style={({ pressed }) => [
+                                                        style={({
+                                                            pressed,
+                                                        }) => [
                                                             styles.mobileMenuNavItem,
                                                             {
                                                                 borderColor:
@@ -757,7 +767,9 @@ export function LandingScreen({
                                             )}
                                         </View>
                                         <View
-                                            style={styles.mobileMenuButtonColumn}
+                                            style={
+                                                styles.mobileMenuButtonColumn
+                                            }
                                         >
                                             <AppButton
                                                 label="Войти"
@@ -881,8 +893,7 @@ export function LandingScreen({
                                 <AppCard
                                     style={[
                                         styles.heroVisualCard,
-                                        isMobile &&
-                                            styles.heroVisualCardMobile,
+                                        isMobile && styles.heroVisualCardMobile,
                                     ]}
                                 >
                                     <View style={styles.heroMockHeader}>
@@ -1106,7 +1117,12 @@ export function LandingScreen({
                         duration={motionDuration}
                         reduceMotion={reduceMotion}
                     >
-                        <View style={styles.sectionStack}>
+                        <View
+                            style={[
+                                styles.sectionStack,
+                                isMobile && styles.metricSectionMobile,
+                            ]}
+                        >
                             <View style={styles.sectionHeading}>
                                 <Text
                                     style={[
@@ -1185,7 +1201,10 @@ export function LandingScreen({
 
                     <View
                         onLayout={registerSection("problem")}
-                        style={styles.sectionAnchor}
+                        style={[
+                            styles.sectionAnchor,
+                            isMobile && styles.sectionAnchorMobile,
+                        ]}
                     >
                         <Reveal
                             delay={180}
@@ -1322,11 +1341,17 @@ export function LandingScreen({
                                     duration={isMobile ? 680 : 860}
                                     variant="fade"
                                     reduceMotion={reduceMotion || isMobile}
-                                    style={styles.problemAccentWrap}
+                                    style={[
+                                        styles.problemAccentWrap,
+                                        isMobile &&
+                                            styles.problemAccentWrapMobile,
+                                    ]}
                                 >
                                     <View
                                         style={[
                                             styles.problemAccentCard,
+                                            isMobile &&
+                                                styles.problemAccentCardMobile,
                                             {
                                                 backgroundColor:
                                                     theme.colors.primaryDeep,
@@ -1345,7 +1370,13 @@ export function LandingScreen({
                                                 },
                                             ]}
                                         />
-                                        <View style={styles.problemAccentCopy}>
+                                        <View
+                                            style={[
+                                                styles.problemAccentCopy,
+                                                isMobile &&
+                                                    styles.problemAccentCopyMobile,
+                                            ]}
+                                        >
                                             <Text
                                                 style={[
                                                     styles.problemAccentTitle,
@@ -1373,7 +1404,10 @@ export function LandingScreen({
 
                     <View
                         onLayout={registerSection("solution")}
-                        style={styles.sectionAnchor}
+                        style={[
+                            styles.sectionAnchor,
+                            isMobile && styles.sectionAnchorMobile,
+                        ]}
                     >
                         <Reveal
                             delay={220}
@@ -1654,7 +1688,10 @@ export function LandingScreen({
 
                     <View
                         onLayout={registerSection("howItWorks")}
-                        style={styles.sectionAnchor}
+                        style={[
+                            styles.sectionAnchor,
+                            isMobile && styles.sectionAnchorMobile,
+                        ]}
                     >
                         <Reveal
                             delay={260}
@@ -1787,7 +1824,11 @@ export function LandingScreen({
                                     distance={isMobile ? 18 : 56}
                                     variant="right"
                                     reduceMotion={reduceMotion || isMobile}
-                                    style={styles.trainerMockWrap}
+                                    style={[
+                                        styles.trainerMockWrap,
+                                        isMobile &&
+                                            styles.trainerMockWrapMobile,
+                                    ]}
                                 >
                                     <AppCard
                                         style={[
@@ -2652,8 +2693,7 @@ export function LandingScreen({
                                     style={[
                                         styles.bodyText,
                                         {
-                                            color: theme.semantic
-                                                .textSecondary,
+                                            color: theme.semantic.textSecondary,
                                         },
                                     ]}
                                 >
@@ -2693,8 +2733,7 @@ export function LandingScreen({
                                     style={[
                                         styles.roleEnterLabel,
                                         {
-                                            color: theme.semantic
-                                                .actionPrimary,
+                                            color: theme.semantic.actionPrimary,
                                         },
                                     ]}
                                 >
@@ -3266,6 +3305,9 @@ const styles = StyleSheet.create({
         paddingBottom: 18,
         gap: 20,
     },
+    metricSectionMobile: {
+        paddingTop: 40,
+    },
     sectionHeading: {
         gap: 10,
     },
@@ -3322,11 +3364,14 @@ const styles = StyleSheet.create({
     sectionAnchor: {
         paddingTop: 10,
     },
+    sectionAnchorMobile: {
+        paddingTop: 40,
+    },
     problemSection: {
         gap: 18,
     },
     problemSectionMobile: {
-        gap: 14,
+        gap: 20,
     },
     problemDesktop: {
         flexDirection: "row",
@@ -3362,6 +3407,14 @@ const styles = StyleSheet.create({
     problemAccentWrap: {
         flex: 0.86,
     },
+    problemAccentWrapMobile: {
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: "auto",
+        width: "100%",
+        alignSelf: "stretch",
+        marginTop: 16,
+    },
     problemAccentCard: {
         flex: 1,
         minHeight: 340,
@@ -3371,6 +3424,16 @@ const styles = StyleSheet.create({
         justifyContent: "flex-end",
         overflow: "hidden",
         gap: 18,
+    },
+    problemAccentCardMobile: {
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: "auto",
+        alignSelf: "stretch",
+        minHeight: 0,
+        padding: 20,
+        justifyContent: "flex-start",
+        gap: 14,
     },
     problemAccentGlow: {
         position: "absolute",
@@ -3415,6 +3478,9 @@ const styles = StyleSheet.create({
     problemAccentCopy: {
         marginTop: "auto",
         gap: 10,
+    },
+    problemAccentCopyMobile: {
+        marginTop: 0,
     },
     problemAccentTitle: {
         color: "#FFFFFF",
@@ -3539,7 +3605,8 @@ const styles = StyleSheet.create({
         paddingTop: 12,
     },
     trainerSectionMobile: {
-        gap: 14,
+        gap: 18,
+        paddingTop: 26,
     },
     trainerDesktop: {
         flexDirection: "row",
@@ -3580,6 +3647,14 @@ const styles = StyleSheet.create({
         flex: 1,
         alignSelf: "stretch",
     },
+    trainerMockWrapMobile: {
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: "auto",
+        width: "100%",
+        alignSelf: "stretch",
+        marginTop: 55,
+    },
     trainerMockCard: {
         flex: 1,
         minHeight: 520,
@@ -3587,8 +3662,12 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     trainerMockCardMobile: {
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: "auto",
         minHeight: 0,
         gap: 14,
+        justifyContent: "flex-start",
     },
     mockWindowHeader: {
         gap: 10,

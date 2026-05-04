@@ -49,7 +49,7 @@ export function LandingNavbar({
             />
           ))}
         </View>
-        <AppButton label="Войти" onPress={onEnterRole} tone="primary" />
+        <AppButton label="Попробовать" onPress={onEnterRole} tone="primary" />
       </View>
       <Text style={[styles.navSummary, { color: theme.semantic.textMuted }]}>
         В фокусе: {summaryText}

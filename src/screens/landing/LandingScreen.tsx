@@ -670,16 +670,10 @@ export function LandingScreen({
                                     </View>
 
                                     <AppButton
-                                        label="Войти"
+                                        label="Попробовать"
                                         onPress={openRolePicker}
                                         tone="secondary"
                                         accessibilityLabel="Открыть демо-кабинеты"
-                                    />
-                                    <AppButton
-                                        label="Записаться на демо"
-                                        onPress={() => openCtaSheet("demo")}
-                                        tone="primary"
-                                        accessibilityLabel="Записаться на демо"
                                     />
                                 </View>
                             </View>
@@ -772,20 +766,11 @@ export function LandingScreen({
                                             }
                                         >
                                             <AppButton
-                                                label="Войти"
+                                                label="Попробовать"
                                                 onPress={openRolePicker}
                                                 tone="secondary"
                                                 fullWidth
                                                 accessibilityLabel="Открыть демо-кабинеты"
-                                            />
-                                            <AppButton
-                                                label="Записаться на демо"
-                                                onPress={() =>
-                                                    openCtaSheet("demo")
-                                                }
-                                                tone="primary"
-                                                fullWidth
-                                                accessibilityLabel="Записаться на демо"
                                             />
                                         </View>
                                     </View>
@@ -847,23 +832,9 @@ export function LandingScreen({
                                     ]}
                                 >
                                     <AppButton
-                                        label="Войти"
+                                        label="Попробовать"
                                         onPress={openRolePicker}
                                         tone="primary"
-                                        {...compactButtonProps}
-                                    />
-                                    <AppButton
-                                        label={landingContent.hero.primaryCta}
-                                        onPress={() => openCtaSheet("demo")}
-                                        tone="secondary"
-                                        {...compactButtonProps}
-                                    />
-                                    <AppButton
-                                        label={landingContent.hero.secondaryCta}
-                                        onPress={() =>
-                                            scrollToSection("howItWorks")
-                                        }
-                                        tone="secondary"
                                         {...compactButtonProps}
                                     />
                                 </View>
@@ -2611,12 +2582,6 @@ export function LandingScreen({
                                         : styles.heroActionsDesktop,
                                 ]}
                             >
-                                <AppButton
-                                    label={landingContent.finalPrimaryCta}
-                                    onPress={() => openCtaSheet("demo")}
-                                    tone="primary"
-                                    {...compactButtonProps}
-                                />
                                 <AppButton
                                     label={landingContent.finalSecondaryCta}
                                     onPress={() =>

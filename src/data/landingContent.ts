@@ -9,8 +9,6 @@ export interface LandingHeroContent {
   eyebrow: string;
   title: string;
   description: string;
-  primaryCta: string;
-  secondaryCta: string;
 }
 
 export interface LandingMetricItem {
@@ -70,9 +68,7 @@ export const landingContent = {
     eyebrow: "AI Sales Academy",
     title: "Система развития продавцов, которая доводит знания до продаж",
     description:
-      "AI Sales Academy объединяет обучение, ИИ-тренировки, оценку компетенций и аналитику, чтобы продавцы тренировались до общения с клиентами, а руководитель видел прогресс команды.",
-    primaryCta: "Записаться на демо",
-    secondaryCta: "Посмотреть, как работает"
+      "AI Sales Academy объединяет обучение, ИИ-тренировки, оценку компетенций и аналитику, чтобы продавцы тренировались до общения с клиентами, а руководитель видел прогресс команды."
   } satisfies LandingHeroContent,
   metricIntro:
     "Потенциальные бизнес-эффекты по материалам Академии продаж. Это ориентиры для оценки внедрения, а не гарантированные результаты.",
@@ -288,6 +284,5 @@ export const landingContent = {
   finalTitle: "Покажите продавцам, где тренироваться до разговора с клиентом",
   finalDescription:
     "Запишитесь на демо, чтобы увидеть сценарии, отчёты, базу знаний и работу ИИ-тренажёра на примере вашей команды.",
-  finalPrimaryCta: "Записаться на демо",
   finalSecondaryCta: "Обсудить внедрение"
 } as const;

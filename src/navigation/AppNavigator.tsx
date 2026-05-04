@@ -76,8 +76,7 @@ export function AppNavigator() {
       ? (routeState.params as RootStackParamList["Simulator"] | undefined)
       : undefined;
   const showMobileHeader = !layout.isDesktop && routeState.name !== "Simulator";
-  const disableAppScroll =
-    routeState.name === "Simulator" && trainerMode === "dialogue" && layout.isDesktop;
+  const disableAppScroll = routeState.name === "Simulator" && trainerMode === "dialogue";
 
   return (
     <AppScreen

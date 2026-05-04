@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import asyncio
+from time import perf_counter
 
 from fastapi import APIRouter, HTTPException, status
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -25,6 +27,7 @@ from app.runtime import SESSION_STORE, build_evaluation_agent, build_graph
 from app.scenario_repository import get_scenario_by_id, list_scenarios
 
 router = APIRouter(prefix="/api/v1/simulator", tags=["simulator"])
+SESSION_LOCKS: dict[str, asyncio.Lock] = {}
 
 MIN_REPLIES_FOR_CONFIDENT_EVALUATION = 10
 COMPETENCY_CATALOG = [
@@ -159,27 +162,37 @@ async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
 
 @router.post("/sessions/{session_id}/messages", response_model=SessionMessageResponseDto)
 async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> SessionMessageResponseDto:
-    session = SESSION_STORE.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Сессия не найдена.")
-    if session.status == "finished":
-        raise HTTPException(status_code=409, detail="Сессия уже завершена.")
+    lock = SESSION_LOCKS.setdefault(session_id, asyncio.Lock())
+    async with lock:
+        session = SESSION_STORE.get(session_id)
+        if session is None:
+            SESSION_LOCKS.pop(session_id, None)
+            raise HTTPException(status_code=404, detail="Сессия не найдена.")
+        if session.status == "finished":
+            raise HTTPException(status_code=409, detail="Сессия уже завершена.")
 
-    graph = build_graph(get_agents_config())
-    initial_state = {
-        "action": "reply_to_sales",
-        "session_id": session_id,
-        "sales_message": payload.text,
-    }
-    result = await graph.ainvoke(initial_state)
+        graph = build_graph(get_agents_config())
+        initial_state = {
+            "action": "reply_to_sales",
+            "session_id": session_id,
+            "sales_message": payload.text,
+        }
+        started_at = perf_counter()
+        try:
+            result = await graph.ainvoke(initial_state)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Сессия не найдена.") from exc
+        finally:
+            elapsed_ms = (perf_counter() - started_at) * 1000
+            print(f"[simulator] reply_to_sales session={session_id} latency_ms={elapsed_ms:.1f}")
 
-    return SessionMessageResponseDto(
-        session_id=session_id,
-        status=SessionStatus(result["status"]),
-        rude="yes" if result["dialog_route"] == "stop_after_rudeness" else "no",
-        confidence=result["confidence"],
-        messages=[map_message(item) for item in filter_visible_messages(result["messages"])[-2:]],
-    )
+        return SessionMessageResponseDto(
+            session_id=session_id,
+            status=SessionStatus(result["status"]),
+            rude="yes" if result["dialog_route"] == "stop_after_rudeness" else "no",
+            confidence=result["confidence"],
+            messages=[map_message(item) for item in filter_visible_messages(result["messages"])[-2:]],
+        )
 
 
 @router.post("/sessions/{session_id}/finish", response_model=SessionFinishResponseDto)

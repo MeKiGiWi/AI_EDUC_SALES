@@ -23,6 +23,7 @@ class LLMSettings(BaseSettings):
     OPENROUTER_APP_NAME: str = "AI Sales Academy"
     LLM_MODEL: str = "qwen-turbo"
     LLM_TEMPERATURE: float = Field(default=0.2, ge=0.0, le=1.0)
+    LLM_TIMEOUT_SECONDS: float = Field(default=45.0, ge=5.0, le=300.0)
     LLM_REASONING_EFFORT: Literal["minimal", "low", "medium", "high", "none"] | None = None
     # NEVER FUCKING CHANGE THIS CLASS, ALWAYS ASK ME FOR THAT
 

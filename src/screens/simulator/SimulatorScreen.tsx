@@ -1,8 +1,13 @@
-import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import type { SalesAcademyMock, ScenarioCardItem } from "../../data/salesAcademyMock";
+import { DEFAULT_BACKEND_DIFFICULTY, MANAGER_REPLY_TARGET } from "../../data/simulatorMvpData";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
+import {
+  getSafeSimulatorErrorMessage,
+  simulatorApiService
+} from "../../services/simulatorApiService";
 import { useTheme } from "../../theme/useTheme";
 
 interface SimulatorScreenProps {
@@ -179,13 +184,205 @@ function DialogueView({
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const dialogue = data.activeDialogue;
-  const progress = Math.round((dialogue.managerReplyCount / dialogue.replyTarget) * 100);
-  const dialogueHeight = Math.max(Math.min(theme.viewport.height - 12, 724), 680);
-  const dialogueBodyHeight = Math.max(Math.min(theme.viewport.height - 128, 620), 540);
-  const messageListHeight = Math.max(dialogueBodyHeight - 258, 170);
+  const apiEnabled = simulatorApiService.isEnabled();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState(dialogue.messages);
+  const [inputValue, setInputValue] = useState("");
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
+  const [isSessionClosed, setIsSessionClosed] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const messageScrollRef = useRef<ScrollView | null>(null);
+  const [messageViewportHeight, setMessageViewportHeight] = useState(0);
+  const [messageContentHeight, setMessageContentHeight] = useState(0);
+  const [messageScrollY, setMessageScrollY] = useState(0);
+  const typingDot1 = useRef(new Animated.Value(0.35)).current;
+  const typingDot2 = useRef(new Animated.Value(0.35)).current;
+  const typingDot3 = useRef(new Animated.Value(0.35)).current;
+  const managerReplyCount = useMemo(
+    () => messages.filter((message) => message.author === "manager").length,
+    [messages]
+  );
+  const progress = Math.round((managerReplyCount / MANAGER_REPLY_TARGET) * 100);
+  const dialogueHeight = Math.max(theme.viewport.height - 16, 660);
+  const dialogueBodyHeight = Math.max(theme.viewport.height - 120, 520);
+  const busy = isInitializing || isSending || isFinishing;
+  const showTyping = isSending;
+  const scrollableDistance = Math.max(messageContentHeight - messageViewportHeight, 0);
+  const scrollThumbVisible = scrollableDistance > 8;
+  const scrollTrackHeight = Math.max(messageViewportHeight - 16, 24);
+  const minThumbHeight = 28;
+  const scrollThumbHeight = scrollThumbVisible
+    ? Math.max((messageViewportHeight / messageContentHeight) * scrollTrackHeight, minThumbHeight)
+    : scrollTrackHeight;
+  const scrollThumbOffset = scrollThumbVisible
+    ? (messageScrollY / scrollableDistance) * (scrollTrackHeight - scrollThumbHeight)
+    : 0;
+
+  function nowTime() {
+    return new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  useEffect(() => {
+    if (!showTyping) {
+      typingDot1.setValue(0.35);
+      typingDot2.setValue(0.35);
+      typingDot3.setValue(0.35);
+      return;
+    }
+    const pulse = (value: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(value, { toValue: 1, duration: 240, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(value, { toValue: 0.35, duration: 240, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.delay(200)
+        ])
+      );
+    const a1 = pulse(typingDot1, 0);
+    const a2 = pulse(typingDot2, 100);
+    const a3 = pulse(typingDot3, 200);
+    a1.start();
+    a2.start();
+    a3.start();
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
+  }, [showTyping, typingDot1, typingDot2, typingDot3]);
+
+  useEffect(() => {
+    const frame = setTimeout(() => {
+      messageScrollRef.current?.scrollToEnd({ animated: true });
+    }, 0);
+    return () => clearTimeout(frame);
+  }, [messages.length, showTyping, errorText]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function startSession() {
+      if (!apiEnabled) {
+        setSessionId(null);
+        setMessages(dialogue.messages);
+        setErrorText("Backend не подключен. Показывается mock-режим.");
+        return;
+      }
+      try {
+        setIsInitializing(true);
+        setErrorText(null);
+        const backendScenarios = await simulatorApiService.fetchSimulatorScenarios();
+        const matchedScenario =
+          backendScenarios.find((item) => item.id === selectedScenario.id) ??
+          backendScenarios.find((item) => item.title.trim().toLowerCase() === selectedScenario.title.trim().toLowerCase()) ??
+          backendScenarios[0];
+
+        if (!matchedScenario) {
+          throw new Error("Нет доступных сценариев на backend.");
+        }
+
+        const response = await simulatorApiService.startDialogueSession(
+          matchedScenario.id,
+          DEFAULT_BACKEND_DIFFICULTY
+        );
+        if (!isMounted) {
+          return;
+        }
+        setSessionId(response.session_id);
+        setIsSessionClosed(false);
+        setMessages([
+          {
+            id: response.message.id ?? `customer-${Date.now()}`,
+            author: response.message.role === "customer" ? "customer" : "manager",
+            text: response.message.text,
+            time: nowTime()
+          }
+        ]);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        setSessionId(null);
+        setMessages(dialogue.messages);
+        setErrorText(getSafeSimulatorErrorMessage(error));
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false);
+        }
+      }
+    }
+    void startSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [apiEnabled, selectedScenario.id, selectedScenario.title]);
+
+  async function handleSendMessage() {
+    const text = inputValue.trim();
+    if (!text || busy || isSessionClosed) {
+      return;
+    }
+    if (!sessionId) {
+      setErrorText("Сессия не инициализирована.");
+      return;
+    }
+    const managerMessage = { id: `manager-${Date.now()}`, author: "manager" as const, text, time: nowTime() };
+    setMessages((current) => [...current, managerMessage]);
+    setInputValue("");
+    try {
+      setIsSending(true);
+      setErrorText(null);
+      const response = await simulatorApiService.sendDialogueMessage(sessionId, text);
+      const customerMessages = response.messages
+        .filter((message) => message.role === "customer")
+        .map((message, index) => ({
+          id: message.id ?? `customer-reply-${Date.now()}-${index}`,
+          author: "customer" as const,
+          text: message.text,
+          time: nowTime()
+        }));
+      if (customerMessages.length > 0) {
+        setMessages((current) => [...current, ...customerMessages]);
+      }
+    } catch (error) {
+      setErrorText(getSafeSimulatorErrorMessage(error));
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        (error as { status?: number }).status === 409
+      ) {
+        setIsSessionClosed(true);
+      }
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  async function handleFinishSession() {
+    if (busy) {
+      return;
+    }
+    if (!sessionId || !apiEnabled) {
+      onFinishScenario();
+      return;
+    }
+    try {
+      setIsFinishing(true);
+      setErrorText(null);
+      await simulatorApiService.finishDialogueSession(sessionId);
+      setIsSessionClosed(true);
+      onFinishScenario();
+    } catch (error) {
+      setErrorText(getSafeSimulatorErrorMessage(error));
+    } finally {
+      setIsFinishing(false);
+    }
+  }
 
   return (
-    <View style={[styles.screen, layout.isDesktop && { height: dialogueHeight, gap: 10, justifyContent: "space-between" }]}>
+    <View style={[styles.screen, styles.dialogueScreen, layout.isDesktop && { height: dialogueHeight, gap: 10, justifyContent: "space-between", paddingBottom: 8 }]}>
       <View style={[styles.dialogueHeader, !layout.isDesktop && styles.headerStack]}>
         <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
         <View style={[styles.dialogueHeaderCenter, !layout.isDesktop && styles.dialogueHeaderCenterStack]}>
@@ -225,7 +422,7 @@ function DialogueView({
           <View style={[styles.chatTopBar, { borderBottomColor: theme.semantic.borderSubtle }]}>
             <View style={styles.chatTopLeft}>
               <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
-                Реплики менеджера: <Text style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}>{dialogue.managerReplyCount} / {dialogue.replyTarget}</Text>
+                Реплики менеджера: <Text style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}>{managerReplyCount} / {MANAGER_REPLY_TARGET}</Text>
               </Text>
               <View style={[styles.chatProgressTrack, { backgroundColor: theme.semantic.borderSubtle }]}>
                 <View style={[styles.chatProgressFill, { backgroundColor: theme.semantic.actionPrimary, width: `${progress}%` }]} />
@@ -252,36 +449,53 @@ function DialogueView({
             </View>
           </View>
 
-          <ScrollView
-            style={[styles.messageList, layout.isDesktop && { height: messageListHeight, flexGrow: 0 }]}
-            contentContainerStyle={styles.messageListContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {dialogue.messages.map((message) => (
-              <View
-                key={message.id}
-                style={[
-                  styles.messageBubble,
-                  message.author === "manager" ? styles.messageBubbleManager : styles.messageBubbleCustomer,
-                  {
-                    backgroundColor:
-                      message.author === "manager" ? theme.colors.surfaceMint : theme.semantic.card,
-                    borderColor: theme.semantic.border
-                  }
-                ]}
-              >
-                <Text style={[styles.messageText, { color: theme.semantic.textPrimary }]}>{message.text}</Text>
-                <Text style={[styles.messageTime, { color: theme.semantic.textMuted }]}>{message.time}</Text>
-              </View>
-            ))}
+          <View style={styles.messagesWrap}>
+            <ScrollView
+              ref={messageScrollRef}
+              style={styles.messageList}
+              contentContainerStyle={styles.messageListContent}
+              showsVerticalScrollIndicator={false}
+              onLayout={(event) => setMessageViewportHeight(event.nativeEvent.layout.height)}
+              onContentSizeChange={(_, height) => setMessageContentHeight(height)}
+              onScroll={(event) => setMessageScrollY(event.nativeEvent.contentOffset.y)}
+              scrollEventThrottle={16}
+            >
+              {messages.map((message) => (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.messageBubble,
+                    message.author === "manager" ? styles.messageBubbleManager : styles.messageBubbleCustomer,
+                    {
+                      backgroundColor:
+                        message.author === "manager" ? theme.colors.surfaceMint : theme.semantic.card,
+                      borderColor: theme.semantic.border
+                    }
+                  ]}
+                >
+                  <Text style={[styles.messageText, { color: theme.semantic.textPrimary }]}>{message.text}</Text>
+                  <Text style={[styles.messageTime, { color: theme.semantic.textMuted }]}>{message.time}</Text>
+                </View>
+              ))}
 
-            <View style={styles.typingRow}>
-              <View style={[styles.typingDots, { backgroundColor: theme.semantic.backgroundWarm, borderColor: theme.semantic.border }]}>
-                <Text style={[styles.typingDotsText, { color: theme.semantic.textMuted }]}>•••</Text>
+              {showTyping ? (
+                <View style={styles.typingRow}>
+                  <View style={[styles.typingDots, { backgroundColor: theme.semantic.backgroundWarm, borderColor: theme.semantic.border }]}>
+                    <Animated.View style={[styles.typingDot, { opacity: typingDot1, backgroundColor: theme.semantic.textMuted }]} />
+                    <Animated.View style={[styles.typingDot, { opacity: typingDot2, backgroundColor: theme.semantic.textMuted }]} />
+                    <Animated.View style={[styles.typingDot, { opacity: typingDot3, backgroundColor: theme.semantic.textMuted }]} />
+                  </View>
+                  <Text style={[styles.typingText, { color: theme.semantic.textMuted }]}>{dialogue.typingLabel}</Text>
+                </View>
+              ) : null}
+            </ScrollView>
+            {scrollThumbVisible ? (
+              <View style={styles.scrollTrack}>
+                <View style={[styles.scrollThumb, { height: scrollThumbHeight, transform: [{ translateY: scrollThumbOffset }] }]} />
               </View>
-              <Text style={[styles.typingText, { color: theme.semantic.textMuted }]}>{dialogue.typingLabel}</Text>
-            </View>
-          </ScrollView>
+            ) : null}
+          </View>
+          {errorText ? <Text style={[styles.errorText, { color: theme.semantic.warning }]}>{errorText}</Text> : null}
 
           <View style={[styles.inputWrap, { borderTopColor: theme.semantic.borderSubtle }]}>
             <View style={[styles.inputRow, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
@@ -289,13 +503,19 @@ function DialogueView({
                 placeholder="Напишите сообщение..."
                 placeholderTextColor={theme.semantic.textMuted}
                 style={[styles.chatInput, { color: theme.semantic.textPrimary }]}
+                value={inputValue}
+                onChangeText={setInputValue}
+                editable={!busy && !isSessionClosed}
+                multiline
+                textAlignVertical="top"
+                scrollEnabled
+                maxLength={2000}
               />
-              <View style={styles.inputActions}>
-                <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>⚡</Text>
-                <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>⌄</Text>
-              </View>
-              <Pressable style={[styles.sendButton, { backgroundColor: theme.colors.primaryPale }]}>
-                <Text style={[styles.sendButtonText, { color: theme.semantic.actionPrimary }]}>➤</Text>
+              <Pressable
+                onPress={handleSendMessage}
+                style={[styles.sendButton, { backgroundColor: theme.semantic.actionPrimary, opacity: busy || isSessionClosed ? 0.7 : 1 }]}
+              >
+                <Text style={styles.sendButtonText}>Отправить</Text>
               </Pressable>
             </View>
           </View>
@@ -309,8 +529,8 @@ function DialogueView({
             <InsightTextBlock label="Возражение" text={`«${dialogue.objection}»`} />
           </View>
 
-          <Pressable onPress={onFinishScenario} style={[styles.finishButton, { backgroundColor: theme.semantic.actionPrimary }]}>
-            <Text style={styles.finishButtonText}>Завершить и получить отчет</Text>
+          <Pressable onPress={handleFinishSession} style={[styles.finishButton, { backgroundColor: theme.semantic.actionPrimary, opacity: busy ? 0.7 : 1 }]}>
+            <Text style={styles.finishButtonText}>{isFinishing ? "Завершаем..." : "Завершить и получить отчет"}</Text>
           </Pressable>
         </View>
       </View>
@@ -503,6 +723,9 @@ function toneForeground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warn
 const styles = StyleSheet.create({
   screen: {
     gap: 18
+  },
+  dialogueScreen: {
+    minHeight: 0
   },
   headerRow: {
     flexDirection: "row",
@@ -866,7 +1089,13 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     flexShrink: 1,
     minHeight: 0,
-    height: "100%"
+    height: "100%",
+    flexDirection: "column"
+  },
+  messagesWrap: {
+    flex: 1,
+    minHeight: 0,
+    position: "relative"
   },
   chatTopBar: {
     minHeight: 52,
@@ -948,7 +1177,8 @@ const styles = StyleSheet.create({
   },
   messageList: {
     flex: 1,
-    minHeight: 0
+    minHeight: 0,
+    paddingRight: 10
   },
   messageListContent: {
     paddingHorizontal: 18,
@@ -985,19 +1215,38 @@ const styles = StyleSheet.create({
     gap: 8
   },
   typingDots: {
-    minWidth: 38,
+    minWidth: 48,
     height: 26,
     borderRadius: 13,
     borderWidth: 1,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    gap: 5,
     alignItems: "center",
     justifyContent: "center"
   },
-  typingDotsText: {
-    fontSize: 16,
-    letterSpacing: 2
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3
   },
   typingText: {
     fontSize: 14
+  },
+  scrollTrack: {
+    position: "absolute",
+    top: 8,
+    bottom: 8,
+    right: 4,
+    width: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(122, 145, 134, 0.18)",
+    overflow: "hidden"
+  },
+  scrollThumb: {
+    width: "100%",
+    borderRadius: 999,
+    backgroundColor: "rgba(66, 121, 95, 0.55)"
   },
   inputWrap: {
     borderTopWidth: 1,
@@ -1007,44 +1256,43 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     minHeight: 48,
+    maxHeight: 118,
     borderRadius: 18,
     borderWidth: 1,
     paddingLeft: 14,
     paddingRight: 8,
+    paddingVertical: 8,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: 10
   },
   chatInput: {
     flex: 1,
     fontSize: 14,
+    lineHeight: 20,
+    minHeight: 20,
+    maxHeight: 80,
     paddingVertical: 0
   },
-  inputActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12
-  },
-  inputAction: {
-    fontSize: 18
-  },
   sendButton: {
-    width: 36,
+    minWidth: 112,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center"
   },
   sendButtonText: {
-    fontSize: 18,
-    fontWeight: "700"
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF"
   },
   insightColumn: {
     flex: 1,
     gap: 18,
     alignSelf: "stretch",
     minHeight: 0,
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     height: "100%"
   },
   insightCard: {
@@ -1074,11 +1322,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24
+    paddingHorizontal: 24,
+    marginTop: 4
   },
   finishButtonText: {
     color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "800"
+  },
+  errorText: {
+    fontSize: 13,
+    lineHeight: 18,
+    paddingHorizontal: 18,
+    paddingBottom: 4
   }
 });

@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from langchain_openai import ChatOpenAI
+from functools import lru_cache
 
 from app.agents import BuyerAgent, EvaluationAgent, RudeClassifierAgent, TopicClassifierAgent
 from app.graph import create_graph
@@ -24,6 +25,8 @@ def build_chat_model(
         api_key=llm_settings.LLM_API_KEY,
         base_url=llm_settings.OPENROUTER_BASE_URL,
         temperature=llm_settings.LLM_TEMPERATURE,
+        timeout=llm_settings.LLM_TIMEOUT_SECONDS,
+        max_retries=1,
         reasoning_effort=llm_settings.LLM_REASONING_EFFORT,
         default_headers={
             "HTTP-Referer": llm_settings.OPENROUTER_SITE_URL,
@@ -32,7 +35,9 @@ def build_chat_model(
     )
 
 
-def build_graph(agents_config: AgentsConfig):
+@lru_cache(maxsize=1)
+def _get_compiled_graph():
+    agents_config = AgentsConfig()
     deps = GraphDependencies(
         session_store=SESSION_STORE,
         rude_classifier=RudeClassifierAgent(build_chat_model(agents_config.check_rude_llm_settings)),
@@ -42,6 +47,17 @@ def build_graph(agents_config: AgentsConfig):
     return create_graph(deps)
 
 
+def build_graph(agents_config: AgentsConfig):
+    # Graph is intentionally cached once per process to avoid rebuilding LLM chains per request.
+    return _get_compiled_graph()
+
+
 def build_evaluation_agent(agents_config: AgentsConfig) -> EvaluationAgent:
+    return _get_evaluation_agent()
+
+
+@lru_cache(maxsize=1)
+def _get_evaluation_agent() -> EvaluationAgent:
+    agents_config = AgentsConfig()
     llm = build_chat_model(agents_config.evaluation_agent_llm_settings)
     return EvaluationAgent(llm)

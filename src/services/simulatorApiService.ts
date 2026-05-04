@@ -94,6 +94,12 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getSafeSimulatorErrorMessage(error: unknown): string {
   if (error instanceof SimulatorApiError) {
+    if (error.status === 409) {
+      return "Диалог уже завершен. Начните новый сценарий, чтобы продолжить тренировку.";
+    }
+    if (error.status === 404) {
+      return "Сессия не найдена. Перезапустите сценарий.";
+    }
     return error.message || "Не удалось выполнить действие. Проверьте подключение и попробуйте снова.";
   }
   if (error instanceof Error) {

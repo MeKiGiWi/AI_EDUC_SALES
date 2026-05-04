@@ -39,9 +39,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    cors_origin_regex = os.getenv("CORS_ALLOW_ORIGIN_REGEX", r"^https?:\/\/.*:(3000|8081|8083|19006)$")
     application.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=r"^https?:\/\/.*:(3000|8081|19006)$",
+        allow_origin_regex=cors_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

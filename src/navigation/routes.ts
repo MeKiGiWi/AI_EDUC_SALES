@@ -28,13 +28,13 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
   },
   StudentHome: {
     route: "StudentHome",
-    title: "Кабинет ученика",
-    description: "Практика, модули и персональный трек"
+    title: "Главная",
+    description: "Центральное рабочее пространство с аналитикой и результатами последних тренировок."
   },
   Simulator: {
     route: "Simulator",
-    title: "Чат",
-    description: "Основное рабочее пространство для диалога с AI по выбранному сценарию."
+    title: "Тренажер",
+    description: "Практикуйте навыки продаж в реалистичных сценариях."
   },
   Scenarios: {
     route: "Scenarios",
@@ -69,17 +69,17 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
 };
 
 export const roleHomeRoute: Record<UserRole, RouteName> = {
-  student: "Simulator",
-  manager: "Simulator",
-  hr: "Reports",
-  admin: "Reports"
+  student: "StudentHome",
+  manager: "StudentHome",
+  hr: "StudentHome",
+  admin: "StudentHome"
 };
 
 export const tabsByRole: Record<UserRole, RouteName[]> = {
-  student: ["Simulator", "Scenarios", "Reports"],
-  manager: ["Simulator", "Scenarios", "Reports"],
-  hr: ["Simulator", "Scenarios", "Reports"],
-  admin: ["Simulator", "Scenarios", "Reports"]
+  student: ["StudentHome", "Simulator"],
+  manager: ["StudentHome", "Simulator"],
+  hr: ["StudentHome", "Simulator"],
+  admin: ["StudentHome", "Simulator"]
 };
 
 export const roleLabels: Record<UserRole, string> = {

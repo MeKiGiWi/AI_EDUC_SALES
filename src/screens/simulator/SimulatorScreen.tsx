@@ -1,905 +1,1084 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { ChatEmptyState } from "../../components/chat/ChatEmptyState";
-import { ChatHeader } from "../../components/chat/ChatHeader";
-import { ChatInput } from "../../components/chat/ChatInput";
-import { ChatStateNotice } from "../../components/chat/ChatStateNotice";
-import { MessageList } from "../../components/chat/MessageList";
-import { QuickActions } from "../../components/chat/QuickActions";
-import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
-import { AppButton } from "../../components/ui/AppButton";
-import {
-  DEFAULT_BACKEND_DIFFICULTY,
-  API_SIMULATOR_MODULE_ID,
-  MANAGER_REPLY_TARGET,
-  buildTrainingContextRows,
-  fallbackSimulatorScenarios,
-  mapApiScenarioToScenario
-} from "../../data/simulatorMvpData";
+import type { SalesAcademyMock, ScenarioCardItem } from "../../data/salesAcademyMock";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
-import { useSessionStorage } from "../../hooks/useSessionStorage";
-import { simulatorApiService } from "../../services/simulatorApiService";
 import { useTheme } from "../../theme/useTheme";
-import type {
-  ReportCard,
-  Scenario,
-  ScenarioMessage,
-  SimulatorApiMessageDto,
-  SimulatorEvaluationPayloadDto
-} from "../../types/academy";
 
 interface SimulatorScreenProps {
+  data: SalesAcademyMock;
   activeScenarioId?: string;
-  onOpenReport: (reportId?: string) => void;
-  onReportSaved: (payload: {
-    scenarioTitle: string;
-    evaluation: SimulatorEvaluationPayloadDto;
-  }) => Promise<ReportCard[]>;
+  mode: "catalog" | "dialogue";
+  onStartScenario: (scenarioId: string) => void;
+  onBackToCatalog: () => void;
+  onFinishScenario: () => void;
 }
 
-type DialoguePhase = "idle" | "active" | "finished";
-type NoticeState = { kind: "info" | "error" | "loading"; text: string } | null;
+const trainerFilters = ["Все", "Новые"] as const;
 
 export function SimulatorScreen({
+  data,
   activeScenarioId,
-  onOpenReport,
-  onReportSaved
+  mode,
+  onStartScenario,
+  onBackToCatalog,
+  onFinishScenario
 }: SimulatorScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
-  const apiEnabled = simulatorApiService.isEnabled();
+  const [segment, setSegment] = useState<"B2B" | "B2C">("B2B");
+  const [activeFilter, setActiveFilter] = useState<(typeof trainerFilters)[number]>("Все");
 
-  const [apiScenarios, setApiScenarios] = useState<Scenario[]>([]);
-  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
-  const [simulatorUnavailableReason, setSimulatorUnavailableReason] = useState<string | null>(null);
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(activeScenarioId);
-  const [messages, setMessages] = useState<ScenarioMessage[]>([]);
-  const [draft, setDraft] = useState("");
-  const [notice, setNotice] = useState<NoticeState>(null);
-  const [sessionId, setSessionId] = useSessionStorage<string | null>("sim_session_id", null);
-  const [dialoguePhase, setDialoguePhase] = useSessionStorage<DialoguePhase>("sim_dialogue_phase", "idle");
-  const [isBusy, setIsBusy] = useState(false);
-  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
-  const [showScenarioSheet, setShowScenarioSheet] = useState(false);
-  const [pendingScenarioId, setPendingScenarioId] = useState<string | null>(null);
-  const [latestReportId, setLatestReportId] = useState<string | undefined>();
-
-  const catalogScenarios = useMemo(
-    () => (apiScenarios.length > 0 ? apiScenarios : fallbackSimulatorScenarios),
-    [apiScenarios]
-  );
-  const selectedScenario = useMemo(
-    () => catalogScenarios.find((scenario) => scenario.id === selectedScenarioId),
-    [catalogScenarios, selectedScenarioId]
-  );
-  const visibleMessages = useMemo(
-    () => messages.filter((message) => message.speakerRole !== "system"),
-    [messages]
-  );
-  const managerReplyCount = useMemo(
-    () => visibleMessages.filter((message) => message.speakerRole === "learner").length,
-    [visibleMessages]
-  );
-  const selectedScenarioIsApiScenario = apiScenarios.some(
-    (scenario) => scenario.id === selectedScenario?.id
-  );
-  const canStartDialogue =
-    apiEnabled && !isCatalogLoading && !simulatorUnavailableReason && selectedScenarioIsApiScenario;
-  const hasActiveConversation = visibleMessages.length > 0 || dialoguePhase !== "idle";
-  const reportProgress = Math.min(managerReplyCount / MANAGER_REPLY_TARGET, 1);
-  const lastAssistantMessage = [...visibleMessages]
-    .reverse()
-    .find((message) => message.speakerRole === "customer" || message.speakerRole === "coach");
-  const chatPlaceholder = buildInputPlaceholder(selectedScenario);
-  const emptyReasonText = buildEmptyChatText({
-    canStartDialogue,
-    isCatalogLoading,
-    simulatorUnavailableReason
-  });
-  const contextRows = useMemo(
-    () => buildTrainingContextRows(selectedScenario),
-    [selectedScenario]
-  );
-  const buyerLabel =
-    contextRows.find((row) => row.label === "Покупатель")?.value ?? "Контакт не выбран";
-  const goalLabel =
-    contextRows.find((row) => row.label === "Цель")?.value ?? "Цель появится после выбора сценария";
-  const remainingReplies = Math.max(MANAGER_REPLY_TARGET - managerReplyCount, 0);
-  const headerStatus = buildHeaderStatus({
-    canStartDialogue,
-    dialoguePhase,
-    isBusy,
-    isCatalogLoading,
-    notice
-  });
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadApiScenarios() {
-      if (!apiEnabled) {
-        if (!isMounted) {
-          return;
-        }
-
-        setApiScenarios([]);
-        setSelectedScenarioId((current) => current ?? fallbackSimulatorScenarios[0]?.id);
-        setSimulatorUnavailableReason("Диалоговый сервис не подключен.");
-        return;
+  const selectedScenario =
+    data.scenarios.find((scenario) => scenario.id === activeScenarioId) ?? data.scenarios[0];
+  const filteredScenarios = useMemo(() => {
+    return data.scenarios.filter((scenario) => {
+      if (scenario.segment !== segment) {
+        return false;
       }
 
-      try {
-        setIsCatalogLoading(true);
-        setSimulatorUnavailableReason(null);
-        const items = await simulatorApiService.fetchSimulatorScenarios();
-        if (!isMounted) {
-          return;
-        }
-
-        const mappedScenarios = items.map((item) =>
-          mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID)
-        );
-
-        setApiScenarios(mappedScenarios);
-        setSelectedScenarioId((current) =>
-          current && mappedScenarios.some((scenario) => scenario.id === current)
-            ? current
-            : mappedScenarios[0]?.id ?? fallbackSimulatorScenarios[0]?.id
-        );
-        setSimulatorUnavailableReason(
-          mappedScenarios.length > 0 ? null : "Диалоговый сервис не вернул сценарии."
-        );
-      } catch {
-        if (!isMounted) {
-          return;
-        }
-
-        setApiScenarios([]);
-        setSelectedScenarioId((current) => current ?? fallbackSimulatorScenarios[0]?.id);
-        setSimulatorUnavailableReason(
-          "Диалоговый сервис временно недоступен. Попробуйте повторить позже."
-        );
-      } finally {
-        if (isMounted) {
-          setIsCatalogLoading(false);
-        }
+      if (activeFilter === "Новые") {
+        return scenario.status === "new";
       }
-    }
 
-    void loadApiScenarios();
+      return true;
+    });
+  }, [activeFilter, data.scenarios, segment]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [apiEnabled]);
-
-  useEffect(() => {
-    if (activeScenarioId) {
-      setSelectedScenarioId(activeScenarioId);
-    }
-  }, [activeScenarioId]);
-
-  function resetDialogue(clearNotice: boolean) {
-    setMessages([]);
-    setDraft("");
-    setSessionId(null);
-    setDialoguePhase("idle");
-    setLatestReportId(undefined);
-    if (clearNotice) {
-      setNotice(null);
-    }
-  }
-
-  function applyScenario(scenarioId: string) {
-    setSelectedScenarioId(scenarioId);
-    resetDialogue(true);
-    setShowScenarioSheet(false);
-    setPendingScenarioId(null);
-  }
-
-  function requestScenarioChange(scenarioId: string) {
-    if (scenarioId === selectedScenarioId) {
-      setShowScenarioSheet(false);
-      return;
-    }
-
-    if (hasActiveConversation) {
-      setPendingScenarioId(scenarioId);
-      return;
-    }
-
-    applyScenario(scenarioId);
-  }
-
-  async function startDialogueSessionForScenario(currentScenario: Scenario) {
-    if (!apiEnabled) {
-      throw new Error("Диалоговый сервис не подключен.");
-    }
-
-    if (!canStartDialogue) {
-      throw new Error(simulatorUnavailableReason ?? "Сценарий пока недоступен для запуска.");
-    }
-
-    const response = await simulatorApiService.startDialogueSession(
-      currentScenario.id,
-      DEFAULT_BACKEND_DIFFICULTY
+  if (mode === "dialogue") {
+    return (
+      <DialogueView
+        data={data}
+        selectedScenario={selectedScenario}
+        onBackToCatalog={onBackToCatalog}
+        onFinishScenario={onFinishScenario}
+      />
     );
-    setSessionId(response.session_id);
-    setDialoguePhase("active");
-    setLatestReportId(undefined);
-
-    return {
-      sessionId: response.session_id,
-      openingMessage: mapApiMessageToChatMessage(response.message, currentScenario)
-    };
-  }
-
-  async function startScenario() {
-    if (!selectedScenario) {
-      setNotice({ kind: "error", text: "Выберите сценарий, чтобы начать диалог." });
-      return;
-    }
-
-    try {
-      setIsBusy(true);
-      setNotice({ kind: "loading", text: "Запускаем сценарий..." });
-      const started = await startDialogueSessionForScenario(selectedScenario);
-      setMessages([started.openingMessage]);
-      setDraft("");
-      setNotice(null);
-    } catch (error) {
-      setNotice({ kind: "error", text: formatHumanError(error) });
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
-  async function sendReply() {
-    if (!selectedScenario) {
-      setNotice({ kind: "error", text: "Выберите сценарий перед отправкой сообщения." });
-      return;
-    }
-
-    const trimmedText = draft.trim();
-    if (!trimmedText) {
-      setNotice({ kind: "error", text: "Сначала добавьте сообщение." });
-      return;
-    }
-
-    if (trimmedText.toLowerCase() === "стоп") {
-      await finishScenario();
-      return;
-    }
-
-    if (dialoguePhase === "finished") {
-      setNotice({
-        kind: "error",
-        text: 'Диалог уже завершен. Нажмите "Начать новый", чтобы продолжить.'
-      });
-      return;
-    }
-
-    try {
-      setIsBusy(true);
-      setNotice({ kind: "loading", text: "AI готовит ответ..." });
-      let activeSessionId = sessionId;
-      let openingMessages: ScenarioMessage[] = [];
-
-      if (dialoguePhase === "idle" || !activeSessionId) {
-        const started = await startDialogueSessionForScenario(selectedScenario);
-        activeSessionId = started.sessionId;
-        openingMessages = [started.openingMessage];
-      }
-
-      const response = await simulatorApiService.sendDialogueMessage(activeSessionId, trimmedText);
-      const learnerMessage: ScenarioMessage = {
-        id: `msg-learner-${Date.now()}`,
-        speakerName: "Вы",
-        speakerRole: "learner",
-        text: trimmedText,
-        timestampLabel: formatTimestamp(new Date().toISOString())
-      };
-      const responseMessages = response.messages.map((message) =>
-        mapApiMessageToChatMessage(message, selectedScenario)
-      );
-
-      setMessages((current) => [...current, ...openingMessages, learnerMessage, ...responseMessages]);
-      setDraft("");
-
-      if (response.status === "finished") {
-        setDialoguePhase("finished");
-        await persistLatestReport(selectedScenario, activeSessionId);
-        return;
-      }
-
-      setNotice(null);
-    } catch (error) {
-      setNotice({ kind: "error", text: formatHumanError(error) });
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
-  async function finishScenario() {
-    if (!selectedScenario) {
-      setNotice({ kind: "error", text: "Выберите сценарий перед формированием отчета." });
-      return;
-    }
-
-    if (dialoguePhase === "finished") {
-      setNotice({ kind: "info", text: "Отчет уже сформирован. Его можно открыть во вкладке отчетов." });
-      return;
-    }
-
-    if (dialoguePhase !== "active" || !sessionId) {
-      setNotice({ kind: "error", text: "Сначала начните диалог и отправьте хотя бы одну реплику." });
-      return;
-    }
-
-    if (managerReplyCount < MANAGER_REPLY_TARGET) {
-      setShowFinishConfirm(true);
-      return;
-    }
-
-    await finishActiveScenario();
-  }
-
-  async function finishActiveScenario() {
-    if (!selectedScenario || !sessionId) {
-      return;
-    }
-
-    try {
-      setIsBusy(true);
-      await persistLatestReport(selectedScenario, sessionId);
-    } catch (error) {
-      setNotice({ kind: "error", text: formatHumanError(error) });
-    } finally {
-      setIsBusy(false);
-      setShowFinishConfirm(false);
-    }
-  }
-
-  async function persistLatestReport(currentScenario: Scenario, activeSessionId: string) {
-    const maxAttempts = 3;
-    const retryDelayMs = 2000;
-    let evaluation: SimulatorEvaluationPayloadDto | undefined;
-
-    setNotice({
-      kind: "loading",
-      text: "Отчет формируется. Вы можете продолжить работу, он появится в отчетах после завершения."
-    });
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const response = await simulatorApiService.finishDialogueSession(activeSessionId);
-        if (response.evaluation) {
-          evaluation = response.evaluation;
-          break;
-        }
-      } catch (error) {
-        if (attempt === maxAttempts) {
-          throw error;
-        }
-      }
-
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-      }
-    }
-
-    setDialoguePhase("finished");
-    setDraft("");
-
-    if (!evaluation) {
-      setNotice({
-        kind: "error",
-        text: "Диалог завершен, но отчет не был получен. Попробуйте сформировать отчет еще раз."
-      });
-      return;
-    }
-
-    const savedReports = await onReportSaved({
-      scenarioTitle: currentScenario.title,
-      evaluation
-    });
-    setLatestReportId(savedReports[0]?.id);
-    setNotice({ kind: "info", text: 'Отчет готов и сохранен во вкладке "Отчеты".' });
-  }
-
-  async function handleCopyLastAnswer() {
-    const text = lastAssistantMessage?.text;
-    if (!text) {
-      setNotice({ kind: "error", text: "Пока нет ответа AI для копирования." });
-      return;
-    }
-
-    if (
-      Platform.OS === "web" &&
-      typeof navigator !== "undefined" &&
-      navigator.clipboard?.writeText
-    ) {
-      await navigator.clipboard.writeText(text);
-    }
-
-    setNotice({ kind: "info", text: "Ответ скопирован." });
   }
 
   return (
-    <>
-      <View style={[styles.screen, layout.isDesktop && styles.screenDesktop]}>
-        <View
-          style={[
-            styles.chatSurface,
-            layout.isDesktop && styles.chatSurfaceDesktop,
-            {
-              backgroundColor: theme.semantic.card,
-              borderColor: theme.semantic.border,
-              borderRadius: theme.radius.xl
-            }
-          ]}
-        >
-          <ChatHeader
-            scenario={selectedScenario}
-            statusLabel={headerStatus.label}
-            statusTone={headerStatus.tone}
-            hasReport={Boolean(latestReportId)}
-            onChangeScenario={() => setShowScenarioSheet(true)}
-            onOpenReport={() => onOpenReport(latestReportId)}
-          />
-          <View
-            style={[
-              styles.insightPanel,
-              layout.isMobile && styles.insightPanelMobile,
-              {
-                backgroundColor: theme.semantic.card,
-                borderColor: theme.semantic.borderSubtle
-              }
-            ]}
-          >
-            <View style={styles.contextSummary}>
-              <Text style={[styles.insightLabel, { color: theme.semantic.textMuted }]}>Контекст</Text>
-              <Text style={[styles.insightTitle, { color: theme.semantic.textPrimary }]} numberOfLines={1}>
-                {buyerLabel}
-              </Text>
-              <Text style={[styles.insightText, { color: theme.semantic.textSecondary }]} numberOfLines={1}>
-                {goalLabel}
-              </Text>
+    <View style={styles.screen}>
+      <View style={[styles.headerRow, !layout.isDesktop && styles.headerStack]}>
+        <View style={styles.headerBlock}>
+          <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
+          <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
+            Практикуйте навыки продаж в реалистичных сценариях.
+          </Text>
+          <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
+            Выберите модуль и начните тренировку.
+          </Text>
+        </View>
+        <View style={styles.headerActions}>
+          <CircleActionButton label="◔" />
+          <CircleActionButton label="?" />
+        </View>
+      </View>
+
+      <View style={styles.segmentBlock}>
+        <View style={[styles.segmentedControl, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
+          <SegmentButton label="B2B" active={segment === "B2B"} onPress={() => setSegment("B2B")} />
+          <SegmentButton label="B2C" active={segment === "B2C"} onPress={() => setSegment("B2C")} />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: theme.semantic.card,
+            borderColor: theme.semantic.border,
+            shadowColor: theme.shadows.card.shadowColor,
+            shadowOpacity: theme.shadows.card.shadowOpacity,
+            shadowRadius: theme.shadows.card.shadowRadius,
+            shadowOffset: theme.shadows.card.shadowOffset,
+            elevation: theme.shadows.card.elevation
+          }
+        ]}
+      >
+        <View style={[styles.heroContent, !layout.isWide && styles.heroStack]}>
+          <View style={styles.heroText}>
+            <Text style={[styles.heroEyebrow, { color: theme.semantic.textSecondary }]}>Продолжить с места остановки</Text>
+            <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>{selectedScenario.title}</Text>
+            <Text style={[styles.heroDescription, { color: theme.semantic.textSecondary }]}>{selectedScenario.description}</Text>
+            <View style={styles.heroPills}>
+              <InfoPill label={selectedScenario.duration} />
+              <InfoPill label={`Уровень: ${selectedScenario.level}`} />
+              <ProgressInfoPill label="Прогресс" value={selectedScenario.progressValue ?? 0} />
             </View>
-            <View
-              style={[
-                styles.progressSummary,
-                layout.isMobile && styles.progressSummaryMobile,
-                { borderColor: theme.semantic.borderSubtle }
-              ]}
-            >
-              <View style={styles.progressTopLine}>
-                <Text style={[styles.insightLabel, { color: theme.semantic.textMuted }]}>Прогресс</Text>
-                <Text style={[styles.progressCount, { color: theme.semantic.textPrimary }]}>
-                  {managerReplyCount}/{MANAGER_REPLY_TARGET}
-                </Text>
-              </View>
-              <View style={[styles.progressTrack, { backgroundColor: theme.semantic.borderSubtle }]}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${reportProgress * 100}%`,
-                      backgroundColor: theme.semantic.actionPrimary
-                    }
-                  ]}
-                />
-              </View>
-              <Text style={[styles.insightText, { color: theme.semantic.textSecondary }]} numberOfLines={1}>
-                {remainingReplies === 0
-                  ? "Достаточно данных для отчета."
-                  : `До отчета: ${remainingReplies} реплик.`}
-              </Text>
-            </View>
-          </View>
-          <View
-            style={[
-              styles.chatBody,
-              layout.isDesktop && styles.chatBodyDesktop,
-              { backgroundColor: theme.semantic.cardSubtle }
-            ]}
-          >
-            {visibleMessages.length > 0 ? (
-              <MessageList messages={visibleMessages} />
-            ) : (
-              <ChatEmptyState
-                selectedScenario={selectedScenario}
-                scenarios={catalogScenarios}
-                canStartDialogue={canStartDialogue}
-                reasonText={emptyReasonText}
-                onPickScenario={applyScenario}
-                onStart={startScenario}
-              />
-            )}
           </View>
 
-          <View
-            style={[
-              styles.inputDock,
-              layout.isMobile && styles.inputDockMobile,
-              {
-                backgroundColor: theme.semantic.card,
-                borderColor: theme.semantic.borderSubtle
-              }
-            ]}
-          >
-            {notice ? (
-              <ChatStateNotice
-                kind={notice.kind}
-                text={notice.text}
-                actionLabel={notice.kind === "error" ? "Повторить" : undefined}
-                onAction={notice.kind === "error" ? startScenario : undefined}
-              />
-            ) : null}
-            {isBusy && !notice ? (
-              <ChatStateNotice kind="loading" text="AI отвечает..." />
-            ) : null}
-            <QuickActions
-              canGenerateReport={dialoguePhase === "active" && visibleMessages.length > 0}
-              canCopy={Boolean(lastAssistantMessage)}
-              busy={isBusy}
-              onGenerateReport={() => { void finishScenario(); }}
-              onCopy={() => { void handleCopyLastAnswer(); }}
-            />
-            <ChatInput
-              value={draft}
-              placeholder={chatPlaceholder}
-              disabled={isBusy || !selectedScenario || (!canStartDialogue && dialoguePhase === "idle")}
-              onChangeText={setDraft}
-              onSend={() => { void sendReply(); }}
-            />
+          <View style={styles.heroIllustrationWrap}>
+            <View style={[styles.heroIllustration, { backgroundColor: theme.colors.primaryPale }]}>
+              <View style={[styles.chatBlobLarge, { backgroundColor: "rgba(255,255,255,0.85)" }]} />
+              <View style={[styles.chatBlobSmall, { backgroundColor: "rgba(255,255,255,0.72)" }]} />
+              <View style={[styles.priceTag, { backgroundColor: theme.colors.primarySoft, borderColor: theme.semantic.actionPrimary }]}>
+                <Text style={styles.priceTagText}>₽</Text>
+              </View>
+            </View>
+            <Pressable onPress={() => onStartScenario(selectedScenario.id)} style={[styles.heroCta, { backgroundColor: theme.semantic.actionPrimary }]}>
+              <Text style={styles.heroCtaText}>Начать тренировку</Text>
+            </Pressable>
           </View>
         </View>
       </View>
 
-      <AppBottomSheet
-        visible={showScenarioSheet}
-        title="Сценарии"
-        description="Выберите режим для нового диалога."
-        onClose={() => {
-          setShowScenarioSheet(false);
-          setPendingScenarioId(null);
-        }}
-      >
-        <ScrollView contentContainerStyle={styles.scenarioSheetList} showsVerticalScrollIndicator={false}>
-          {catalogScenarios.map((scenario) => (
-            <View
-              key={scenario.id}
+      <View style={[styles.filtersRow, !layout.isDesktop && styles.filtersStack]}>
+        <View style={styles.filterPills}>
+          {trainerFilters.map((label) => (
+            <Pressable
+              key={label}
+              onPress={() => setActiveFilter(label)}
               style={[
-                styles.scenarioRow,
+                styles.filterPill,
                 {
-                  borderColor:
-                    scenario.id === selectedScenarioId
-                      ? theme.semantic.actionPrimary
-                      : theme.semantic.border,
-                  backgroundColor:
-                    scenario.id === selectedScenarioId
-                      ? theme.semantic.cardAccent
-                      : theme.semantic.card
+                  backgroundColor: activeFilter === label ? theme.colors.primaryPale : theme.semantic.card,
+                  borderColor: theme.semantic.border
                 }
               ]}
             >
-              <View style={styles.scenarioText}>
-                <Text style={[styles.scenarioTitle, { color: theme.semantic.textPrimary }]}>
-                  {scenario.title}
-                </Text>
-                <Text style={[styles.scenarioDescription, { color: theme.semantic.textSecondary }]}>
-                  {scenario.goal}
-                </Text>
-              </View>
-              <AppButton
-                label={scenario.id === selectedScenarioId ? "Активен" : "Выбрать"}
-                onPress={() => requestScenarioChange(scenario.id)}
-                tone={scenario.id === selectedScenarioId ? "secondary" : "primary"}
-              />
-            </View>
+              <Text
+                style={[
+                  styles.filterPillText,
+                  {
+                    color:
+                      activeFilter === label ? theme.semantic.actionPrimary : theme.semantic.textPrimary
+                  }
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
           ))}
-        </ScrollView>
-      </AppBottomSheet>
-
-      <AppBottomSheet
-        visible={Boolean(pendingScenarioId)}
-        title="Начать новый диалог?"
-        description="При смене сценария текущий чат будет очищен."
-        onClose={() => setPendingScenarioId(null)}
-        hideCloseButton
-        centeredHeader
-      >
-        <View style={styles.confirmButtonRow}>
-          <View style={styles.confirmButtonItem}>
-            <AppButton
-              label="Отмена"
-              onPress={() => setPendingScenarioId(null)}
-              tone="secondary"
-              fullWidth
-            />
-          </View>
-          <View style={styles.confirmButtonItem}>
-            <AppButton
-              label="Начать новый"
-              onPress={() => {
-                if (pendingScenarioId) {
-                  applyScenario(pendingScenarioId);
-                }
-              }}
-              tone="primary"
-              fullWidth
-            />
-          </View>
         </View>
-      </AppBottomSheet>
+      </View>
 
-      <AppBottomSheet
-        visible={showFinishConfirm}
-        title="Диалог пока короткий для полноценной оценки"
-        description={`Сейчас: ${managerReplyCount} из ${MANAGER_REPLY_TARGET} реплик менеджера.`}
-        onClose={() => setShowFinishConfirm(false)}
-        hideCloseButton
-        centeredHeader
-      >
-        <Text style={[styles.confirmText, { color: theme.semantic.textSecondary }]}>
-          Можно продолжить диалог или сформировать черновой отчет по текущим данным.
-        </Text>
-        <View style={styles.confirmButtonRow}>
-          <View style={styles.confirmButtonItem}>
-            <AppButton
-              label="Отмена"
-              onPress={() => setShowFinishConfirm(false)}
-              tone="secondary"
-              fullWidth
-            />
-          </View>
-          <View style={styles.confirmButtonItem}>
-            <AppButton
-              label="Сформировать отчет"
-              onPress={() => { void finishActiveScenario(); }}
-              tone="primary"
-              fullWidth
-              disabled={isBusy}
-            />
-          </View>
-        </View>
-      </AppBottomSheet>
-    </>
+      <View style={styles.cardGrid}>
+        {filteredScenarios.map((scenario) => (
+          <ScenarioTile
+            key={scenario.id}
+            scenario={scenario}
+            onPlay={() => onStartScenario(scenario.id)}
+          />
+        ))}
+      </View>
+    </View>
   );
 }
 
-function buildInputPlaceholder(scenario?: Scenario): string {
-  if (!scenario) {
-    return "Выберите сценарий, чтобы начать...";
-  }
-
-  if (scenario.title.toLowerCase().includes("отчет")) {
-    return "Опишите задачу для анализа...";
-  }
-
-  if (scenario.title.toLowerCase().includes("документ")) {
-    return "Загрузите документ или задайте вопрос...";
-  }
-
-  return "Опишите задачу или ответьте клиенту...";
-}
-
-function buildEmptyChatText({
-  canStartDialogue,
-  isCatalogLoading,
-  simulatorUnavailableReason
+function DialogueView({
+  data,
+  selectedScenario,
+  onBackToCatalog,
+  onFinishScenario
 }: {
-  canStartDialogue: boolean;
-  isCatalogLoading: boolean;
-  simulatorUnavailableReason: string | null;
-}): string {
-  if (canStartDialogue) {
-    return "Напишите сообщение, чтобы начать диалог.";
-  }
+  data: SalesAcademyMock;
+  selectedScenario: ScenarioCardItem;
+  onBackToCatalog: () => void;
+  onFinishScenario: () => void;
+}) {
+  const theme = useTheme();
+  const layout = useResponsiveLayout();
+  const dialogue = data.activeDialogue;
+  const progress = Math.round((dialogue.managerReplyCount / dialogue.replyTarget) * 100);
+  const dialogueHeight = Math.max(Math.min(theme.viewport.height - 12, 724), 680);
+  const dialogueBodyHeight = Math.max(Math.min(theme.viewport.height - 128, 620), 540);
+  const messageListHeight = Math.max(dialogueBodyHeight - 258, 170);
 
-  if (isCatalogLoading) {
-    return "Загружаем сценарии и подключаем диалоговый сервис.";
-  }
+  return (
+    <View style={[styles.screen, layout.isDesktop && { height: dialogueHeight, gap: 10, justifyContent: "space-between" }]}>
+      <View style={[styles.dialogueHeader, !layout.isDesktop && styles.headerStack]}>
+        <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
+        <View style={[styles.dialogueHeaderCenter, !layout.isDesktop && styles.dialogueHeaderCenterStack]}>
+          <Pressable onPress={onBackToCatalog} style={[styles.changeScenarioButton, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
+            <Text style={[styles.changeScenarioIcon, { color: theme.semantic.textSecondary }]}>⇄</Text>
+            <Text style={[styles.changeScenarioText, { color: theme.semantic.textPrimary }]}>Сменить сценарий</Text>
+          </Pressable>
+        </View>
+        <View style={styles.headerActions}>
+          <CircleActionButton label="◔" />
+          <CircleActionButton label="?" />
+        </View>
+      </View>
 
-  return simulatorUnavailableReason ?? "Диалоговый сервис не подключен.";
+      <View
+        style={[
+          styles.dialogueLayout,
+          !layout.isDesktop && styles.dialogueLayoutStack,
+          layout.isDesktop && styles.dialogueLayoutDesktop,
+          layout.isDesktop && { height: dialogueBodyHeight }
+        ]}
+      >
+        <View
+          style={[
+            styles.chatPanel,
+            {
+              backgroundColor: theme.semantic.card,
+              borderColor: theme.semantic.border,
+              shadowColor: theme.shadows.card.shadowColor,
+              shadowOpacity: theme.shadows.card.shadowOpacity,
+              shadowRadius: theme.shadows.card.shadowRadius,
+              shadowOffset: theme.shadows.card.shadowOffset,
+              elevation: theme.shadows.card.elevation
+            }
+          ]}
+        >
+          <View style={[styles.chatTopBar, { borderBottomColor: theme.semantic.borderSubtle }]}>
+            <View style={styles.chatTopLeft}>
+              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
+                Реплики менеджера: <Text style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}>{dialogue.managerReplyCount} / {dialogue.replyTarget}</Text>
+              </Text>
+              <View style={[styles.chatProgressTrack, { backgroundColor: theme.semantic.borderSubtle }]}>
+                <View style={[styles.chatProgressFill, { backgroundColor: theme.semantic.actionPrimary, width: `${progress}%` }]} />
+              </View>
+            </View>
+            <View style={styles.chatTopRight}>
+              <View style={styles.chatStatusRow}>
+                <View style={[styles.statusDot, { backgroundColor: theme.semantic.success }]} />
+                <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>{dialogue.status}</Text>
+              </View>
+              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>◔ {dialogue.time}</Text>
+              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>…</Text>
+            </View>
+          </View>
+
+          <View style={styles.personaRow}>
+            <View style={[styles.personaAvatar, { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }]}>
+              <Text style={[styles.personaAvatarText, { color: theme.semantic.actionPrimary }]}>РП</Text>
+            </View>
+            <View style={styles.personaText}>
+              <Text style={[styles.personaName, { color: theme.semantic.textPrimary }]}>{dialogue.persona.name}</Text>
+              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>Компания: {dialogue.persona.company}</Text>
+              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>Отдел: {dialogue.persona.department}</Text>
+            </View>
+          </View>
+
+          <ScrollView
+            style={[styles.messageList, layout.isDesktop && { height: messageListHeight, flexGrow: 0 }]}
+            contentContainerStyle={styles.messageListContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {dialogue.messages.map((message) => (
+              <View
+                key={message.id}
+                style={[
+                  styles.messageBubble,
+                  message.author === "manager" ? styles.messageBubbleManager : styles.messageBubbleCustomer,
+                  {
+                    backgroundColor:
+                      message.author === "manager" ? theme.colors.surfaceMint : theme.semantic.card,
+                    borderColor: theme.semantic.border
+                  }
+                ]}
+              >
+                <Text style={[styles.messageText, { color: theme.semantic.textPrimary }]}>{message.text}</Text>
+                <Text style={[styles.messageTime, { color: theme.semantic.textMuted }]}>{message.time}</Text>
+              </View>
+            ))}
+
+            <View style={styles.typingRow}>
+              <View style={[styles.typingDots, { backgroundColor: theme.semantic.backgroundWarm, borderColor: theme.semantic.border }]}>
+                <Text style={[styles.typingDotsText, { color: theme.semantic.textMuted }]}>•••</Text>
+              </View>
+              <Text style={[styles.typingText, { color: theme.semantic.textMuted }]}>{dialogue.typingLabel}</Text>
+            </View>
+          </ScrollView>
+
+          <View style={[styles.inputWrap, { borderTopColor: theme.semantic.borderSubtle }]}>
+            <View style={[styles.inputRow, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
+              <TextInput
+                placeholder="Напишите сообщение..."
+                placeholderTextColor={theme.semantic.textMuted}
+                style={[styles.chatInput, { color: theme.semantic.textPrimary }]}
+              />
+              <View style={styles.inputActions}>
+                <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>⚡</Text>
+                <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>⌄</Text>
+              </View>
+              <Pressable style={[styles.sendButton, { backgroundColor: theme.colors.primaryPale }]}>
+                <Text style={[styles.sendButtonText, { color: theme.semantic.actionPrimary }]}>➤</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.insightColumn}>
+          <View style={[styles.insightCard, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
+            <Text style={[styles.insightTitle, { color: theme.semantic.textPrimary }]}>Контекст сценария</Text>
+            <InsightTextBlock label="Контекст" text={dialogue.context} />
+            <InsightTextBlock label="Цель" text={dialogue.goal} />
+            <InsightTextBlock label="Возражение" text={`«${dialogue.objection}»`} />
+          </View>
+
+          <Pressable onPress={onFinishScenario} style={[styles.finishButton, { backgroundColor: theme.semantic.actionPrimary }]}>
+            <Text style={styles.finishButtonText}>Завершить и получить отчет</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
 }
 
-function buildHeaderStatus({
-  canStartDialogue,
-  dialoguePhase,
-  isBusy,
-  isCatalogLoading,
-  notice
+function InsightTextBlock({ label, text }: { label: string; text: string }) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.insightTextBlock}>
+      <Text style={[styles.insightLabel, { color: theme.semantic.textSecondary }]}>{label}</Text>
+      <Text style={[styles.insightText, { color: theme.semantic.textPrimary }]}>{text}</Text>
+    </View>
+  );
+}
+
+function SegmentButton({
+  label,
+  active,
+  onPress
 }: {
-  canStartDialogue: boolean;
-  dialoguePhase: DialoguePhase;
-  isBusy: boolean;
-  isCatalogLoading: boolean;
-  notice: NoticeState;
-}): { label: string; tone: "ready" | "loading" | "needsData" | "error" } {
-  if (notice?.kind === "error") {
-    return { label: "Ошибка", tone: "error" };
-  }
+  label: "B2B" | "B2C";
+  active: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
 
-  if (isBusy || isCatalogLoading) {
-    return { label: "Генерация", tone: "loading" };
-  }
-
-  if (!canStartDialogue && dialoguePhase === "idle") {
-    return { label: "Нужны данные", tone: "needsData" };
-  }
-
-  return { label: "Готов", tone: "ready" };
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.segmentButton,
+        {
+          backgroundColor: active ? theme.semantic.card : "transparent",
+          borderColor: active ? theme.semantic.actionPrimary : "transparent"
+        }
+      ]}
+    >
+      <Text style={[styles.segmentLabel, { color: active ? theme.semantic.actionPrimary : theme.semantic.textPrimary }]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
 
-function formatHumanError(error: unknown): string {
-  if (typeof error === "string") {
-    return error;
-  }
+function ScenarioTile({
+  scenario,
+  onPlay
+}: {
+  scenario: ScenarioCardItem;
+  onPlay: () => void;
+}) {
+  const theme = useTheme();
 
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Не удалось выполнить действие. Попробуйте повторить.";
+  return (
+    <View
+      style={[
+        styles.scenarioTile,
+        {
+          backgroundColor: theme.semantic.card,
+          borderColor: theme.semantic.border,
+          shadowColor: theme.shadows.soft.shadowColor,
+          shadowOpacity: theme.shadows.soft.shadowOpacity,
+          shadowRadius: theme.shadows.soft.shadowRadius,
+          shadowOffset: theme.shadows.soft.shadowOffset,
+          elevation: theme.shadows.soft.elevation
+        }
+      ]}
+    >
+      <View style={styles.scenarioTileTop}>
+        <View style={[styles.scenarioIconTile, { backgroundColor: toneBackground(theme, scenario.accent) }]}>
+          <Text style={[styles.scenarioIcon, { color: toneForeground(theme, scenario.accent) }]}>{scenario.icon}</Text>
+        </View>
+        <View style={styles.scenarioText}>
+          <Text style={[styles.scenarioTitle, { color: theme.semantic.textPrimary }]}>{scenario.title}</Text>
+          <Text style={[styles.scenarioDescription, { color: theme.semantic.textSecondary }]}>{scenario.description}</Text>
+        </View>
+      </View>
+      <View style={styles.scenarioFooter}>
+        <InfoPill label={scenario.duration} compact />
+        <InfoPill label={scenario.level} compact />
+        {scenario.status === "new" ? (
+          <View style={[styles.newBadge, { backgroundColor: "rgba(92,143,115,0.12)" }]}>
+            <Text style={[styles.newBadgeText, { color: theme.colors.info }]}>{scenario.progressLabel}</Text>
+          </View>
+        ) : (
+          <ProgressInfoPill label="" value={scenario.progressValue ?? 0} compact />
+        )}
+        <Pressable onPress={onPlay} style={[styles.playButton, { borderColor: theme.semantic.border, backgroundColor: theme.semantic.card }]}>
+          <Text style={[styles.playButtonText, { color: theme.semantic.actionPrimary }]}>▶</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
-function mapApiMessageToChatMessage(message: SimulatorApiMessageDto, scenario: Scenario): ScenarioMessage {
-  const speakerNameByRole = {
-    customer: scenario.persona.name || "Клиент",
-    learner: "Вы"
-  } as const;
+function CircleActionButton({ label }: { label: string }) {
+  const theme = useTheme();
 
-  return {
-    id: message.id ?? `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    speakerName: speakerNameByRole[message.role] ?? "Собеседник",
-    speakerRole: message.role,
-    text: message.text,
-    timestampLabel: formatTimestamp(message.created_at)
-  };
+  return (
+    <Pressable
+      onPress={() => {}}
+      style={[styles.circleButton, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}
+    >
+      <Text style={[styles.circleButtonText, { color: theme.semantic.textPrimary }]}>{label}</Text>
+    </Pressable>
+  );
 }
 
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${hours}:${minutes}`;
+function InfoPill({ label, compact }: { label: string; compact?: boolean }) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.infoPill,
+        compact && styles.infoPillCompact,
+        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+      ]}
+    >
+      <Text style={[styles.infoPillText, { color: theme.semantic.textPrimary }]}>{label}</Text>
+    </View>
+  );
+}
+
+function ProgressInfoPill({
+  label,
+  value,
+  compact
+}: {
+  label: string;
+  value: number;
+  compact?: boolean;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.progressPill,
+        compact && styles.progressPillCompact,
+        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+      ]}
+    >
+      {label ? <Text style={[styles.progressPillLabel, { color: theme.semantic.actionPrimary }]}>{label}</Text> : null}
+      <View style={[styles.progressPillTrack, { backgroundColor: theme.semantic.borderSubtle }]}>
+        <View style={[styles.progressPillFill, { backgroundColor: theme.semantic.actionPrimary, width: `${value}%` }]} />
+      </View>
+      <Text style={[styles.progressPillValue, { color: theme.semantic.textPrimary }]}>{value}%</Text>
+    </View>
+  );
+}
+
+function toneBackground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warning" | "info" | "violet" | "peach") {
+  if (tone === "warning") {
+    return "rgba(213,162,77,0.16)";
+  }
+  if (tone === "info") {
+    return "rgba(92,143,115,0.14)";
+  }
+  if (tone === "violet") {
+    return "rgba(120, 120, 180, 0.14)";
+  }
+  if (tone === "peach") {
+    return "rgba(200,92,74,0.10)";
+  }
+
+  return theme.colors.primaryPale;
+}
+
+function toneForeground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warning" | "info" | "violet" | "peach") {
+  if (tone === "warning") {
+    return theme.semantic.warning;
+  }
+  if (tone === "info") {
+    return theme.colors.info;
+  }
+  if (tone === "violet") {
+    return "#7B61B9";
+  }
+  if (tone === "peach") {
+    return "#D97045";
+  }
+
+  return theme.semantic.actionPrimary;
 }
 
 const styles = StyleSheet.create({
   screen: {
-    gap: 14
+    gap: 18
   },
-  screenDesktop: {
-    minHeight: 720
-  },
-  chatSurface: {
-    borderWidth: 1,
-    overflow: "hidden",
-    minHeight: 690
-  },
-  chatSurfaceDesktop: {
-    minHeight: 760
-  },
-  chatBody: {
-    minHeight: 410,
-    paddingHorizontal: 14
-  },
-  chatBodyDesktop: {
-    minHeight: 540,
-    paddingHorizontal: 22
-  },
-  inputDock: {
-    borderTopWidth: 1,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 12,
-    gap: 8
-  },
-  inputDockMobile: {
-    paddingBottom: 18
-  },
-  insightPanel: {
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  headerRow: {
     flexDirection: "row",
-    alignItems: "stretch",
-    gap: 12
+    justifyContent: "space-between",
+    gap: 16
   },
-  insightPanelMobile: {
+  headerStack: {
     flexDirection: "column"
   },
-  contextSummary: {
+  headerBlock: {
+    gap: 2
+  },
+  pageTitle: {
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: "800"
+  },
+  pageSubtitle: {
+    fontSize: 16,
+    lineHeight: 24
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 10
+  },
+  circleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  circleButtonText: {
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  segmentBlock: {
+    alignItems: "center",
+    gap: 10
+  },
+  segmentedControl: {
+    width: 580,
+    maxWidth: "100%",
+    minHeight: 58,
+    borderRadius: 999,
+    borderWidth: 1,
+    padding: 4,
+    flexDirection: "row",
+    gap: 6
+  },
+  segmentButton: {
     flex: 1,
-    minWidth: 0,
-    gap: 4
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
   },
-  progressSummary: {
-    width: 300,
-    borderLeftWidth: 1,
-    paddingLeft: 14,
-    gap: 8
+  segmentLabel: {
+    fontSize: 16,
+    fontWeight: "700"
   },
-  progressSummaryMobile: {
-    width: "100%",
-    borderLeftWidth: 0,
-    borderTopWidth: 1,
-    paddingLeft: 0,
-    paddingTop: 12
+  heroCard: {
+    borderWidth: 1,
+    borderRadius: 30,
+    padding: 18
   },
-  progressTopLine: {
+  heroContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 20
+  },
+  heroStack: {
+    flexDirection: "column",
+    alignItems: "stretch"
+  },
+  heroText: {
+    flex: 1,
     gap: 10
   },
-  insightLabel: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: "800",
-    textTransform: "uppercase"
+  heroEyebrow: {
+    fontSize: 16,
+    fontWeight: "700"
   },
-  insightTitle: {
-    fontSize: 15,
-    lineHeight: 20,
+  heroTitle: {
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: "800"
   },
-  insightText: {
-    fontSize: 13,
-    lineHeight: 18
+  heroDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    maxWidth: 700
   },
-  progressCount: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: "800"
+  heroPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 4
   },
-  progressTrack: {
-    height: 8,
-    borderRadius: 999,
-    overflow: "hidden"
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999
-  },
-  scenarioSheetList: {
-    gap: 10
-  },
-  scenarioRow: {
+  infoPill: {
+    minHeight: 42,
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 14,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  infoPillCompact: {
+    minHeight: 38,
+    paddingHorizontal: 12
+  },
+  infoPillText: {
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  progressPill: {
+    minHeight: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 12
   },
+  progressPillCompact: {
+    minHeight: 38,
+    paddingHorizontal: 10,
+    gap: 8
+  },
+  progressPillLabel: {
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  progressPillTrack: {
+    width: 92,
+    height: 6,
+    borderRadius: 999,
+    overflow: "hidden"
+  },
+  progressPillFill: {
+    height: "100%",
+    borderRadius: 999
+  },
+  progressPillValue: {
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  heroIllustrationWrap: {
+    minWidth: 360,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14
+  },
+  heroIllustration: {
+    width: 220,
+    height: 150,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  chatBlobLarge: {
+    position: "absolute",
+    top: 22,
+    left: 42,
+    width: 86,
+    height: 78,
+    borderRadius: 22
+  },
+  chatBlobSmall: {
+    position: "absolute",
+    top: 76,
+    left: 70,
+    width: 72,
+    height: 56,
+    borderRadius: 18
+  },
+  priceTag: {
+    position: "absolute",
+    right: 40,
+    top: 36,
+    width: 58,
+    height: 92,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "6deg" }]
+  },
+  priceTagText: {
+    color: "#FFFFFF",
+    fontSize: 38,
+    fontWeight: "800"
+  },
+  heroCta: {
+    minHeight: 58,
+    borderRadius: 18,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  heroCtaText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800"
+  },
+  filtersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    flexWrap: "wrap",
+    justifyContent: "space-between"
+  },
+  filtersStack: {
+    alignItems: "stretch"
+  },
+  filterPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    flex: 1
+  },
+  filterPill: {
+    minHeight: 42,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  filterPillText: {
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  sortChevron: {
+    fontSize: 16
+  },
+  cardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 18
+  },
+  scenarioTile: {
+    width: "32.2%",
+    minWidth: 300,
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 16,
+    gap: 16,
+    flexGrow: 1
+  },
+  scenarioTileTop: {
+    flexDirection: "row",
+    gap: 14,
+    alignItems: "flex-start"
+  },
+  scenarioIconTile: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  scenarioIcon: {
+    fontSize: 24
+  },
   scenarioText: {
     flex: 1,
-    minWidth: 0,
-    gap: 5
+    gap: 8
   },
   scenarioTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "800"
+  },
+  scenarioDescription: {
+    fontSize: 15,
+    lineHeight: 22
+  },
+  scenarioFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap"
+  },
+  playButton: {
+    marginLeft: "auto",
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  playButtonText: {
+    fontSize: 18,
+    fontWeight: "700"
+  },
+  newBadge: {
+    minHeight: 38,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  newBadgeText: {
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  dialogueHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    minHeight: 42
+  },
+  dialogueHeaderCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  dialogueHeaderCenterStack: {
+    flexDirection: "column",
+    alignItems: "stretch"
+  },
+  changeScenarioButton: {
+    minHeight: 42,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  changeScenarioIcon: {
+    fontSize: 17
+  },
+  changeScenarioText: {
+    fontSize: 16,
+    fontWeight: "600"
+  },
+  dialogueLayout: {
+    flexDirection: "row",
+    gap: 18,
+    alignItems: "flex-start"
+  },
+  dialogueLayoutDesktop: {
+    flex: 1,
+    minHeight: 0,
+    alignItems: "stretch"
+  },
+  dialogueLayoutStack: {
+    flexDirection: "column"
+  },
+  chatPanel: {
+    flex: 1.95,
+    borderWidth: 1,
+    borderRadius: 28,
+    overflow: "hidden",
+    flexShrink: 1,
+    minHeight: 0,
+    height: "100%"
+  },
+  chatTopBar: {
+    minHeight: 52,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12
+  },
+  chatTopLeft: {
+    flex: 1,
+    gap: 6
+  },
+  chatTopMeta: {
+    fontSize: 15,
+    lineHeight: 20
+  },
+  chatTopMetaStrong: {
+    fontWeight: "700"
+  },
+  chatProgressTrack: {
+    width: 168,
+    height: 7,
+    borderRadius: 999,
+    overflow: "hidden"
+  },
+  chatProgressFill: {
+    height: "100%",
+    borderRadius: 999
+  },
+  chatTopRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 18
+  },
+  chatStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999
+  },
+  personaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6
+  },
+  personaAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  personaAvatarText: {
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  personaText: {
+    gap: 2
+  },
+  personaName: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: "800"
+  },
+  personaMeta: {
+    fontSize: 13,
+    lineHeight: 18
+  },
+  messageList: {
+    flex: 1,
+    minHeight: 0
+  },
+  messageListContent: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    gap: 10
+  },
+  messageBubble: {
+    maxWidth: "66%",
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 6
+  },
+  messageBubbleCustomer: {
+    alignSelf: "flex-start",
+    borderTopLeftRadius: 10
+  },
+  messageBubbleManager: {
+    alignSelf: "flex-end",
+    borderTopRightRadius: 10
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20
+  },
+  messageTime: {
+    fontSize: 12,
+    textAlign: "right"
+  },
+  typingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  typingDots: {
+    minWidth: 38,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  typingDotsText: {
+    fontSize: 16,
+    letterSpacing: 2
+  },
+  typingText: {
+    fontSize: 14
+  },
+  inputWrap: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8
+  },
+  inputRow: {
+    minHeight: 48,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingLeft: 14,
+    paddingRight: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  chatInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 0
+  },
+  inputActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  inputAction: {
+    fontSize: 18
+  },
+  sendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  sendButtonText: {
+    fontSize: 18,
+    fontWeight: "700"
+  },
+  insightColumn: {
+    flex: 1,
+    gap: 18,
+    alignSelf: "stretch",
+    minHeight: 0,
+    justifyContent: "space-between",
+    height: "100%"
+  },
+  insightCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 14,
+    gap: 12
+  },
+  insightTitle: {
     fontSize: 16,
     lineHeight: 22,
     fontWeight: "800"
   },
-  scenarioDescription: {
+  insightTextBlock: {
+    gap: 6
+  },
+  insightLabel: {
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  insightText: {
     fontSize: 14,
-    lineHeight: 20
+    lineHeight: 22
   },
-  confirmText: {
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: "center"
+  finishButton: {
+    minHeight: 50,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24
   },
-  confirmButtonRow: {
-    flexDirection: "row",
-    gap: 10
-  },
-  confirmButtonItem: {
-    flex: 1
+  finishButtonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "800"
   }
 });

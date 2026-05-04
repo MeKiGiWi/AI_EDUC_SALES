@@ -13,6 +13,7 @@ interface AppScreenProps {
   disableBottomPadding?: boolean;
   sidebar?: ReactNode;
   fullBleed?: boolean;
+  scrollEnabled?: boolean;
 }
 
 export function AppScreen({
@@ -22,7 +23,8 @@ export function AppScreen({
   variant = "app",
   disableBottomPadding = false,
   sidebar,
-  fullBleed = false
+  fullBleed = false,
+  scrollEnabled = true
 }: AppScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
@@ -63,6 +65,7 @@ export function AppScreen({
             ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            scrollEnabled={scrollEnabled}
           >
             <View
               style={[

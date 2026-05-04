@@ -2,14 +2,17 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { AppButton } from "../ui/AppButton";
 import { AppCard } from "../ui/AppCard";
-import { landingContent } from "../../data/landingContent";
+import {
+  landingContent,
+  type LandingSectionId
+} from "../../data/landingContent";
 import { useTheme } from "../../theme/useTheme";
 
 interface LandingNavbarProps {
   isDesktop: boolean;
-  activeNavId: string;
-  navSummary: string;
-  onNavClick: (id: string, label: string, summary: string) => void;
+  activeNavId: LandingSectionId;
+  navSummary?: string;
+  onNavClick: (id: LandingSectionId, label: string) => void;
   onEnterRole: () => void;
 }
 
@@ -21,6 +24,11 @@ export function LandingNavbar({
   onEnterRole
 }: LandingNavbarProps) {
   const theme = useTheme();
+  const activeNavLabel =
+    landingContent.navLinks.find((link) => link.id === activeNavId)?.label ??
+    landingContent.navLinks[0]?.label ??
+    "";
+  const summaryText = navSummary ?? activeNavLabel;
 
   return (
     <AppCard tone="mint" style={styles.navbarCard}>
@@ -36,14 +44,16 @@ export function LandingNavbar({
             <AppButton
               key={link.id}
               label={link.label}
-              onPress={() => onNavClick(link.id, link.label, link.summary)}
+              onPress={() => onNavClick(link.id, link.label)}
               tone={activeNavId === link.id ? "secondary" : "ghost"}
             />
           ))}
         </View>
         <AppButton label="Войти" onPress={onEnterRole} tone="primary" />
       </View>
-      <Text style={[styles.navSummary, { color: theme.semantic.textMuted }]}>В фокусе: {navSummary}</Text>
+      <Text style={[styles.navSummary, { color: theme.semantic.textMuted }]}>
+        В фокусе: {summaryText}
+      </Text>
     </AppCard>
   );
 }

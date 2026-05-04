@@ -3128,6 +3128,7 @@ const styles = StyleSheet.create({
     securityCard: {
         borderWidth: 1,
         borderRadius: 24,
+        minHeight: 148,
         padding: 16,
         gap: 10,
     },

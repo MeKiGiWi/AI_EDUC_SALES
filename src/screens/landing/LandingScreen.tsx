@@ -237,15 +237,11 @@ export function LandingScreen({
     const mobileMenuAnimatedStyle = useMemo(
         () => ({
             opacity: mobileMenuProgress,
-            maxHeight: mobileMenuProgress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 360],
-            }),
             transform: [
                 {
                     translateY: mobileMenuProgress.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [-8, 0],
+                        outputRange: [-10, 0],
                     }),
                 },
             ],
@@ -457,6 +453,7 @@ export function LandingScreen({
                             style={[
                                 styles.headerSurface,
                                 isMobile && styles.headerSurfaceMobile,
+                                isMobile && styles.headerSurfaceMobileLayered,
                                 {
                                     borderColor: theme.semantic.border,
                                     backgroundColor: "rgba(255,255,255,0.78)",
@@ -685,8 +682,13 @@ export function LandingScreen({
                                         isMobileMenuOpen ? "auto" : "none"
                                     }
                                     style={[
-                                        styles.mobileMenuWrap,
+                                        styles.mobileMenuDropdown,
                                         mobileMenuAnimatedStyle,
+                                        {
+                                            borderColor: theme.semantic.border,
+                                            backgroundColor:
+                                                "rgba(255,255,255,0.97)",
+                                        },
                                     ]}
                                 >
                                     <View style={styles.mobileMenuActions}>
@@ -1239,7 +1241,9 @@ export function LandingScreen({
                                                         isMobile ? 18 : 52
                                                     }
                                                     variant="left"
-                                                    reduceMotion={reduceMotion}
+                                                    reduceMotion={
+                                                        reduceMotion || isMobile
+                                                    }
                                                 >
                                                     <AppCard
                                                         style={
@@ -1317,7 +1321,7 @@ export function LandingScreen({
                                     delay={80}
                                     duration={isMobile ? 680 : 860}
                                     variant="fade"
-                                    reduceMotion={reduceMotion}
+                                    reduceMotion={reduceMotion || isMobile}
                                     style={styles.problemAccentWrap}
                                 >
                                     <View
@@ -1695,7 +1699,9 @@ export function LandingScreen({
                                                         isMobile ? 18 : 52
                                                     }
                                                     variant="left"
-                                                    reduceMotion={reduceMotion}
+                                                    reduceMotion={
+                                                        reduceMotion || isMobile
+                                                    }
                                                 >
                                                     <View
                                                         style={[
@@ -1780,7 +1786,7 @@ export function LandingScreen({
                                     duration={isMobile ? 760 : 980}
                                     distance={isMobile ? 18 : 56}
                                     variant="right"
-                                    reduceMotion={reduceMotion}
+                                    reduceMotion={reduceMotion || isMobile}
                                     style={styles.trainerMockWrap}
                                 >
                                     <AppCard
@@ -2927,6 +2933,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 12,
     },
+    headerSurfaceMobileLayered: {
+        position: "relative",
+        overflow: "visible",
+    },
     headerTopRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -3023,11 +3033,18 @@ const styles = StyleSheet.create({
         height: 2,
         borderRadius: 999,
     },
-    mobileMenuWrap: {
-        overflow: "hidden",
+    mobileMenuDropdown: {
+        position: "absolute",
+        top: 68,
+        left: 14,
+        right: 14,
+        borderWidth: 1,
+        borderRadius: 22,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        zIndex: 40,
     },
     mobileMenuActions: {
-        paddingTop: 14,
         gap: 12,
     },
     mobileMenuNavList: {

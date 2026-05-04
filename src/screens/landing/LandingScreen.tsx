@@ -34,6 +34,7 @@ interface LandingScreenProps {
 type CtaSheetKind = "demo" | "implementation";
 
 type LandingSheetState =
+    | { kind: "roles" }
     | { kind: CtaSheetKind }
     | { kind: "direction"; direction: LandingDirectionItem }
     | null;
@@ -220,6 +221,11 @@ export function LandingScreen({
         setSheetState({ kind });
     }
 
+    function openRolePicker() {
+        setSubmittedKind(null);
+        setSheetState({ kind: "roles" });
+    }
+
     function scrollToSection(sectionId: LandingSectionId) {
         const y = sectionOffsets[sectionId];
 
@@ -259,13 +265,17 @@ export function LandingScreen({
     }
 
     const ctaTitle =
-        sheetState?.kind === "implementation"
+        sheetState?.kind === "roles"
+            ? "Открыть демо-кабинет"
+            : sheetState?.kind === "implementation"
             ? "Обсудить внедрение"
             : sheetState?.kind === "direction"
               ? sheetState.direction.title
               : "Записаться на демо";
     const ctaDescription =
-        sheetState?.kind === "implementation"
+        sheetState?.kind === "roles"
+            ? "Выберите роль и сразу откройте демонстрационный контур продукта для показа сервиса."
+            : sheetState?.kind === "implementation"
             ? "Соберите задачу внедрения под ваш контур: сценарии, знания, отчёты и интеграции."
             : sheetState?.kind === "direction"
               ? `${sheetState.direction.audience}. ${sheetState.direction.outcome}.`
@@ -461,6 +471,12 @@ export function LandingScreen({
                                     </View>
 
                                     <AppButton
+                                        label="Войти"
+                                        onPress={openRolePicker}
+                                        tone="secondary"
+                                        accessibilityLabel="Открыть демо-кабинеты"
+                                    />
+                                    <AppButton
                                         label="Записаться на демо"
                                         onPress={() => openCtaSheet("demo")}
                                         tone="primary"
@@ -503,9 +519,14 @@ export function LandingScreen({
                                 </Text>
                                 <View style={styles.heroActions}>
                                     <AppButton
+                                        label="Войти"
+                                        onPress={openRolePicker}
+                                        tone="primary"
+                                    />
+                                    <AppButton
                                         label={landingContent.hero.primaryCta}
                                         onPress={() => openCtaSheet("demo")}
-                                        tone="primary"
+                                        tone="secondary"
                                     />
                                     <AppButton
                                         label={landingContent.hero.secondaryCta}
@@ -2115,7 +2136,21 @@ export function LandingScreen({
                 description={ctaDescription}
                 onClose={() => setSheetState(null)}
             >
-                {sheetState?.kind === "direction" ? (
+                {sheetState?.kind === "roles" ? (
+                    <View style={styles.demoRoleGrid}>
+                        {roleOptions.map((option) => (
+                            <AppButton
+                                key={option.role}
+                                label={option.title}
+                                onPress={() => {
+                                    setSheetState(null);
+                                    onEnterRole(option.role);
+                                }}
+                                tone="secondary"
+                            />
+                        ))}
+                    </View>
+                ) : sheetState?.kind === "direction" ? (
                     <>
                         <View
                             style={[

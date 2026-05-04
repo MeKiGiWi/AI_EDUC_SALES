@@ -4,10 +4,6 @@ export type RootStackParamList = {
   Landing: undefined;
   StudentHome: undefined;
   Simulator: { scenarioId?: string; materialId?: string } | undefined;
-  Scenarios: undefined;
-  ManagerDashboard: undefined;
-  HrDashboard: undefined;
-  Admin: undefined;
   Reports: { highlightReportId?: string } | undefined;
   ReportViewer: { reportId: string };
 };
@@ -36,26 +32,6 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
     title: "Тренажер",
     description: "Практикуйте навыки продаж в реалистичных сценариях."
   },
-  Scenarios: {
-    route: "Scenarios",
-    title: "Сценарии",
-    description: "Выберите режим работы AI под вашу задачу."
-  },
-  ManagerDashboard: {
-    route: "ManagerDashboard",
-    title: "Кабинет руководителя",
-    description: "Команда, риски и coaching actions"
-  },
-  HrDashboard: {
-    route: "HrDashboard",
-    title: "Кабинет HR / L&D",
-    description: "Компетенции, adoption и треки развития"
-  },
-  Admin: {
-    route: "Admin",
-    title: "Администрирование",
-    description: "Роли, правила доступа и регламенты"
-  },
   Reports: {
     route: "Reports",
     title: "Отчеты",
@@ -76,10 +52,10 @@ export const roleHomeRoute: Record<UserRole, RouteName> = {
 };
 
 export const tabsByRole: Record<UserRole, RouteName[]> = {
-  student: ["StudentHome", "Simulator"],
-  manager: ["StudentHome", "Simulator"],
-  hr: ["StudentHome", "Simulator"],
-  admin: ["StudentHome", "Simulator"]
+  student: ["StudentHome", "Simulator", "Reports"],
+  manager: ["StudentHome", "Simulator", "Reports"],
+  hr: ["StudentHome", "Simulator", "Reports"],
+  admin: ["StudentHome", "Simulator", "Reports"]
 };
 
 export const roleLabels: Record<UserRole, string> = {

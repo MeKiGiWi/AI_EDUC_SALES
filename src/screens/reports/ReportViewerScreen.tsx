@@ -6,9 +6,9 @@ import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
+import { downloadReportFile } from "../../services/reportExportService";
 import { useTheme } from "../../theme/useTheme";
 import type { ReportCard } from "../../types/academy";
-import { downloadReportFile } from "./ReportsScreen";
 
 interface ReportViewerScreenProps {
   report?: ReportCard;
@@ -49,13 +49,13 @@ export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportVie
     setStatusMessage("Отчет скопирован.");
   }
 
-  async function handleDownload() {
+  async function handleExport(format: "pdf" | "csv") {
     if (!report) {
       return;
     }
 
     try {
-      const message = await downloadReportFile(report, "pdf");
+      const message = await downloadReportFile(report, format);
       setStatusMessage(message);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Не удалось скачать отчет.");
@@ -86,12 +86,15 @@ export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportVie
         </View>
         <View style={styles.actionRow}>
           {report.availableFormats.includes("pdf") ? (
-            <AppButton label="Скачать PDF" onPress={() => { void handleDownload(); }} tone="secondary" />
+            <AppButton label="Скачать PDF" onPress={() => { void handleExport("pdf"); }} tone="secondary" />
+          ) : null}
+          {report.availableFormats.includes("csv") ? (
+            <AppButton label="Скачать CSV" onPress={() => { void handleExport("csv"); }} tone="secondary" />
           ) : null}
           <AppButton label="Скопировать" onPress={() => { void handleCopy(); }} tone="ghost" />
           <AppButton
             label="Продолжить чат"
-            onPress={() => onContinueChat(report.scenarioId)}
+            onPress={() => onContinueChat(report.scenarioId ?? undefined)}
             tone="primary"
           />
         </View>
@@ -156,6 +159,10 @@ function buildReportPlainText(report: ReportCard): string {
 }
 
 function formatDate(value: string): string {
+  if (/^\d{2}\.\d{2}\s+\d{2}:\d{2}$/.test(value.trim())) {
+    return value;
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;

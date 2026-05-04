@@ -49,6 +49,33 @@ function withDebugQuery(path: string) {
   return path.includes("?") ? `${path}&debug=true` : `${path}?debug=true`;
 }
 
+function summarizeDetail(detail: unknown, rawBody: string): string {
+  if (typeof detail === "string" && detail.trim()) {
+    return detail.trim();
+  }
+
+  if (detail && typeof detail === "object") {
+    const message =
+      "message" in detail && typeof detail.message === "string" ? detail.message.trim() : "";
+    if (message) {
+      return message;
+    }
+
+    const code = "code" in detail && typeof detail.code === "string" ? detail.code.trim() : "";
+    if (code) {
+      return `Ошибка backend: ${code}`;
+    }
+
+    return "Сервер вернул ошибку. Проверьте параметры сценария и повторите попытку.";
+  }
+
+  if (rawBody.trim()) {
+    return rawBody.trim();
+  }
+
+  return "Не удалось выполнить запрос к backend симулятора.";
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined;
   const response = await fetch(buildUrl(path), {
@@ -75,14 +102,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
       }
     }
 
-    const detailMessage =
-      typeof detail === "string"
-        ? detail
-        : detail !== undefined
-          ? JSON.stringify(detail)
-          : rawBody || "Не удалось выполнить запрос к backend симулятора.";
+    const detailMessage = summarizeDetail(detail ?? parsedBody, rawBody);
 
-    throw new SimulatorApiError("Произошла ошибка при обращении к серверу.", {
+    throw new SimulatorApiError(detailMessage, {
       status: response.status,
       body: rawBody,
       detail: detail ?? parsedBody
@@ -94,7 +116,19 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getSafeSimulatorErrorMessage(error: unknown): string {
   if (error instanceof SimulatorApiError) {
-    return error.message || "Не удалось выполнить действие. Проверьте подключение и попробуйте снова.";
+    if (error.message && error.message !== "Произошла ошибка при обращении к серверу.") {
+      return error.message;
+    }
+
+    if (error.status === 404) {
+      return "Сессия не найдена.";
+    }
+
+    if (error.status === 409) {
+      return "Сессия уже завершена.";
+    }
+
+    return "Не удалось выполнить действие. Проверьте подключение и попробуйте снова.";
   }
   if (error instanceof Error) {
     if (error.name === "AbortError") {

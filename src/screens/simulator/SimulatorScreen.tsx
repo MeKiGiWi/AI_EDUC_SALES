@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import type { SalesAcademyMock, ScenarioCardItem } from "../../data/salesAcademyMock";
+import { ChatStateNotice } from "../../components/chat/ChatStateNotice";
+import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
+import type { SalesAcademyMock, ScenarioCardItem } from "../../types/academy";
 
 interface SimulatorScreenProps {
   data: SalesAcademyMock;
@@ -11,10 +13,21 @@ interface SimulatorScreenProps {
   mode: "catalog" | "dialogue";
   onStartScenario: (scenarioId: string) => void;
   onBackToCatalog: () => void;
-  onFinishScenario: () => void;
+  onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
+  isFinishingReport?: boolean;
+  startErrorText?: string | null;
+  onDismissStartError?: () => void;
 }
 
 const trainerFilters = ["Все", "Новые"] as const;
+
+type SimulatorInfoSheetState =
+  | {
+      title: string;
+      description: string;
+      lines: string[];
+    }
+  | null;
 
 export function SimulatorScreen({
   data,
@@ -22,15 +35,19 @@ export function SimulatorScreen({
   mode,
   onStartScenario,
   onBackToCatalog,
-  onFinishScenario
+  onFinishScenario,
+  isFinishingReport = false,
+  startErrorText = null,
+  onDismissStartError
 }: SimulatorScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [segment, setSegment] = useState<"B2B" | "B2C">("B2B");
   const [activeFilter, setActiveFilter] = useState<(typeof trainerFilters)[number]>("Все");
+  const [infoSheet, setInfoSheet] = useState<SimulatorInfoSheetState>(null);
 
-  const selectedScenario =
-    data.scenarios.find((scenario) => scenario.id === activeScenarioId) ?? data.scenarios[0];
+  const selectedScenario = data.scenarios.find((scenario) => scenario.id === activeScenarioId);
+  const featuredScenario = selectedScenario ?? data.scenarios[0];
   const filteredScenarios = useMemo(() => {
     return data.scenarios.filter((scenario) => {
       if (scenario.segment !== segment) {
@@ -45,13 +62,51 @@ export function SimulatorScreen({
     });
   }, [activeFilter, data.scenarios, segment]);
 
+  function openProgressInfo() {
+    setInfoSheet({
+      title: "Состояние тренажера",
+      description: "Каталог показывает тот набор сценариев, который реально доступен в текущем мобильном MVP.",
+      lines: [
+        `Активный сегмент: ${segment}.`,
+        `Текущий фильтр: ${activeFilter}.`,
+        "После завершения тренировки отчет сохраняется и открывается автоматически."
+      ]
+    });
+  }
+
+  function openTrainerHelp() {
+    setInfoSheet({
+      title: "Как пройти тренировку",
+      description: "Тренажер больше не оставляет пустых действий и подсказывает следующий шаг.",
+      lines: [
+        "Выберите карточку сценария и начните диалог из каталога.",
+        "Если backend не подтверждает сценарий, UI покажет ошибку вместо тихого fallback.",
+        "Завершение диалога создает отчет и переводит в просмотр результата."
+      ]
+    });
+  }
+
   if (mode === "dialogue") {
+    if (!selectedScenario) {
+      return (
+        <View style={styles.screen}>
+          <ChatStateNotice
+            kind="error"
+            text="Выбранный сценарий не найден. Вернитесь к списку и выберите доступный сценарий."
+            actionLabel="К списку сценариев"
+            onAction={onBackToCatalog}
+          />
+        </View>
+      );
+    }
+
     return (
       <DialogueView
         data={data}
         selectedScenario={selectedScenario}
         onBackToCatalog={onBackToCatalog}
         onFinishScenario={onFinishScenario}
+        isFinishingReport={isFinishingReport}
       />
     );
   }
@@ -69,10 +124,19 @@ export function SimulatorScreen({
           </Text>
         </View>
         <View style={styles.headerActions}>
-          <CircleActionButton label="◔" />
-          <CircleActionButton label="?" />
+          <CircleActionButton label="◔" onPress={openProgressInfo} />
+          <CircleActionButton label="?" onPress={openTrainerHelp} />
         </View>
       </View>
+
+      {startErrorText ? (
+        <ChatStateNotice
+          kind="error"
+          text={startErrorText}
+          actionLabel="Закрыть"
+          onAction={onDismissStartError}
+        />
+      ) : null}
 
       <View style={styles.segmentBlock}>
         <View style={[styles.segmentedControl, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
@@ -98,12 +162,12 @@ export function SimulatorScreen({
         <View style={[styles.heroContent, !layout.isWide && styles.heroStack]}>
           <View style={styles.heroText}>
             <Text style={[styles.heroEyebrow, { color: theme.semantic.textSecondary }]}>Продолжить с места остановки</Text>
-            <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>{selectedScenario.title}</Text>
-            <Text style={[styles.heroDescription, { color: theme.semantic.textSecondary }]}>{selectedScenario.description}</Text>
+            <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>{featuredScenario.title}</Text>
+            <Text style={[styles.heroDescription, { color: theme.semantic.textSecondary }]}>{featuredScenario.description}</Text>
             <View style={styles.heroPills}>
-              <InfoPill label={selectedScenario.duration} />
-              <InfoPill label={`Уровень: ${selectedScenario.level}`} />
-              <ProgressInfoPill label="Прогресс" value={selectedScenario.progressValue ?? 0} />
+              <InfoPill label={featuredScenario.duration} />
+              <InfoPill label={`Уровень: ${featuredScenario.level}`} />
+              <ProgressInfoPill label="Прогресс" value={featuredScenario.progressValue ?? 0} />
             </View>
           </View>
 
@@ -115,7 +179,7 @@ export function SimulatorScreen({
                 <Text style={styles.priceTagText}>₽</Text>
               </View>
             </View>
-            <Pressable onPress={() => onStartScenario(selectedScenario.id)} style={[styles.heroCta, { backgroundColor: theme.semantic.actionPrimary }]}>
+            <Pressable onPress={() => onStartScenario(featuredScenario.id)} style={[styles.heroCta, { backgroundColor: theme.semantic.actionPrimary }]}>
               <Text style={styles.heroCtaText}>Начать тренировку</Text>
             </Pressable>
           </View>
@@ -161,6 +225,19 @@ export function SimulatorScreen({
           />
         ))}
       </View>
+
+      <AppBottomSheet
+        visible={infoSheet !== null}
+        title={infoSheet?.title ?? ""}
+        description={infoSheet?.description}
+        onClose={() => setInfoSheet(null)}
+      >
+        {infoSheet?.lines.map((line) => (
+          <Text key={line} style={[styles.sheetLine, { color: theme.semantic.textPrimary }]}>
+            • {line}
+          </Text>
+        ))}
+      </AppBottomSheet>
     </View>
   );
 }
@@ -169,20 +246,56 @@ function DialogueView({
   data,
   selectedScenario,
   onBackToCatalog,
-  onFinishScenario
+  onFinishScenario,
+  isFinishingReport
 }: {
   data: SalesAcademyMock;
   selectedScenario: ScenarioCardItem;
   onBackToCatalog: () => void;
-  onFinishScenario: () => void;
+  onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
+  isFinishingReport: boolean;
 }) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const dialogue = data.activeDialogue;
-  const progress = Math.round((dialogue.managerReplyCount / dialogue.replyTarget) * 100);
+  const [draftMessage, setDraftMessage] = useState("");
+  const [inputNotice, setInputNotice] = useState<string | null>(null);
+  const [localMessages, setLocalMessages] = useState(dialogue.messages);
+  const [localManagerReplyCount, setLocalManagerReplyCount] = useState(dialogue.managerReplyCount);
+  const progress = Math.round((localManagerReplyCount / dialogue.replyTarget) * 100);
   const dialogueHeight = Math.max(Math.min(theme.viewport.height - 12, 724), 680);
   const dialogueBodyHeight = Math.max(Math.min(theme.viewport.height - 128, 620), 540);
-  const messageListHeight = Math.max(dialogueBodyHeight - 258, 170);
+
+  function handleSendMessage() {
+    const text = draftMessage.trim();
+    if (!text) {
+      setInputNotice("Введите реплику, чтобы продолжить диалог.");
+      return;
+    }
+
+    const timestamp = formatDialogueTime(new Date());
+    const nextManagerReplyCount = localManagerReplyCount + 1;
+    const customerReply = buildCustomerFollowUp(selectedScenario, text, nextManagerReplyCount);
+
+    setLocalMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        id: `manager-${nextManagerReplyCount}-${Date.now()}`,
+        author: "manager",
+        text,
+        time: timestamp
+      },
+      {
+        id: `customer-${nextManagerReplyCount}-${Date.now() + 1}`,
+        author: "customer",
+        text: customerReply,
+        time: timestamp
+      }
+    ]);
+    setLocalManagerReplyCount(nextManagerReplyCount);
+    setDraftMessage("");
+    setInputNotice("Реплика добавлена в диалог.");
+  }
 
   return (
     <View style={[styles.screen, layout.isDesktop && { height: dialogueHeight, gap: 10, justifyContent: "space-between" }]}>
@@ -193,10 +306,6 @@ function DialogueView({
             <Text style={[styles.changeScenarioIcon, { color: theme.semantic.textSecondary }]}>⇄</Text>
             <Text style={[styles.changeScenarioText, { color: theme.semantic.textPrimary }]}>Сменить сценарий</Text>
           </Pressable>
-        </View>
-        <View style={styles.headerActions}>
-          <CircleActionButton label="◔" />
-          <CircleActionButton label="?" />
         </View>
       </View>
 
@@ -225,7 +334,7 @@ function DialogueView({
           <View style={[styles.chatTopBar, { borderBottomColor: theme.semantic.borderSubtle }]}>
             <View style={styles.chatTopLeft}>
               <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
-                Реплики менеджера: <Text style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}>{dialogue.managerReplyCount} / {dialogue.replyTarget}</Text>
+                Реплики менеджера: <Text style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}>{localManagerReplyCount} / {dialogue.replyTarget}</Text>
               </Text>
               <View style={[styles.chatProgressTrack, { backgroundColor: theme.semantic.borderSubtle }]}>
                 <View style={[styles.chatProgressFill, { backgroundColor: theme.semantic.actionPrimary, width: `${progress}%` }]} />
@@ -253,11 +362,14 @@ function DialogueView({
           </View>
 
           <ScrollView
-            style={[styles.messageList, layout.isDesktop && { height: messageListHeight, flexGrow: 0 }]}
-            contentContainerStyle={styles.messageListContent}
+            style={styles.messageList}
+            contentContainerStyle={[
+              styles.messageListContent,
+              layout.isDesktop && styles.messageListContentDesktop
+            ]}
             showsVerticalScrollIndicator={false}
           >
-            {dialogue.messages.map((message) => (
+            {localMessages.map((message) => (
               <View
                 key={message.id}
                 style={[
@@ -283,21 +395,43 @@ function DialogueView({
             </View>
           </ScrollView>
 
-          <View style={[styles.inputWrap, { borderTopColor: theme.semantic.borderSubtle }]}>
+          <View
+            style={[
+              styles.inputWrap,
+              { borderTopColor: theme.semantic.borderSubtle },
+              layout.isDesktop && styles.inputWrapDesktop
+            ]}
+          >
             <View style={[styles.inputRow, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
               <TextInput
                 placeholder="Напишите сообщение..."
                 placeholderTextColor={theme.semantic.textMuted}
                 style={[styles.chatInput, { color: theme.semantic.textPrimary }]}
+                value={draftMessage}
+                onChangeText={(value) => {
+                  setDraftMessage(value);
+                  if (inputNotice) {
+                    setInputNotice(null);
+                  }
+                }}
+                onSubmitEditing={handleSendMessage}
               />
               <View style={styles.inputActions}>
                 <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>⚡</Text>
                 <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>⌄</Text>
               </View>
-              <Pressable style={[styles.sendButton, { backgroundColor: theme.colors.primaryPale }]}>
+              <Pressable
+                onPress={handleSendMessage}
+                style={[styles.sendButton, { backgroundColor: theme.colors.primaryPale }]}
+              >
                 <Text style={[styles.sendButtonText, { color: theme.semantic.actionPrimary }]}>➤</Text>
               </Pressable>
             </View>
+            {inputNotice ? (
+              <Text style={[styles.inputNotice, { color: theme.semantic.textSecondary }]}>
+                {inputNotice}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -309,8 +443,25 @@ function DialogueView({
             <InsightTextBlock label="Возражение" text={`«${dialogue.objection}»`} />
           </View>
 
-          <Pressable onPress={onFinishScenario} style={[styles.finishButton, { backgroundColor: theme.semantic.actionPrimary }]}>
-            <Text style={styles.finishButtonText}>Завершить и получить отчет</Text>
+          <Pressable
+            onPress={() =>
+              onFinishScenario({
+                scenarioId: selectedScenario.id,
+                scenarioTitle: selectedScenario.title
+              })
+            }
+            disabled={isFinishingReport}
+            style={[
+              styles.finishButton,
+              {
+                backgroundColor: theme.semantic.actionPrimary,
+                opacity: isFinishingReport ? 0.72 : 1
+              }
+            ]}
+          >
+            <Text style={styles.finishButtonText}>
+              {isFinishingReport ? "Сохраняем отчет..." : "Завершить и получить отчет"}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -409,12 +560,12 @@ function ScenarioTile({
   );
 }
 
-function CircleActionButton({ label }: { label: string }) {
+function CircleActionButton({ label, onPress }: { label: string; onPress: () => void }) {
   const theme = useTheme();
 
   return (
     <Pressable
-      onPress={() => {}}
+      onPress={onPress}
       style={[styles.circleButton, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}
     >
       <Text style={[styles.circleButtonText, { color: theme.semantic.textPrimary }]}>{label}</Text>
@@ -500,6 +651,36 @@ function toneForeground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warn
   return theme.semantic.actionPrimary;
 }
 
+function formatDialogueTime(date: Date): string {
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function buildCustomerFollowUp(
+  scenario: ScenarioCardItem,
+  managerText: string,
+  managerReplyCount: number
+): string {
+  if (scenario.id === "price-objection") {
+    return managerReplyCount >= 3
+      ? "Если мы увидим понятный пилот и сроки без простоя, готовы обсудить следующий шаг."
+      : "Аргумент понятен, но мне все еще важно понять, как это окупится в нашем бюджете.";
+  }
+
+  if (scenario.id === "timeline-negotiation") {
+    return "Тогда уточните, какие этапы и сроки вы готовы зафиксировать уже сейчас.";
+  }
+
+  if (scenario.id === "competitor-comparison") {
+    return "Хорошо, а в чем для нас будет практическая разница по сравнению с конкурентом?";
+  }
+
+  return managerText.length > 80
+    ? "Понял. Тогда уточните, какой следующий шаг вы предлагаете проверить первым."
+    : "Можете раскрыть это чуть конкретнее применительно к нашей ситуации?";
+}
+
 const styles = StyleSheet.create({
   screen: {
     gap: 18
@@ -523,6 +704,10 @@ const styles = StyleSheet.create({
   pageSubtitle: {
     fontSize: 16,
     lineHeight: 24
+  },
+  sheetLine: {
+    fontSize: 15,
+    lineHeight: 22
   },
   headerActions: {
     flexDirection: "row",
@@ -866,7 +1051,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     flexShrink: 1,
     minHeight: 0,
-    height: "100%"
+    height: "100%",
+    position: "relative"
   },
   chatTopBar: {
     minHeight: 52,
@@ -955,6 +1141,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 10
   },
+  messageListContentDesktop: {
+    paddingBottom: 96
+  },
   messageBubble: {
     maxWidth: "66%",
     borderWidth: 1,
@@ -1005,6 +1194,21 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8
   },
+  inputWrapDesktop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 10,
+    borderTopWidth: 0,
+    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingBottom: 0
+  },
+  inputNotice: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 8
+  },
   inputRow: {
     minHeight: 48,
     borderRadius: 18,
@@ -1041,7 +1245,7 @@ const styles = StyleSheet.create({
   },
   insightColumn: {
     flex: 1,
-    gap: 18,
+    gap: 14,
     alignSelf: "stretch",
     minHeight: 0,
     justifyContent: "space-between",
@@ -1070,15 +1274,16 @@ const styles = StyleSheet.create({
     lineHeight: 22
   },
   finishButton: {
-    minHeight: 50,
+    minHeight: 46,
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24
+    paddingHorizontal: 24,
+    marginBottom: 8
   },
   finishButtonText: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800"
   }
 });

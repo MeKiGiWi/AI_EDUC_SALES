@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.dialog_logger import append_dialog_log
-from app.settings import get_agents_config
+from app.settings import get_agents_config, get_settings
 from app.models import (
     CompetencyLevel,
     EvaluationCompetencyRaw,
@@ -26,7 +26,6 @@ from app.scenario_repository import get_scenario_by_id, list_scenarios
 
 router = APIRouter(prefix="/api/v1/simulator", tags=["simulator"])
 
-MIN_REPLIES_FOR_CONFIDENT_EVALUATION = 10
 COMPETENCY_CATALOG = [
     "Умение задавать вопросы",
     "Диагностика потребности",
@@ -147,7 +146,7 @@ async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
     if get_scenario_by_id(payload.scenario_id) is None:
         raise HTTPException(status_code=404, detail="Сценарий не найден.")
 
-    graph = build_graph(get_agents_config())
+    graph = build_graph()
     initial_state = {"action": "open_session", "scenario_id": payload.scenario_id}
     result = await graph.ainvoke(initial_state)
     return SessionCreateResponseDto(
@@ -165,7 +164,7 @@ async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> S
     if session.status == "finished":
         raise HTTPException(status_code=409, detail="Сессия уже завершена.")
 
-    graph = build_graph(get_agents_config())
+    graph = build_graph()
     initial_state = {
         "action": "reply_to_sales",
         "session_id": session_id,
@@ -189,7 +188,7 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
         raise HTTPException(status_code=404, detail="Сессия не найдена.")
 
     agents_config = get_agents_config()
-    graph = build_graph(agents_config)
+    graph = build_graph()
     initial_state = {"action": "close_session", "session_id": session_id}
     result = await graph.ainvoke(initial_state)
     visible_messages = filter_visible_messages(result["messages"])
@@ -209,11 +208,11 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
     )
 
     try:
-        evaluation_agent = build_evaluation_agent(agents_config)
+        evaluation_agent = build_evaluation_agent()
         raw_evaluation = await evaluation_agent.evaluate(
             dialogue=dialogue_text,
             manager_replies=manager_replies,
-            min_replies=MIN_REPLIES_FOR_CONFIDENT_EVALUATION,
+            min_replies=get_settings().MIN_MANAGER_TURNS,
         )
         evaluation = normalize_evaluation_result(raw_evaluation)
     except Exception as exc:  # noqa: BLE001

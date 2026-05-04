@@ -236,9 +236,17 @@
           {
             "name": "role",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/WorkspaceRole"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WorkspaceRole"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
             }
           }
         ],
@@ -292,86 +300,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/ReportCardDto"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/reports/{report_id}/export/pdf": {
-      "get": {
-        "tags": [
-          "reports"
-        ],
-        "summary": "Export Report Pdf",
-        "operationId": "export_report_pdf_api_v1_reports__report_id__export_pdf_get",
-        "parameters": [
-          {
-            "name": "report_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Report Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/reports/{report_id}/export/csv": {
-      "get": {
-        "tags": [
-          "reports"
-        ],
-        "summary": "Export Report Csv",
-        "operationId": "export_report_csv_api_v1_reports__report_id__export_csv_get",
-        "parameters": [
-          {
-            "name": "report_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Report Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -519,12 +447,34 @@
           "reportType": {
             "$ref": "#/components/schemas/ReportType"
           },
+          "scenarioId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenarioid"
+          },
+          "scenarioTitle": {
+            "type": "string",
+            "title": "Scenariotitle"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReportStatus"
+          },
           "summary": {
             "type": "string",
             "title": "Summary"
           },
           "format": {
             "$ref": "#/components/schemas/ExportFormat"
+          },
+          "createdAt": {
+            "type": "string",
+            "title": "Createdat"
           },
           "updatedAt": {
             "type": "string",
@@ -533,6 +483,28 @@
           "ownerLabel": {
             "type": "string",
             "title": "Ownerlabel"
+          },
+          "sourceLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcelabel"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
           },
           "availableFormats": {
             "items": {
@@ -555,8 +527,11 @@
           "title",
           "role",
           "reportType",
+          "scenarioTitle",
+          "status",
           "summary",
           "format",
+          "createdAt",
           "updatedAt",
           "ownerLabel",
           "availableFormats",
@@ -569,11 +544,35 @@
           "role": {
             "$ref": "#/components/schemas/WorkspaceRole"
           },
+          "scenario_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario Id"
+          },
           "scenario_title": {
             "type": "string",
             "maxLength": 300,
             "minLength": 1,
             "title": "Scenario Title"
+          },
+          "source_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Label"
           },
           "evaluation": {
             "$ref": "#/components/schemas/EvaluationResultRaw"
@@ -640,6 +639,16 @@
           "lines"
         ],
         "title": "ReportPreviewSectionDto"
+      },
+      "ReportStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "generating",
+          "ready",
+          "error"
+        ],
+        "title": "ReportStatus"
       },
       "ReportType": {
         "type": "string",

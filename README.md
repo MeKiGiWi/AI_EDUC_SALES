@@ -25,6 +25,7 @@ npm run ios
 npm run android
 npm run web
 npm run typecheck
+npm run check:reports
 npm run doctor
 ```
 

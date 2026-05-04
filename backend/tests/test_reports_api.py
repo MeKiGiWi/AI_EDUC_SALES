@@ -74,13 +74,17 @@ def sqlite_database(monkeypatch, tmp_path: Path):
 async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     student_payload = {
         "role": "student",
+        "scenario_id": "baseline",
         "scenario_title": "Baseline сценарий",
+        "source_label": "simulator",
         "session_id": "session-123",
         "evaluation": build_evaluation_payload(),
     }
     manager_payload = {
         "role": "manager",
+        "scenario_id": "manager-scenario",
         "scenario_title": "Manager сценарий",
+        "source_label": "manager-dashboard",
         "session_id": "session-456",
         "evaluation": build_evaluation_payload(),
     }
@@ -88,11 +92,15 @@ async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         created = await client.post("/api/v1/reports", json=student_payload)
         created_payload = created.json()
+        created_duplicate = await client.post("/api/v1/reports", json=student_payload)
+        created_duplicate_payload = created_duplicate.json()
         created_manager = await client.post("/api/v1/reports", json=manager_payload)
         created_manager_payload = created_manager.json()
 
         listed = await client.get("/api/v1/reports")
         listed_payload = listed.json()
+        listed_student = await client.get("/api/v1/reports", params={"role": "student"})
+        listed_student_payload = listed_student.json()
 
         report_id = created_payload["id"]
         fetched = await client.get(f"/api/v1/reports/{report_id}")
@@ -102,7 +110,18 @@ async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     assert created_payload["role"] == "student"
     assert created_payload["format"] == "pdf"
     assert created_payload["title"].startswith("Baseline сценарий")
+    assert created_payload["scenarioId"] == "baseline"
+    assert created_payload["scenarioTitle"] == "Baseline сценарий"
+    assert created_payload["status"] == "ready"
+    assert created_payload["createdAt"]
+    assert created_payload["updatedAt"]
+    assert created_payload["sourceLabel"] == "simulator"
+    assert created_payload["sessionId"] == "session-123"
     assert any(section["title"] == "Рекомендации" for section in created_payload["previewSections"])
+
+    assert created_duplicate.status_code == status.HTTP_201_CREATED
+    assert created_duplicate_payload["id"] == created_payload["id"]
+    assert created_duplicate_payload["sessionId"] == "session-123"
 
     assert listed.status_code == status.HTTP_200_OK
     assert len(listed_payload["items"]) == 2
@@ -110,7 +129,18 @@ async def test_create_list_and_get_report(sqlite_database: Path) -> None:
         report_id,
         created_manager_payload["id"],
     }
+    assert all(item["status"] == "ready" for item in listed_payload["items"])
+    assert {item["sessionId"] for item in listed_payload["items"]} == {"session-123", "session-456"}
+
+    assert listed_student.status_code == status.HTTP_200_OK
+    assert len(listed_student_payload["items"]) == 1
+    assert listed_student_payload["items"][0]["id"] == report_id
+    assert listed_student_payload["items"][0]["role"] == "student"
 
     assert fetched.status_code == status.HTTP_200_OK
     assert fetched_payload["id"] == report_id
     assert fetched_payload["summary"] == created_payload["summary"]
+    assert fetched_payload["scenarioId"] == "baseline"
+    assert fetched_payload["scenarioTitle"] == "Baseline сценарий"
+    assert fetched_payload["sourceLabel"] == "simulator"
+    assert fetched_payload["sessionId"] == "session-123"

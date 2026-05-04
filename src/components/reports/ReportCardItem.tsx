@@ -69,6 +69,14 @@ export function ReportCardItem({
             disabled={Boolean(downloadingFormat)}
           />
         ) : null}
+        {report.availableFormats.includes("csv") ? (
+          <AppButton
+            label={downloadingFormat === "csv" ? "CSV..." : "CSV"}
+            onPress={() => onDownload(report, "csv")}
+            tone="secondary"
+            disabled={Boolean(downloadingFormat)}
+          />
+        ) : null}
         <AppButton label="Продолжить чат" onPress={() => onContinueChat(report)} tone="ghost" />
       </View>
     </AppCard>

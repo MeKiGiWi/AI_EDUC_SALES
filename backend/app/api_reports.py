@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db_session
-from app.models import ReportCardDto, ReportCreateDto, ReportListResponseDto
+from app.models import ReportCardDto, ReportCreateDto, ReportListResponseDto, WorkspaceRole
 from app.report_service import ReportService
 
 router = APIRouter(prefix="/api/v1/reports", tags=["reports"])
@@ -24,9 +24,10 @@ async def create_report(
 
 @router.get("", response_model=ReportListResponseDto)
 async def list_reports(
+    role: WorkspaceRole | None = Query(default=None),
     service: ReportService = Depends(get_report_service),
 ) -> ReportListResponseDto:
-    return ReportListResponseDto(items=service.list_reports())
+    return ReportListResponseDto(items=service.list_reports(role))
 
 
 @router.get("/{report_id}", response_model=ReportCardDto)

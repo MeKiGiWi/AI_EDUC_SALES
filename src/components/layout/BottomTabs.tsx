@@ -15,10 +15,6 @@ const tabLabels: Record<RouteName, string> = {
   Landing: "Старт",
   StudentHome: "Личный кабинет",
   Simulator: "Чат",
-  Scenarios: "Сценарии",
-  ManagerDashboard: "Команда",
-  HrDashboard: "HR/L&D",
-  Admin: "Админ",
   Reports: "Отчеты",
   ReportViewer: "Отчет"
 };

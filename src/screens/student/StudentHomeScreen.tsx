@@ -1,26 +1,98 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import type { ReportHistoryItem, SalesAcademyMock } from "../../data/salesAcademyMock";
-import type { RootStackParamList, RouteName } from "../../navigation/routes";
+import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
+import { openExport } from "../../services/reportExportService";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
+import type { ReportCard, SalesAcademyMock } from "../../types/academy";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { AppCard } from "../../components/ui/AppCard";
 
 interface StudentHomeScreenProps {
   data: SalesAcademyMock;
-  onNavigate: <T extends RouteName>(route: T, params?: RootStackParamList[T]) => void;
+  reports: ReportCard[];
+  onOpenReport: (reportId: string) => void;
   onOpenTrainer: (scenarioId: string) => void;
 }
 
 const filterLabels = ["Все", "Новые"] as const;
 
-export function StudentHomeScreen({ data, onOpenTrainer }: StudentHomeScreenProps) {
+type HomeInfoSheetState =
+  | {
+      title: string;
+      description: string;
+      lines: string[];
+    }
+  | null;
+
+export function StudentHomeScreen({
+  data,
+  reports,
+  onOpenReport,
+  onOpenTrainer
+}: StudentHomeScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [activeFilter, setActiveFilter] = useState<(typeof filterLabels)[number]>("Все");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [infoSheet, setInfoSheet] = useState<HomeInfoSheetState>(null);
 
   const isCompact = !layout.isDesktop;
-  const filteredHistory = data.reportHistory;
+  const latestReport = reports[0];
+  const filteredHistory = useMemo(() => {
+    if (activeFilter === "Все") {
+      return reports;
+    }
+
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    return reports.filter((report) => {
+      const createdAt = new Date(report.createdAt).getTime();
+      return !Number.isNaN(createdAt) && createdAt >= dayAgo;
+    });
+  }, [activeFilter, reports]);
+
+  const latestReportStrengths = latestReport
+    ? getSectionLines(latestReport, ["Сильные стороны"]).slice(0, 3)
+    : [];
+  const latestReportGrowthPoints = latestReport
+    ? getSectionLines(latestReport, ["Зоны роста", "Зоны развития"]).slice(0, 3)
+    : [];
+  const latestReportLevel = latestReport ? getReportLevel(latestReport) : "Middle";
+  const latestReportScore = latestReport ? getReportScore(latestReport) : 0;
+
+  async function handleExport(report: ReportCard, format: "pdf" | "csv") {
+    try {
+      const message = await openExport(report, format);
+      setStatusMessage(message);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Не удалось подготовить экспорт.");
+    }
+  }
+
+  function openStatusInfo() {
+    setInfoSheet({
+      title: "Как обновляется главная",
+      description: "Главная показывает реальный последний отчет и историю после завершения тренировки.",
+      lines: [
+        "Новый отчет появляется сверху автоматически после сохранения.",
+        "Фильтр «Новые» показывает отчеты за последние 24 часа.",
+        "PDF и CSV можно выгрузить прямо из карточек отчетов."
+      ]
+    });
+  }
+
+  function openHelpInfo() {
+    setInfoSheet({
+      title: "Что доступно на главной",
+      description: "Главная больше не ведет в пустые действия и работает как реальная точка входа в report flow.",
+      lines: [
+        "Открыть последний отчет и перейти в его viewer.",
+        "Скачать PDF или CSV из последнего отчета и истории.",
+        "Если отчетов нет, перейти в тренажер и начать первую практику."
+      ]
+    });
+  }
 
   return (
     <View style={styles.screen}>
@@ -32,10 +104,16 @@ export function StudentHomeScreen({ data, onOpenTrainer }: StudentHomeScreenProp
           </Text>
         </View>
         <View style={styles.headerActions}>
-          <CircleActionButton label="◔" />
-          <CircleActionButton label="?" />
+          <CircleActionButton label="◔" onPress={openStatusInfo} />
+          <CircleActionButton label="?" onPress={openHelpInfo} />
         </View>
       </View>
+
+      {statusMessage ? (
+        <AppCard tone="mint">
+          <Text style={[styles.statusMessage, { color: theme.semantic.success }]}>{statusMessage}</Text>
+        </AppCard>
+      ) : null}
 
       <View style={[styles.contentSplit, !layout.isWide && styles.contentSplitStack]}>
         <View
@@ -52,55 +130,72 @@ export function StudentHomeScreen({ data, onOpenTrainer }: StudentHomeScreenProp
             }
           ]}
         >
-          <View style={[styles.rowBetween, styles.reportTop]}>
-            <View style={styles.reportHeading}>
-              <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Последний отчет</Text>
-              <View style={[styles.badge, { backgroundColor: theme.colors.primaryPale }]}>
-                <Text style={[styles.badgeText, { color: theme.semantic.actionPrimary }]}>{data.lastReport.badge}</Text>
+          {latestReport ? (
+            <>
+              <View style={[styles.rowBetween, styles.reportTop]}>
+                <View style={styles.reportHeading}>
+                  <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Последний отчет</Text>
+                  <View style={[styles.badge, { backgroundColor: theme.colors.primaryPale }]}>
+                    <Text style={[styles.badgeText, { color: theme.semantic.actionPrimary }]}>
+                      {latestReport.updatedAt}
+                    </Text>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
 
-          <View style={[styles.reportHeroRow, !layout.isDesktop && styles.reportHeroStack]}>
-            <View style={styles.reportIdentity}>
-              <View style={[styles.reportIconTile, { backgroundColor: theme.colors.primaryPale }]}>
-                <Text style={[styles.reportIcon, { color: theme.semantic.actionPrimary }]}>⌕</Text>
+              <View style={[styles.reportHeroRow, !layout.isDesktop && styles.reportHeroStack]}>
+                <View style={styles.reportIdentity}>
+                  <View style={[styles.reportIconTile, { backgroundColor: theme.colors.primaryPale }]}>
+                    <Text style={[styles.reportIcon, { color: theme.semantic.actionPrimary }]}>⌕</Text>
+                  </View>
+                  <View style={styles.flexBlock}>
+                    <Text style={[styles.reportTitle, { color: theme.semantic.textPrimary }]}>{latestReport.title}</Text>
+                    <Text style={[styles.reportMeta, { color: theme.semantic.textSecondary }]}>
+                      {`Модуль: ${latestReport.scenarioTitle} · Источник: ${latestReport.sourceLabel ?? "Диалог"}`}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.scoreBlock}>
+                  <Text style={[styles.scoreValue, { color: theme.semantic.textPrimary }]}>{latestReportScore}%</Text>
+                  <Text style={[styles.scoreLabel, { color: theme.semantic.actionPrimary }]}>
+                    {`Уровень: ${latestReportLevel}`}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.flexBlock}>
-                <Text style={[styles.reportTitle, { color: theme.semantic.textPrimary }]}>{data.lastReport.title}</Text>
-                <Text style={[styles.reportMeta, { color: theme.semantic.textSecondary }]}>{data.lastReport.meta}</Text>
+
+              <View style={[styles.listColumns, isCompact && styles.listColumnsStack]}>
+                <View style={styles.feedbackColumn}>
+                  <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Сильные стороны</Text>
+                  {latestReportStrengths.map((item) => (
+                    <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
+                      ✓ {item}
+                    </Text>
+                  ))}
+                </View>
+                <View style={styles.feedbackColumn}>
+                  <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
+                  {latestReportGrowthPoints.map((item) => (
+                    <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
+                      ⚠ {item}
+                    </Text>
+                  ))}
+                </View>
               </View>
-            </View>
-            <View style={styles.scoreBlock}>
-              <Text style={[styles.scoreValue, { color: theme.semantic.textPrimary }]}>{data.lastReport.averageScore}%</Text>
-              <Text style={[styles.scoreLabel, { color: theme.semantic.actionPrimary }]}>Уровень: Middle</Text>
-            </View>
-          </View>
 
-          <View style={[styles.listColumns, isCompact && styles.listColumnsStack]}>
-            <View style={styles.feedbackColumn}>
-              <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Сильные стороны</Text>
-              {data.lastReport.strengths.map((item) => (
-                <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
-                  ✓ {item}
-                </Text>
-              ))}
-            </View>
-            <View style={styles.feedbackColumn}>
-              <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
-              {data.lastReport.growthPoints.map((item) => (
-                <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
-                  ⚠ {item}
-                </Text>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.actionRow}>
-            <PrimaryActionButton label="Открыть" onPress={() => onOpenTrainer(data.activeDialogue.selectedScenarioId)} />
-            <SecondaryActionButton label="PDF" />
-            <SecondaryActionButton label="CSV" />
-          </View>
+              <View style={styles.actionRow}>
+                <PrimaryActionButton label="Открыть" onPress={() => onOpenReport(latestReport.id)} />
+                <SecondaryActionButton label="PDF" onPress={() => { void handleExport(latestReport, "pdf"); }} />
+                <SecondaryActionButton label="CSV" onPress={() => { void handleExport(latestReport, "csv"); }} />
+              </View>
+            </>
+          ) : (
+            <EmptyState
+              title="Последний отчет появится после первой практики"
+              description="Завершите диалог в тренажере, чтобы увидеть здесь реальный отчет и историю результатов."
+              actionLabel="Перейти в тренажер"
+              onAction={() => onOpenTrainer(data.activeDialogue.selectedScenarioId)}
+            />
+          )}
         </View>
 
         <View
@@ -184,61 +279,82 @@ export function StudentHomeScreen({ data, onOpenTrainer }: StudentHomeScreenProp
         ]}
       >
         <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>История отчетов</Text>
-        <View style={styles.tableHeader}>
-          {["Дата", "Модуль", "Сценарий", "Уровень", "Экспорт"].map((title) => (
-            <Text
-              key={title}
-              style={[styles.tableHeaderText, { color: theme.semantic.textMuted }]}
-            >
-              {title}
-            </Text>
-          ))}
-        </View>
-
-        {filteredHistory.map((item) => (
-          <View key={item.id} style={[styles.tableRow, { borderTopColor: theme.semantic.borderSubtle }]}>
-            <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.date}</Text>
-            <Text style={[styles.tableText, styles.tableStrong, { color: theme.semantic.textSecondary }]}>{item.module}</Text>
-            <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.scenario}</Text>
-            <LevelBadge level={item.level} />
-            <View style={styles.exportCell}>
-              <SecondaryActionButton label="PDF" compact />
-              <SecondaryActionButton label="CSV" compact />
+        {filteredHistory.length > 0 ? (
+          <>
+            <View style={styles.tableHeader}>
+              {["Дата", "Модуль", "Сценарий", "Уровень", "Экспорт"].map((title) => (
+                <Text
+                  key={title}
+                  style={[styles.tableHeaderText, { color: theme.semantic.textMuted }]}
+                >
+                  {title}
+                </Text>
+              ))}
             </View>
-          </View>
-        ))}
 
-        <View style={[styles.paginationRow, !layout.isDesktop && styles.paginationStack]}>
-          <Text style={[styles.paginationMeta, { color: theme.semantic.textMuted }]}>Показано 1–5 из 18 отчетов</Text>
-          <View style={styles.paginationControls}>
-            {["1", "2", "3", "4"].map((page, index) => (
-              <Pressable
-                key={page}
-                onPress={() => {}}
-                style={[
-                  styles.pageButton,
-                  {
-                    backgroundColor: index === 0 ? theme.semantic.actionPrimary : theme.semantic.card,
-                    borderColor: theme.semantic.border
-                  }
-                ]}
-              >
-                <Text style={[styles.pageButtonText, { color: index === 0 ? "#FFFFFF" : theme.semantic.textPrimary }]}>{page}</Text>
-              </Pressable>
+            {filteredHistory.map((item) => (
+              <View key={item.id} style={[styles.tableRow, { borderTopColor: theme.semantic.borderSubtle }]}>
+                <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.updatedAt}</Text>
+                <Pressable onPress={() => onOpenReport(item.id)} style={styles.tableLinkCell}>
+                  <Text style={[styles.tableText, styles.tableStrong, { color: theme.semantic.actionPrimary }]}>
+                    {item.title}
+                  </Text>
+                </Pressable>
+                <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.scenarioTitle}</Text>
+                <LevelBadge level={toHistoryLevel(item)} />
+                <View style={styles.exportCell}>
+                  <SecondaryActionButton
+                    label="PDF"
+                    compact
+                    onPress={() => { void handleExport(item, "pdf"); }}
+                  />
+                  <SecondaryActionButton
+                    label="CSV"
+                    compact
+                    onPress={() => { void handleExport(item, "csv"); }}
+                  />
+                </View>
+              </View>
             ))}
-          </View>
-        </View>
+
+            <View style={[styles.paginationRow, !layout.isDesktop && styles.paginationStack]}>
+              <Text style={[styles.paginationMeta, { color: theme.semantic.textMuted }]}>
+                {`Показано ${filteredHistory.length} из ${reports.length} отчетов`}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <EmptyState
+            title="История отчетов пока пуста"
+            description="Сначала завершите хотя бы одну практику, и история заполнится реальными отчетами без mock-данных."
+            actionLabel="Начать тренировку"
+            onAction={() => onOpenTrainer(data.activeDialogue.selectedScenarioId)}
+          />
+        )}
       </View>
+
+      <AppBottomSheet
+        visible={infoSheet !== null}
+        title={infoSheet?.title ?? ""}
+        description={infoSheet?.description}
+        onClose={() => setInfoSheet(null)}
+      >
+        {infoSheet?.lines.map((line) => (
+          <Text key={line} style={[styles.sheetLine, { color: theme.semantic.textPrimary }]}>
+            • {line}
+          </Text>
+        ))}
+      </AppBottomSheet>
     </View>
   );
 }
 
-function CircleActionButton({ label }: { label: string }) {
+function CircleActionButton({ label, onPress }: { label: string; onPress: () => void }) {
   const theme = useTheme();
 
   return (
     <Pressable
-      onPress={() => {}}
+      onPress={onPress}
       style={[styles.circleButton, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}
     >
       <Text style={[styles.circleButtonText, { color: theme.semantic.textPrimary }]}>{label}</Text>
@@ -248,9 +364,18 @@ function CircleActionButton({ label }: { label: string }) {
 
 function PrimaryActionButton({ label, onPress }: { label: string; onPress?: () => void }) {
   const theme = useTheme();
+  const isDisabled = !onPress;
 
   return (
-    <Pressable onPress={onPress ?? (() => {})} style={[styles.primaryButton, { backgroundColor: theme.semantic.actionPrimary }]}>
+    <Pressable
+      onPress={onPress}
+      disabled={isDisabled}
+      style={[
+        styles.primaryButton,
+        { backgroundColor: theme.semantic.actionPrimary },
+        isDisabled && styles.buttonDisabled
+      ]}
+    >
       <Text style={styles.primaryButtonText}>{label}</Text>
     </Pressable>
   );
@@ -259,22 +384,27 @@ function PrimaryActionButton({ label, onPress }: { label: string; onPress?: () =
 function SecondaryActionButton({
   label,
   compact,
-  wide
+  wide,
+  onPress
 }: {
   label: string;
   compact?: boolean;
   wide?: boolean;
+  onPress?: () => void;
 }) {
   const theme = useTheme();
+  const isDisabled = !onPress;
 
   return (
     <Pressable
-      onPress={() => {}}
+      onPress={onPress}
+      disabled={isDisabled}
       style={[
         styles.secondaryButton,
         compact && styles.secondaryButtonCompact,
         wide && styles.secondaryButtonWide,
-        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border },
+        isDisabled && styles.buttonDisabled
       ]}
     >
       <Text style={[styles.secondaryButtonText, { color: theme.semantic.textPrimary }]}>{label}</Text>
@@ -282,7 +412,7 @@ function SecondaryActionButton({
   );
 }
 
-function LevelBadge({ level }: { level: ReportHistoryItem["level"] }) {
+function LevelBadge({ level }: { level: "junior" | "middle" | "senior" }) {
   const theme = useTheme();
   const config =
     level === "senior"
@@ -296,6 +426,54 @@ function LevelBadge({ level }: { level: ReportHistoryItem["level"] }) {
       <Text style={[styles.statusBadgeText, { color: config.color }]}>{config.label}</Text>
     </View>
   );
+}
+
+function getSectionLines(report: ReportCard, titles: string[]): string[] {
+  const section = report.previewSections.find((item) => titles.includes(item.title));
+  return section?.lines ?? [];
+}
+
+function getReportLevel(report: ReportCard): "Junior" | "Middle" | "Senior" {
+  const resumeSection = report.previewSections.find((section) => section.title === "Краткое резюме");
+  const levelLine = resumeSection?.lines.find((line) => line.startsWith("Общий уровень:"));
+  if (levelLine?.includes("Senior")) {
+    return "Senior";
+  }
+  if (levelLine?.includes("Junior")) {
+    return "Junior";
+  }
+  return "Middle";
+}
+
+function getReportScore(report: ReportCard): number {
+  const competencySection = report.previewSections.find((section) => section.title === "Компетенции");
+  const lines = competencySection?.lines ?? [];
+  if (lines.length === 0) {
+    return 0;
+  }
+
+  const total = lines.reduce((sum, line) => {
+    if (line.includes(": Senior")) {
+      return sum + 92;
+    }
+    if (line.includes(": Junior")) {
+      return sum + 60;
+    }
+    return sum + 78;
+  }, 0);
+
+  return Math.round(total / lines.length);
+}
+
+function toHistoryLevel(report: ReportCard): "junior" | "middle" | "senior" {
+  const level = getReportLevel(report);
+  if (level === "Senior") {
+    return "senior";
+  }
+  if (level === "Junior") {
+    return "junior";
+  }
+  return "middle";
 }
 
 function toneBackground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warning" | "violet") {
@@ -344,6 +522,15 @@ const styles = StyleSheet.create({
   pageSubtitle: {
     fontSize: 16,
     lineHeight: 24
+  },
+  statusMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "800"
+  },
+  sheetLine: {
+    fontSize: 15,
+    lineHeight: 22
   },
   headerActions: {
     flexDirection: "row",
@@ -518,6 +705,9 @@ const styles = StyleSheet.create({
   secondaryButtonWide: {
     paddingHorizontal: 20
   },
+  buttonDisabled: {
+    opacity: 0.5
+  },
   secondaryButtonText: {
     fontSize: 14,
     fontWeight: "700"
@@ -615,6 +805,9 @@ const styles = StyleSheet.create({
     flex: 1.2,
     fontSize: 14,
     lineHeight: 20
+  },
+  tableLinkCell: {
+    flex: 1.2
   },
   tableStrong: {
     fontWeight: "500"

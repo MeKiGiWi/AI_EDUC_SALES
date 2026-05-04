@@ -17,10 +17,6 @@ const routeLabels: Record<RouteName, string> = {
   Landing: "Лендинг",
   StudentHome: "Главная",
   Simulator: "Тренажер",
-  Scenarios: "Сценарии",
-  ManagerDashboard: "Панель команды",
-  HrDashboard: "HR / L&D",
-  Admin: "Администрирование",
   Reports: "Отчеты",
   ReportViewer: "Просмотр отчета"
 };
@@ -98,7 +94,7 @@ export function DesktopSidebar({
           </View>
 
           <Pressable
-            onPress={() => {}}
+            onPress={() => onNavigate("Landing")}
             style={[
               styles.statusRow,
               { borderColor: theme.semantic.border, backgroundColor: theme.semantic.backgroundWarm }

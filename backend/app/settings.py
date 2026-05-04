@@ -24,6 +24,7 @@ class LLMSettings(BaseSettings):
     LLM_MODEL: str = "qwen-turbo"
     LLM_TEMPERATURE: float = Field(default=0.2, ge=0.0, le=1.0)
     LLM_REASONING_EFFORT: Literal["minimal", "low", "medium", "high", "none"] | None = None
+    MIN_MANAGER_TURNS: int = Field(default=10, ge=1, le=100)
     # NEVER FUCKING CHANGE THIS CLASS, ALWAYS ASK ME FOR THAT
 
 

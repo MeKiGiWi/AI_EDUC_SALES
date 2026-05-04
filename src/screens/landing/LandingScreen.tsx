@@ -24,7 +24,6 @@ import {
     type LandingSectionId,
 } from "../../data/landingContent";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
-import { roleLabels } from "../../navigation/routes";
 import { useTheme } from "../../theme/useTheme";
 import type { RoleWorkspaceOption, UserRole } from "../../types/academy";
 
@@ -36,7 +35,6 @@ interface LandingScreenProps {
 type CtaSheetKind = "demo" | "implementation";
 
 type LandingSheetState =
-    | { kind: "roles" }
     | { kind: CtaSheetKind }
     | { kind: "direction"; direction: LandingDirectionItem }
     | null;
@@ -331,10 +329,10 @@ export function LandingScreen({
         setSheetState({ kind });
     }
 
-    function openRolePicker() {
+    function openStudentWorkspace() {
         setSubmittedKind(null);
         setIsMobileMenuOpen(false);
-        setSheetState({ kind: "roles" });
+        onEnterRole("student");
     }
 
     function scrollToSection(sectionId: LandingSectionId) {
@@ -377,21 +375,17 @@ export function LandingScreen({
     }
 
     const ctaTitle =
-        sheetState?.kind === "roles"
-            ? "Открыть демо-кабинет"
-            : sheetState?.kind === "implementation"
-              ? "Обсудить внедрение"
-              : sheetState?.kind === "direction"
-                ? sheetState.direction.title
-                : "Записаться на демо";
+        sheetState?.kind === "implementation"
+            ? "Обсудить внедрение"
+            : sheetState?.kind === "direction"
+              ? sheetState.direction.title
+              : "Записаться на демо";
     const ctaDescription =
-        sheetState?.kind === "roles"
-            ? "Выберите роль и сразу откройте демонстрационный контур продукта для показа сервиса."
-            : sheetState?.kind === "implementation"
-              ? "Соберите задачу внедрения под ваш контур: сценарии, знания, отчёты и интеграции."
-              : sheetState?.kind === "direction"
-                ? `${sheetState.direction.audience}. ${sheetState.direction.outcome}.`
-                : "Оставьте задачу команды, и мы покажем, как может выглядеть база знаний, тренажёр и отчёты.";
+        sheetState?.kind === "implementation"
+            ? "Соберите задачу внедрения под ваш контур: сценарии, знания, отчёты и интеграции."
+            : sheetState?.kind === "direction"
+              ? `${sheetState.direction.audience}. ${sheetState.direction.outcome}.`
+              : "Оставьте задачу команды, и мы покажем, как может выглядеть база знаний, тренажёр и отчёты.";
     const actionSheetKind: CtaSheetKind =
         sheetState?.kind === "implementation" ? "implementation" : "demo";
     const viewportBottom = scrollOffset + layout.height;
@@ -671,9 +665,9 @@ export function LandingScreen({
 
                                     <AppButton
                                         label="Попробовать"
-                                        onPress={openRolePicker}
+                                        onPress={openStudentWorkspace}
                                         tone="secondary"
-                                        accessibilityLabel="Открыть демо-кабинеты"
+                                        accessibilityLabel="Сразу открыть кабинет ученика"
                                     />
                                 </View>
                             </View>
@@ -767,10 +761,10 @@ export function LandingScreen({
                                         >
                                             <AppButton
                                                 label="Попробовать"
-                                                onPress={openRolePicker}
+                                                onPress={openStudentWorkspace}
                                                 tone="secondary"
                                                 fullWidth
-                                                accessibilityLabel="Открыть демо-кабинеты"
+                                                accessibilityLabel="Сразу открыть кабинет ученика"
                                             />
                                         </View>
                                     </View>
@@ -833,7 +827,7 @@ export function LandingScreen({
                                 >
                                     <AppButton
                                         label="Попробовать"
-                                        onPress={openRolePicker}
+                                        onPress={openStudentWorkspace}
                                         tone="primary"
                                         {...compactButtonProps}
                                     />
@@ -2613,98 +2607,7 @@ export function LandingScreen({
                 description={ctaDescription}
                 onClose={() => setSheetState(null)}
             >
-                {sheetState?.kind === "roles" ? (
-                    <View style={styles.buttonColumn}>
-                        {roleOptions.map((option) => (
-                            <Pressable
-                                key={option.role}
-                                onPress={() => {
-                                    setSheetState(null);
-                                    onEnterRole(option.role);
-                                }}
-                                accessible={true}
-                                accessibilityRole="button"
-                                style={[
-                                    styles.roleCard,
-                                    {
-                                        borderColor: theme.semantic.border,
-                                        backgroundColor:
-                                            theme.semantic.cardSubtle,
-                                    },
-                                ]}
-                            >
-                                <View style={styles.roleHeader}>
-                                    <Text
-                                        style={[
-                                            styles.cardTitle,
-                                            {
-                                                color: theme.semantic
-                                                    .textPrimary,
-                                            },
-                                        ]}
-                                    >
-                                        {option.title}
-                                    </Text>
-                                    <StatusPill
-                                        label={option.accessLabel}
-                                        tone="success"
-                                    />
-                                </View>
-                                <Text
-                                    style={[
-                                        styles.bodyText,
-                                        {
-                                            color: theme.semantic.textSecondary,
-                                        },
-                                    ]}
-                                >
-                                    {option.summary}
-                                </Text>
-                                <View style={styles.bulletList}>
-                                    {option.capabilities.map((capability) => (
-                                        <View
-                                            key={capability}
-                                            style={styles.bulletRow}
-                                        >
-                                            <View
-                                                style={[
-                                                    styles.bulletDot,
-                                                    {
-                                                        backgroundColor:
-                                                            theme.semantic
-                                                                .actionPrimary,
-                                                    },
-                                                ]}
-                                            />
-                                            <Text
-                                                style={[
-                                                    styles.bulletText,
-                                                    {
-                                                        color: theme.semantic
-                                                            .textPrimary,
-                                                    },
-                                                ]}
-                                            >
-                                                {capability}
-                                            </Text>
-                                        </View>
-                                    ))}
-                                </View>
-                                <Text
-                                    style={[
-                                        styles.roleEnterLabel,
-                                        {
-                                            color: theme.semantic.actionPrimary,
-                                        },
-                                    ]}
-                                >
-                                    Перейти в кабинет{" "}
-                                    {roleLabels[option.role].toLowerCase()}
-                                </Text>
-                            </Pressable>
-                        ))}
-                    </View>
-                ) : sheetState?.kind === "direction" ? (
+                {sheetState?.kind === "direction" ? (
                     <>
                         <View
                             style={[

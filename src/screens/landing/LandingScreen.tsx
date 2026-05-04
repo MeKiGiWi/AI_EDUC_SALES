@@ -84,6 +84,81 @@ function Reveal({
     );
 }
 
+function TriggeredReveal({
+    children,
+    active,
+    delay = 0,
+    duration = 920,
+    variant = "up",
+    distance = 34,
+    style,
+}: {
+    children: ReactNode;
+    active: boolean;
+    delay?: number;
+    duration?: number;
+    variant?: "up" | "left" | "right" | "fade";
+    distance?: number;
+    style?: object;
+}) {
+    const hasAnimated = useRef(false);
+    const opacity = useRef(new Animated.Value(0)).current;
+    const translateX = useRef(
+        new Animated.Value(
+            variant === "left" ? -distance : variant === "right" ? distance : 0,
+        ),
+    ).current;
+    const translateY = useRef(
+        new Animated.Value(variant === "up" ? distance * 0.5 : 0),
+    ).current;
+
+    useEffect(() => {
+        if (!active || hasAnimated.current) {
+            return;
+        }
+
+        hasAnimated.current = true;
+
+        Animated.parallel([
+            Animated.timing(opacity, {
+                toValue: 1,
+                duration,
+                delay,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }),
+            Animated.timing(translateX, {
+                toValue: 0,
+                duration: duration + 140,
+                delay,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }),
+            Animated.timing(translateY, {
+                toValue: 0,
+                duration: duration + 140,
+                delay,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [active, delay, duration, opacity, translateX, translateY]);
+
+    return (
+        <Animated.View
+            style={[
+                style,
+                {
+                    opacity,
+                    transform: [{ translateX }, { translateY }],
+                },
+            ]}
+        >
+            {children}
+        </Animated.View>
+    );
+}
+
 export function LandingScreen({
     roleOptions,
     onEnterRole,
@@ -98,6 +173,7 @@ export function LandingScreen({
         Partial<Record<LandingSectionId, number>>
     >({});
     const [headerHeight, setHeaderHeight] = useState(92);
+    const [scrollOffset, setScrollOffset] = useState(0);
     const [contactName, setContactName] = useState("");
     const [contactCompany, setContactCompany] = useState("");
     const [contactGoal, setContactGoal] = useState("");
@@ -106,7 +182,6 @@ export function LandingScreen({
     );
 
     const isDesktop = layout.isDesktop;
-    const isTablet = layout.isTablet;
     const cardWidth = isDesktop ? "48.6%" : "100%";
     const metricWidth = layout.isWide ? "23.4%" : isDesktop ? "48.6%" : "100%";
     const stageWidth = layout.isWide ? "31.8%" : isDesktop ? "48.6%" : "100%";
@@ -166,6 +241,7 @@ export function LandingScreen({
     }
 
     function handleScroll(offsetY: number) {
+        setScrollOffset(offsetY);
         const probeY = offsetY + headerHeight + 40;
         let currentSection = activeNavId;
 
@@ -196,6 +272,17 @@ export function LandingScreen({
               : "Оставьте задачу команды, и мы покажем, как может выглядеть база знаний, тренажёр и отчёты.";
     const actionSheetKind: CtaSheetKind =
         sheetState?.kind === "implementation" ? "implementation" : "demo";
+    const viewportBottom = scrollOffset + layout.height;
+
+    function isSectionRevealActive(sectionId: LandingSectionId, offset = 0) {
+        const sectionY = sectionOffsets[sectionId];
+
+        if (typeof sectionY !== "number") {
+            return false;
+        }
+
+        return viewportBottom >= sectionY + offset;
+    }
 
     return (
         <SafeAreaView
@@ -511,8 +598,10 @@ export function LandingScreen({
                                                     },
                                                 ]}
                                             >
-                                                Мы уже обучали команду, но в
-                                                разговорах это почти не видно.
+                                                После встречи менеджеры часто
+                                                теряют следующий шаг, и клиент
+                                                уходит без понятной
+                                                договорённости.
                                             </Text>
                                         </View>
                                         <View
@@ -548,9 +637,10 @@ export function LandingScreen({
                                                     },
                                                 ]}
                                             >
-                                                Давайте уточню, где навык
-                                                теряется: в диагностике,
-                                                аргументации или следующем шаге?
+                                                Покажите, на каком этапе чаще
+                                                всего теряется контроль:
+                                                диагностика, аргументация или
+                                                фиксация следующего шага?
                                             </Text>
                                         </View>
                                     </View>
@@ -577,7 +667,7 @@ export function LandingScreen({
                                             >
                                                 Soft skills
                                             </Text>
-                                            <MetricBar value={78} />
+                                            <MetricBar value={81} />
                                         </View>
                                         <View
                                             style={[
@@ -600,7 +690,7 @@ export function LandingScreen({
                                             >
                                                 Hard skills
                                             </Text>
-                                            <MetricBar value={86} />
+                                            <MetricBar value={74} />
                                         </View>
                                     </View>
 
@@ -622,9 +712,9 @@ export function LandingScreen({
                                                 },
                                             ]}
                                         >
-                                            Прогресс сценария
+                                            Следующий шаг тренировки
                                         </Text>
-                                        <MetricBar value={64} />
+                                        <MetricBar value={58} />
                                         <Text
                                             style={[
                                                 styles.progressCaption,
@@ -634,9 +724,11 @@ export function LandingScreen({
                                                 },
                                             ]}
                                         >
-                                            После диалога пользователь получает
-                                            оценку по компетенциям и
-                                            рекомендации к следующей тренировке.
+                                            Система подсказывает, какой навык
+                                            стоит доработать в следующей
+                                            практике, чтобы разговор не
+                                            разваливался после основной части
+                                            диалога.
                                         </Text>
                                     </View>
                                 </AppCard>
@@ -756,9 +848,16 @@ export function LandingScreen({
                                     <View style={styles.problemList}>
                                         {landingContent.problemItems.map(
                                             (item, index) => (
-                                                <Reveal
+                                                <TriggeredReveal
                                                     key={item.title}
-                                                    delay={200 + index * 60}
+                                                    active={isSectionRevealActive(
+                                                        "problem",
+                                                        120,
+                                                    )}
+                                                    delay={index * 140}
+                                                    duration={980}
+                                                    distance={52}
+                                                    variant="left"
                                                 >
                                                     <AppCard
                                                         style={
@@ -820,14 +919,20 @@ export function LandingScreen({
                                                             {item.description}
                                                         </Text>
                                                     </AppCard>
-                                                </Reveal>
+                                                </TriggeredReveal>
                                             ),
                                         )}
                                     </View>
                                 </View>
 
-                                <Reveal
-                                    delay={320}
+                                <TriggeredReveal
+                                    active={isSectionRevealActive(
+                                        "problem",
+                                        250,
+                                    )}
+                                    delay={80}
+                                    duration={860}
+                                    variant="fade"
                                     style={styles.problemAccentWrap}
                                 >
                                     <View
@@ -851,22 +956,26 @@ export function LandingScreen({
                                                 },
                                             ]}
                                         />
-                                        <Text
-                                            style={styles.problemAccentEyebrow}
-                                        >
-                                            Ключевая мысль
-                                        </Text>
-                                        <Text style={styles.problemAccentTitle}>
-                                            {landingContent.problemAccent}
-                                        </Text>
-                                        <Text style={styles.problemAccentBody}>
-                                            В материалах Академии продаж эта
-                                            мысль вынесена как базовый принцип:
-                                            безопасная практика должна
-                                            происходить до реального диалога.
-                                        </Text>
+                                        <View style={styles.problemAccentCopy}>
+                                            <Text
+                                                style={
+                                                    styles.problemAccentTitle
+                                                }
+                                            >
+                                                {landingContent.problemAccent}
+                                            </Text>
+                                            <Text
+                                                style={styles.problemAccentBody}
+                                            >
+                                                В материалах Академии продаж эта
+                                                мысль вынесена как базовый
+                                                принцип: безопасная практика
+                                                должна происходить до реального
+                                                диалога.
+                                            </Text>
+                                        </View>
                                     </View>
-                                </Reveal>
+                                </TriggeredReveal>
                             </View>
                         </Reveal>
                     </View>
@@ -1166,9 +1275,16 @@ export function LandingScreen({
                                     <View style={styles.trainerList}>
                                         {landingContent.trainerItems.map(
                                             (item, index) => (
-                                                <Reveal
+                                                <TriggeredReveal
                                                     key={item.title}
-                                                    delay={280 + index * 60}
+                                                    active={isSectionRevealActive(
+                                                        "howItWorks",
+                                                        110,
+                                                    )}
+                                                    delay={index * 140}
+                                                    duration={980}
+                                                    distance={52}
+                                                    variant="left"
                                                 >
                                                     <View
                                                         style={[
@@ -1238,14 +1354,21 @@ export function LandingScreen({
                                                             </Text>
                                                         </View>
                                                     </View>
-                                                </Reveal>
+                                                </TriggeredReveal>
                                             ),
                                         )}
                                     </View>
                                 </View>
 
-                                <Reveal
-                                    delay={340}
+                                <TriggeredReveal
+                                    active={isSectionRevealActive(
+                                        "howItWorks",
+                                        230,
+                                    )}
+                                    delay={90}
+                                    duration={980}
+                                    distance={56}
+                                    variant="right"
                                     style={styles.trainerMockWrap}
                                 >
                                     <AppCard style={styles.trainerMockCard}>
@@ -1486,7 +1609,7 @@ export function LandingScreen({
                                             </View>
                                         </View>
                                     </AppCard>
-                                </Reveal>
+                                </TriggeredReveal>
                             </View>
                         </Reveal>
                     </View>
@@ -2521,6 +2644,7 @@ const styles = StyleSheet.create({
         padding: 28,
         justifyContent: "flex-end",
         overflow: "hidden",
+        gap: 18,
     },
     problemAccentGlow: {
         position: "absolute",
@@ -2531,21 +2655,47 @@ const styles = StyleSheet.create({
         borderRadius: 180,
         opacity: 0.2,
     },
-    problemAccentEyebrow: {
-        color: "rgba(255,255,255,0.72)",
-        fontSize: 12,
-        lineHeight: 16,
+    problemAccentSupport: {
+        borderWidth: 1,
+        borderRadius: 24,
+        padding: 14,
+        gap: 10,
+    },
+    problemAccentSupportRow: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 10,
+    },
+    problemAccentSupportLead: {
+        color: "rgba(255,255,255,0.88)",
+        fontSize: 14,
+        lineHeight: 21,
+        fontWeight: "600",
+        marginBottom: 4,
+    },
+    problemAccentSupportDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    problemAccentSupportText: {
+        flex: 1,
+        color: "rgba(255,255,255,0.88)",
+        fontSize: 13,
+        lineHeight: 20,
         fontWeight: "700",
-        textTransform: "uppercase",
-        letterSpacing: 1.6,
+    },
+    problemAccentCopy: {
+        marginTop: "auto",
+        gap: 10,
     },
     problemAccentTitle: {
         color: "#FFFFFF",
         fontSize: 34,
         lineHeight: 38,
         fontWeight: "800",
-        marginTop: 12,
-        marginBottom: 14,
+        marginBottom: 12,
     },
     problemAccentBody: {
         color: "rgba(255,255,255,0.84)",
@@ -2690,10 +2840,13 @@ const styles = StyleSheet.create({
     },
     trainerMockWrap: {
         flex: 1,
+        alignSelf: "stretch",
     },
     trainerMockCard: {
+        flex: 1,
         minHeight: 520,
         gap: 16,
+        justifyContent: "space-between",
     },
     mockWindowHeader: {
         gap: 10,

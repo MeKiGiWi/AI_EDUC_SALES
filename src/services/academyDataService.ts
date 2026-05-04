@@ -114,10 +114,14 @@ function savedReportToReportCard(
     title: saved.displayName,
     role,
     reportType: "student_progress",
+    scenarioTitle: saved.scenarioTitle,
+    status: "ready",
     summary: evaluation.overall_comment,
     format: "pdf",
+    createdAt: saved.createdAt,
     updatedAt,
     ownerLabel: roleOwnerLabels[role],
+    sourceLabel: "Диалог в чате",
     availableFormats: ["pdf", "csv"],
     previewSections: [
       {

@@ -5,10 +5,12 @@ export type RootStackParamList = {
   StudentHome: undefined;
   KnowledgeBase: { materialId?: string; categoryId?: KnowledgeCategoryId } | undefined;
   Simulator: { scenarioId?: string; materialId?: string } | undefined;
+  Scenarios: undefined;
   ManagerDashboard: undefined;
   HrDashboard: undefined;
   Admin: undefined;
   Reports: { highlightReportId?: string } | undefined;
+  ReportViewer: { reportId: string };
 };
 
 export type RouteName = keyof RootStackParamList;
@@ -37,8 +39,13 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
   },
   Simulator: {
     route: "Simulator",
-    title: "Тренажер",
-    description: "Выбери модуль, затем сценарий и проведи практику диалога с разбором по компетенциям."
+    title: "Чат",
+    description: "Основное рабочее пространство для диалога с AI по выбранному сценарию."
+  },
+  Scenarios: {
+    route: "Scenarios",
+    title: "Сценарии",
+    description: "Выберите режим работы AI под вашу задачу."
   },
   ManagerDashboard: {
     route: "ManagerDashboard",
@@ -58,22 +65,27 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
   Reports: {
     route: "Reports",
     title: "Отчеты",
-    description: "Выгрузки, правила отправки и рабочая аналитика"
+    description: "Здесь сохраняются результаты ваших сценариев."
+  },
+  ReportViewer: {
+    route: "ReportViewer",
+    title: "Просмотр отчета",
+    description: "Откройте результат сценария и продолжите работу из отчета."
   }
 };
 
 export const roleHomeRoute: Record<UserRole, RouteName> = {
-  student: "StudentHome",
-  manager: "ManagerDashboard",
-  hr: "HrDashboard",
-  admin: "Admin"
+  student: "Simulator",
+  manager: "Simulator",
+  hr: "Reports",
+  admin: "Reports"
 };
 
 export const tabsByRole: Record<UserRole, RouteName[]> = {
-  student: ["StudentHome", "Simulator", "Reports"],
-  manager: ["ManagerDashboard", "Simulator", "Reports"],
-  hr: ["HrDashboard", "Reports"],
-  admin: ["Admin", "Reports"]
+  student: ["Simulator", "Scenarios", "Reports"],
+  manager: ["Simulator", "Scenarios", "Reports"],
+  hr: ["Simulator", "Scenarios", "Reports"],
+  admin: ["Simulator", "Scenarios", "Reports"]
 };
 
 export const roleLabels: Record<UserRole, string> = {
@@ -86,6 +98,10 @@ export const roleLabels: Record<UserRole, string> = {
 export function isRouteAllowedForRole(route: RouteName, role: UserRole) {
   if (route === "Landing") {
     return true;
+  }
+
+  if (route === "ReportViewer") {
+    return tabsByRole[role].includes("Reports");
   }
 
   return tabsByRole[role].includes(route);

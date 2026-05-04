@@ -1,32 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import { hrDashboardData, roleWorkspaceOptions } from "../data/academyData";
+import { BottomTabs } from "../components/layout/BottomTabs";
 import { DesktopSidebar } from "../components/layout/DesktopSidebar";
 import { MobileHeader } from "../components/layout/MobileHeader";
-import { BottomTabs } from "../components/layout/BottomTabs";
-import { StudentWorkspaceNav } from "../components/student/StudentWorkspaceNav";
 import { AppScreen } from "../components/ui/AppScreen";
+import { roleWorkspaceOptions } from "../data/academyData";
 import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
 import { LandingScreen } from "../screens/landing/LandingScreen";
-import { StudentHomeScreen } from "../screens/student/StudentHomeScreen";
-import { SimulatorScreen } from "../screens/simulator/SimulatorScreen";
-import { ManagerDashboardScreen } from "../screens/manager/ManagerDashboardScreen";
-import { HrDashboardScreen } from "../screens/hr/HrDashboardScreen";
-import { AdminScreen } from "../screens/admin/AdminScreen";
+import { ReportViewerScreen } from "../screens/reports/ReportViewerScreen";
 import { ReportsScreen } from "../screens/reports/ReportsScreen";
+import { ScenariosScreen } from "../screens/scenarios/ScenariosScreen";
+import { SimulatorScreen } from "../screens/simulator/SimulatorScreen";
 import { academyDataService } from "../services/academyDataService";
 import { useTheme } from "../theme/useTheme";
 import type {
   AcademyUser,
-  AdminSettings,
-  HrDashboard,
-  KnowledgeSection,
-  KnowledgeMaterial,
-  ManagerDashboard,
   ReportCard,
   SimulatorEvaluationPayloadDto,
-  StudentDashboard,
   UserRole
 } from "../types/academy";
 import {
@@ -47,51 +38,35 @@ export function AppNavigator() {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [activeRole, setActiveRole] = useState<UserRole>("student");
-  const [routeState, setRouteState] = useState<RouteState>({ name: "Landing" });
-  const [loading, setLoading] = useState(true);
+  const [routeState, setRouteState] = useState<RouteState>({ name: "Simulator" });
   const [currentUser, setCurrentUser] = useState<AcademyUser | null>(null);
-  const [studentDashboard, setStudentDashboard] = useState<StudentDashboard | null>(null);
-  const [knowledgeSections, setKnowledgeSections] = useState<KnowledgeSection[]>([]);
-  const [managerDashboard, setManagerDashboard] = useState<ManagerDashboard | null>(null);
-  const [hrDashboard, setHrDashboard] = useState<HrDashboard | null>(null);
-  const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
   const [reports, setReports] = useState<ReportCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeScenarioId, setActiveScenarioId] = useState<string | undefined>();
 
   useEffect(() => {
-    async function loadData() {
+    async function loadWorkspace() {
       setLoading(true);
-
-      const [
-        studentData,
-        knowledgeData,
-        managerData,
-        hrData,
-        adminData,
-        reportData
-      ] = await Promise.all([
-        academyDataService.getStudentDashboard(),
-        academyDataService.getKnowledgeSections(),
-        academyDataService.getManagerDashboard(),
-        academyDataService.getHrDashboard(),
-        academyDataService.getAdminSettings(),
+      const [user, reportData] = await Promise.all([
+        academyDataService.getCurrentUser(activeRole),
         academyDataService.getReports(activeRole)
       ]);
-
-      setStudentDashboard(studentData);
-      setKnowledgeSections(knowledgeData);
-      setManagerDashboard(managerData);
-      setHrDashboard(hrData);
-      setAdminSettings(adminData);
+      setCurrentUser(user);
       setReports(reportData);
       setLoading(false);
     }
 
-    loadData().catch(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    academyDataService.getCurrentUser(activeRole).then(setCurrentUser);
+    loadWorkspace().catch(() => setLoading(false));
   }, [activeRole]);
+
+  function navigate<T extends RouteName>(route: T, params?: RootStackParamList[T]) {
+    if (!isRouteAllowedForRole(route, activeRole)) {
+      setRouteState({ name: roleHomeRoute[activeRole] });
+      return;
+    }
+
+    setRouteState({ name: route, params });
+  }
 
   function goToLanding() {
     setRouteState({ name: "Landing" });
@@ -102,52 +77,63 @@ export function AppNavigator() {
     setRouteState({ name: roleHomeRoute[role] });
   }
 
-  function navigate<T extends RouteName>(route: T, params?: RootStackParamList[T]) {
-    if (route === "Landing") {
-      goToLanding();
+  function launchScenario(scenarioId: string) {
+    setActiveScenarioId(scenarioId);
+    navigate("Simulator", { scenarioId });
+  }
+
+  function continueChat(scenarioId?: string) {
+    if (scenarioId) {
+      launchScenario(scenarioId);
       return;
     }
 
-    if (!isRouteAllowedForRole(route, activeRole)) {
-      setRouteState({ name: roleHomeRoute[activeRole] });
+    navigate("Simulator");
+  }
+
+  function openReport(reportId?: string) {
+    if (reportId) {
+      navigate("ReportViewer", { reportId });
       return;
     }
 
-    setRouteState({ name: route, params });
+    navigate("Reports");
   }
 
   async function handleSimulatorReportSaved(payload: {
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
-  }) {
+  }): Promise<ReportCard[]> {
     const allReports = await academyDataService.saveLatestSimulatorReport({
       role: activeRole,
       scenarioTitle: payload.scenarioTitle,
       evaluation: payload.evaluation
     });
     setReports(allReports);
+    return allReports;
   }
 
+  const visibleRoutes = useMemo(() => visibleRoutesForRole(activeRole), [activeRole]);
+  const navActiveRoute = routeState.name === "ReportViewer" ? "Reports" : routeState.name;
   const footer = useMemo(
     () =>
-      routeState.name === "Landing" || layout.isDesktop ? null : (
+      layout.isDesktop || routeState.name === "Landing" ? null : (
         <BottomTabs
-          routes={visibleRoutesForRole(activeRole)}
-          activeRoute={routeState.name}
+          routes={visibleRoutes}
+          activeRoute={navActiveRoute}
           onNavigate={(route) => navigate(route)}
         />
       ),
-    [activeRole, layout.isDesktop, routeState.name]
+    [layout.isDesktop, navActiveRoute, routeState.name, visibleRoutes]
   );
-  const knowledgeMaterials: KnowledgeMaterial[] = knowledgeSections.flatMap((section) => section.materials);
 
-  if (loading || !currentUser || !studentDashboard || !managerDashboard || !hrDashboard || !adminSettings) {
+  if (loading || !currentUser) {
     return (
       <AppScreen variant="app">
         <View style={styles.loader}>
           <ActivityIndicator size="large" color={theme.semantic.actionPrimary} />
           <Text style={[styles.loaderText, { color: theme.semantic.textSecondary }]}>
-            Загружаем рабочее пространство Академии продаж...
+            Загружаем рабочее пространство...
           </Text>
         </View>
       </AppScreen>
@@ -163,23 +149,26 @@ export function AppNavigator() {
     routeState.name === "Reports"
       ? (routeState.params as RootStackParamList["Reports"] | undefined)
       : undefined;
+  const reportViewerParams =
+    routeState.name === "ReportViewer"
+      ? (routeState.params as RootStackParamList["ReportViewer"] | undefined)
+      : undefined;
+  const openedReport = reports.find((report) => report.id === reportViewerParams?.reportId);
   const isLanding = routeState.name === "Landing";
-  const studentWorkspaceRoute =
-    activeRole === "student" && isStudentWorkspaceRoute(routeState.name) ? routeState.name : null;
+  const showMobileHeader = !layout.isDesktop && routeState.name !== "Simulator" && !isLanding;
 
   return (
     <AppScreen
       footer={footer ?? undefined}
       variant={isLanding ? "landing" : "app"}
       disableBottomPadding={isLanding && layout.isDesktop}
-      fullBleed={routeState.name === "Simulator" && layout.isDesktop}
       sidebar={
-        !isLanding && routeState.name !== "Simulator" ? (
+        layout.isDesktop && !isLanding ? (
           <DesktopSidebar
             activeRole={activeRole}
-            activeRoute={routeState.name}
+            activeRoute={navActiveRoute}
             user={currentUser}
-            routes={visibleRoutesForRole(activeRole)}
+            routes={visibleRoutes}
             onNavigate={navigate}
             onGoToLanding={goToLanding}
           />
@@ -190,49 +179,27 @@ export function AppNavigator() {
         <LandingScreen roleOptions={roleWorkspaceOptions} onEnterRole={enterWorkspace} />
       ) : null}
 
-      {!isLanding ? (
-        routeState.name === "Simulator" && layout.isDesktop ? null : (
-          <MobileHeader
-            title={currentRouteConfig.title}
-            subtitle={currentRouteConfig.description}
-            user={currentUser}
-            actionLabel={activeRole === "student" ? undefined : "На лендинг"}
-            onActionPress={activeRole === "student" ? undefined : goToLanding}
-          />
-        )
-      ) : null}
-
-      {studentWorkspaceRoute && !layout.isDesktop ? (
-        <StudentWorkspaceNav
-          activeRoute={studentWorkspaceRoute}
-          onNavigate={(route) => navigate(route)}
+      {showMobileHeader ? (
+        <MobileHeader
+          title={currentRouteConfig.title}
+          subtitle={currentRouteConfig.description}
+          user={currentUser}
         />
-      ) : null}
-
-      {routeState.name === "StudentHome" ? (
-        <StudentHomeScreen dashboard={studentDashboard} materials={knowledgeMaterials} onNavigate={navigate} />
       ) : null}
 
       {routeState.name === "Simulator" ? (
         <SimulatorScreen
-          activeScenarioId={simulatorParams?.scenarioId}
-          onOpenReports={() => navigate("Reports")}
-          onNavigateStudentRoute={(route) => navigate(route)}
+          activeScenarioId={simulatorParams?.scenarioId ?? activeScenarioId}
+          onOpenReport={openReport}
           onReportSaved={handleSimulatorReportSaved}
-          onNavigateToReports={() => navigate("Reports")}
         />
       ) : null}
 
-      {routeState.name === "ManagerDashboard" ? (
-        <ManagerDashboardScreen dashboard={managerDashboard} onNavigate={navigate} />
-      ) : null}
-
-      {routeState.name === "HrDashboard" ? (
-        <HrDashboardScreen dashboard={hrDashboardDataOverride(hrDashboard)} onNavigate={navigate} />
-      ) : null}
-
-      {routeState.name === "Admin" ? (
-        <AdminScreen settings={adminSettings} onNavigate={navigate} />
+      {routeState.name === "Scenarios" ? (
+        <ScenariosScreen
+          activeScenarioId={activeScenarioId}
+          onLaunchScenario={launchScenario}
+        />
       ) : null}
 
       {routeState.name === "Reports" ? (
@@ -240,22 +207,24 @@ export function AppNavigator() {
           activeRole={activeRole}
           reports={reports}
           highlightReportId={reportParams?.highlightReportId}
+          onOpenReport={(reportId) => openReport(reportId)}
+          onContinueChat={continueChat}
+        />
+      ) : null}
+
+      {routeState.name === "ReportViewer" ? (
+        <ReportViewerScreen
+          report={openedReport}
+          onBack={() => navigate("Reports")}
+          onContinueChat={continueChat}
         />
       ) : null}
     </AppScreen>
   );
 }
 
-function hrDashboardDataOverride(dashboard: HrDashboard): HrDashboard {
-  return dashboard.tracks.length > 0 ? dashboard : hrDashboardData;
-}
-
 function visibleRoutesForRole(role: UserRole): RouteName[] {
   return tabsByRole[role];
-}
-
-function isStudentWorkspaceRoute(route: RouteName): route is "StudentHome" | "Simulator" | "Reports" {
-  return route === "StudentHome" || route === "Simulator" || route === "Reports";
 }
 
 const styles = StyleSheet.create({

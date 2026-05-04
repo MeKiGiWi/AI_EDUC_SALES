@@ -15,22 +15,26 @@ const tabIcons: Record<RouteName, string> = {
   Landing: "Старт",
   StudentHome: "ЛК",
   KnowledgeBase: "База",
-  Simulator: "Тренажер",
+  Simulator: "Чат",
+  Scenarios: "Режимы",
   ManagerDashboard: "Команда",
   HrDashboard: "HR",
   Admin: "Доступ",
-  Reports: "Отчеты"
+  Reports: "Отчеты",
+  ReportViewer: "Отчет"
 };
 
 const tabLabels: Record<RouteName, string> = {
   Landing: "Старт",
   StudentHome: "Личный кабинет",
   KnowledgeBase: "База",
-  Simulator: "Тренажер",
+  Simulator: "Чат",
+  Scenarios: "Сценарии",
   ManagerDashboard: "Команда",
   HrDashboard: "HR/L&D",
   Admin: "Админ",
-  Reports: "Отчеты"
+  Reports: "Отчеты",
+  ReportViewer: "Отчет"
 };
 
 export function BottomTabs({ routes, activeRoute, onNavigate }: BottomTabsProps) {

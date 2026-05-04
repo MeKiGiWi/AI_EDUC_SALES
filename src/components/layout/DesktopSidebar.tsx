@@ -19,11 +19,13 @@ const routeLabels: Record<RouteName, string> = {
   Landing: "Лендинг",
   StudentHome: "Личный кабинет",
   KnowledgeBase: "База знаний",
-  Simulator: "Тренажер",
+  Simulator: "Чат",
+  Scenarios: "Сценарии",
   ManagerDashboard: "Панель команды",
   HrDashboard: "HR / L&D",
   Admin: "Администрирование",
-  Reports: "Отчеты"
+  Reports: "Отчеты",
+  ReportViewer: "Просмотр отчета"
 };
 
 export function DesktopSidebar({
@@ -42,7 +44,7 @@ export function DesktopSidebar({
         <View style={styles.brandBlock}>
           <Text style={[styles.brandTitle, { color: theme.semantic.textPrimary }]}>AI Sales Academy</Text>
           <Text style={[styles.brandSubtitle, { color: theme.semantic.textSecondary }]}>
-            Рабочее пространство роли
+            Практика продаж с AI
           </Text>
         </View>
 
@@ -52,13 +54,11 @@ export function DesktopSidebar({
             {roleLabels[activeRole]} · {user.title}
           </Text>
           <Text style={[styles.userMeta, { color: theme.semantic.textMuted }]}>{user.teamName}</Text>
-          {activeRole === "student" ? null : (
-            <AppButton label="На лендинг" onPress={onGoToLanding} tone="ghost" fullWidth />
-          )}
+          <AppButton label="На лендинг" onPress={onGoToLanding} tone="ghost" fullWidth />
         </View>
 
         <View style={styles.block}>
-          <Text style={[styles.blockLabel, { color: theme.semantic.textMuted }]}>Разделы</Text>
+          <Text style={[styles.blockLabel, { color: theme.semantic.textMuted }]}>MVP</Text>
           {routes.map((route) => (
             <AppButton
               key={route}

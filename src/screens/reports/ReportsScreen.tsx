@@ -1,21 +1,23 @@
 import React, { useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 
+import { ReportCardItem } from "../../components/reports/ReportCardItem";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { StatusPill } from "../../components/ui/StatusPill";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { roleLabels } from "../../navigation/routes";
 import { themeTokens } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
-import type { ExportFormat, ReportCard, UserRole } from "../../types/academy";
+import type { ExportFormat, ReportCard, ReportStatus, UserRole } from "../../types/academy";
 
 interface ReportsScreenProps {
   activeRole: UserRole;
   reports: ReportCard[];
   highlightReportId?: string;
+  onOpenReport: (reportId: string) => void;
+  onContinueChat: (scenarioId?: string) => void;
 }
 
 type ReportsSheetState =
@@ -517,12 +519,52 @@ async function buildPdfBlob(report: ReportCard): Promise<Blob> {
   return pdf.output("blob");
 }
 
-export function ReportsScreen({ activeRole, reports, highlightReportId }: ReportsScreenProps) {
+export async function downloadReportFile(report: ReportCard, format: ExportFormat): Promise<string> {
+  if (Platform.OS === "web" && typeof document !== "undefined" && typeof window !== "undefined") {
+    if (format === "csv") {
+      const blob = new Blob([`\uFEFF${buildCsv(report)}`], {
+        type: "text/csv;charset=utf-8"
+      });
+      downloadBlob(buildSafeFilename(report, "csv"), blob);
+      return `CSV для отчета "${report.title}" скачивается.`;
+    }
+
+    if (format === "pdf") {
+      const blob = await buildPdfBlob(report);
+      downloadBlob(buildSafeFilename(report, "pdf"), blob);
+      return `PDF для отчета "${report.title}" скачивается.`;
+    }
+  }
+
+  return "На web файл скачивается автоматически. На других платформах пока доступен просмотр отчета.";
+}
+
+type ReportFilter = "all" | "ready" | "generating" | "error";
+
+const reportFilters: Array<{ id: ReportFilter; label: string }> = [
+  { id: "all", label: "Все" },
+  { id: "ready", label: "Готовые" },
+  { id: "generating", label: "В процессе" },
+  { id: "error", label: "Ошибки" }
+];
+
+function getReportStatus(report: ReportCard): ReportStatus {
+  return report.status ?? "ready";
+}
+
+export function ReportsScreen({
+  activeRole,
+  reports,
+  highlightReportId,
+  onOpenReport,
+  onContinueChat
+}: ReportsScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [sheetState, setSheetState] = useState<ReportsSheetState>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeExport, setActiveExport] = useState<ExportFormat | null>(null);
+  const [activeFilter, setActiveFilter] = useState<ReportFilter>("all");
 
   const sortedReports = useMemo(() => {
     if (highlightReportId) {
@@ -534,8 +576,23 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
     return reports;
   }, [highlightReportId, reports]);
 
-  const reportWidth = layout.isDesktop ? "56%" : "100%";
+  const filteredReports = useMemo(
+    () =>
+      sortedReports.filter((report) => {
+        const status = getReportStatus(report);
+        if (activeFilter === "all") {
+          return true;
+        }
+        if (activeFilter === "generating") {
+          return status === "generating" || status === "draft";
+        }
+        return status === activeFilter;
+      }),
+    [activeFilter, sortedReports]
+  );
+  const reportWidth = layout.isWide ? "31.8%" : layout.isDesktop || layout.isTablet ? "48.4%" : "100%";
   const content = roleContent[activeRole];
+  const generatingReport = sortedReports.find((report) => getReportStatus(report) === "generating");
 
   function openInfoSheet() {
     setSheetState({
@@ -545,32 +602,15 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
     });
   }
 
-  function openPreview(report: ReportCard) {
-    setSuccessMessage(null);
-    setSheetState({ kind: "preview", report });
-  }
-
   async function openExport(report: ReportCard, format: ExportFormat) {
     if (Platform.OS === "web" && typeof document !== "undefined" && typeof window !== "undefined") {
       try {
         setActiveExport(format);
         setSuccessMessage(format === "pdf" ? "Формируем PDF..." : "Формируем CSV...");
 
-        if (format === "csv") {
-          const blob = new Blob([`\uFEFF${buildCsv(report)}`], {
-            type: "text/csv;charset=utf-8"
-          });
-          downloadBlob(buildSafeFilename(report, "csv"), blob);
-          setSuccessMessage(`CSV для отчета "${report.title}" скачивается.`);
-          return;
-        }
-
-        if (format === "pdf") {
-          const blob = await buildPdfBlob(report);
-          downloadBlob(buildSafeFilename(report, "pdf"), blob);
-          setSuccessMessage(`PDF для отчета "${report.title}" скачивается.`);
-          return;
-        }
+        const message = await downloadReportFile(report, format);
+        setSuccessMessage(message);
+        return;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Неизвестная ошибка при генерации файла.";
         setSuccessMessage(null);
@@ -599,87 +639,96 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
 
   return (
     <>
+      <View style={styles.pageHeader}>
+        <View style={styles.headerText}>
+          <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Отчеты</Text>
+          <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
+            Здесь сохраняются результаты ваших сценариев.
+          </Text>
+        </View>
+      </View>
+
       {successMessage ? (
         <AppCard>
           <Text style={[styles.successText, { color: theme.semantic.success }]}>{successMessage}</Text>
         </AppCard>
       ) : null}
 
+      {generatingReport ? (
+        <AppCard tone="mint">
+          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Отчет формируется</Text>
+          <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+            Отчет формируется. Вы можете продолжить работу, он появится здесь после завершения.
+          </Text>
+        </AppCard>
+      ) : null}
+
+      <View style={styles.filterRow}>
+        {reportFilters.map((filter) => (
+          <AppButton
+            key={filter.id}
+            label={filter.label}
+            onPress={() => setActiveFilter(filter.id)}
+            tone={activeFilter === filter.id ? "primary" : "ghost"}
+          />
+        ))}
+      </View>
+
       {sortedReports.length === 0 ? (
         <EmptyState
-          title={content.emptyTitle}
-          description={content.emptyDescription}
-          actionLabel="Как это работает"
-          onAction={openInfoSheet}
+          title="Пока нет отчетов"
+          description="Сформируйте первый отчет из чата."
+          actionLabel="Перейти в чат"
+          onAction={() => onContinueChat(undefined)}
+        />
+      ) : filteredReports.length === 0 ? (
+        <EmptyState
+          title="В этом фильтре пусто"
+          description="Попробуйте другой статус или сформируйте новый отчет из чата."
+          actionLabel="Все отчеты"
+          onAction={() => setActiveFilter("all")}
         />
       ) : (
         <View style={[styles.reportsGrid, layout.isDesktop && styles.reportsGridDesktop]}>
-          {sortedReports.map((report, index) => (
+          {filteredReports.map((report) => (
             <View key={report.id} style={{ width: reportWidth }}>
-              <AppCard tone="mint">
-                <View style={styles.rowBetween}>
-                  <View style={styles.flexBlock}>
-                    <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
-                    <Text
-                      style={[styles.body, { color: theme.semantic.textSecondary }]}
-                      numberOfLines={3}
-                    >
-                      {report.summary}
-                    </Text>
-                    <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-                      {report.ownerLabel} · {report.updatedAt}
-                    </Text>
-                  </View>
-                  {index === 0 ? <StatusPill label="Последний" tone="success" /> : null}
-                </View>
-
-                <View style={styles.buttonRow}>
-                  <AppButton label="Предпросмотр" onPress={() => openPreview(report)} tone="primary" />
-                  <AppButton
-                    label={activeExport === "pdf" ? "PDF..." : "PDF"}
-                    onPress={() => {
-                      void openExport(report, "pdf");
-                    }}
-                    tone="secondary"
-                    disabled={activeExport !== null}
-                  />
-                  <AppButton
-                    label={activeExport === "csv" ? "CSV..." : "CSV"}
-                    onPress={() => {
-                      void openExport(report, "csv");
-                    }}
-                    tone="ghost"
-                    disabled={activeExport !== null}
-                  />
-                </View>
-              </AppCard>
+              <ReportCardItem
+                report={report}
+                downloadingFormat={activeExport}
+                onOpen={onOpenReport}
+                onDownload={(item, format) => {
+                  void openExport(item, format);
+                }}
+                onContinueChat={(item) => onContinueChat(item.scenarioId)}
+              />
             </View>
           ))}
         </View>
       )}
 
       <AppCard tone="mint">
-        <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Локальное хранение</Text>
-        <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-          Все отчеты сохраняются локально на вашем устройстве. Хранится до 50 последних отчетов.
-        </Text>
-        <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-          Текущая роль: {roleLabels[activeRole]} · Отчетов: {sortedReports.length}
-        </Text>
+        <View style={styles.rowBetween}>
+          <View style={styles.flexBlock}>
+            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Локальное хранение</Text>
+            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
+              Все отчеты сохраняются локально на вашем устройстве. Хранится до 50 последних отчетов.
+            </Text>
+            <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
+              Текущая роль: {roleLabels[activeRole]} · Отчетов: {sortedReports.length}
+            </Text>
+          </View>
+          <AppButton label="Как это работает" onPress={openInfoSheet} tone="ghost" />
+        </View>
       </AppCard>
 
       <AppBottomSheet
         visible={sheetState !== null}
         title={
           sheetState?.kind === "preview"
-            ? `Предпросмотр: ${sheetState.report.title}`
+            ? `Отчет: ${sheetState.report.title}`
             : sheetState?.title ?? ""
         }
-        description={
-          sheetState?.kind === "preview"
-            ? `Отчет для роли: ${roleLabels[activeRole]}.`
-            : "Отчет сформирован по завершенному диалогу."
-        }
+        description="Отчет сформирован по завершенному диалогу."
         onClose={() => setSheetState(null)}
       >
         {sheetState?.kind === "preview" ? (
@@ -712,6 +761,32 @@ export function ReportsScreen({ activeRole, reports, highlightReportId }: Report
 }
 
 const styles = StyleSheet.create({
+  pageHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 16,
+    flexWrap: "wrap"
+  },
+  headerText: {
+    flex: 1,
+    minWidth: 240,
+    gap: 6
+  },
+  pageTitle: {
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: "800"
+  },
+  pageSubtitle: {
+    fontSize: 16,
+    lineHeight: 24
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10
+  },
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",

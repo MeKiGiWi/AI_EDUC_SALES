@@ -12,6 +12,7 @@ export type ReportType =
   | "team_performance"
   | "learning_adoption"
   | "competency_dynamics";
+export type ReportStatus = "draft" | "generating" | "ready" | "error";
 export type ExportFormat = "pdf" | "xlsx" | "csv";
 export type ScenarioSpeakerRole = "coach" | "customer" | "learner" | "system";
 export type ScenarioStatus = "ready" | "active" | "completed";
@@ -412,10 +413,15 @@ export interface ReportCard {
   title: string;
   role: UserRole;
   reportType: ReportType;
+  scenarioId?: string;
+  scenarioTitle?: string;
+  status?: ReportStatus;
   summary: string;
   format: ExportFormat;
+  createdAt?: string;
   updatedAt: string;
   ownerLabel: string;
+  sourceLabel?: string;
   availableFormats: ExportFormat[];
   previewSections: ReportPreviewSection[];
 }

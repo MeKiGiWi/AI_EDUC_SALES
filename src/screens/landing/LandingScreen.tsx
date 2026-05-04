@@ -279,7 +279,7 @@ export function LandingScreen({
     }, []);
 
     useEffect(() => {
-        if (reduceMotion || isMobile) {
+        if (reduceMotion) {
             floatingMotion.stopAnimation();
             floatingMotion.setValue(0);
             return;
@@ -1260,9 +1260,7 @@ export function LandingScreen({
                                                         isMobile ? 18 : 52
                                                     }
                                                     variant="left"
-                                                    reduceMotion={
-                                                        reduceMotion || isMobile
-                                                    }
+                                                    reduceMotion={reduceMotion}
                                                 >
                                                     <AppCard
                                                         style={
@@ -1340,7 +1338,7 @@ export function LandingScreen({
                                     delay={80}
                                     duration={isMobile ? 680 : 860}
                                     variant="fade"
-                                    reduceMotion={reduceMotion || isMobile}
+                                    reduceMotion={reduceMotion}
                                     style={[
                                         styles.problemAccentWrap,
                                         isMobile &&
@@ -1736,9 +1734,7 @@ export function LandingScreen({
                                                         isMobile ? 18 : 52
                                                     }
                                                     variant="left"
-                                                    reduceMotion={
-                                                        reduceMotion || isMobile
-                                                    }
+                                                    reduceMotion={reduceMotion}
                                                 >
                                                     <View
                                                         style={[
@@ -1823,7 +1819,7 @@ export function LandingScreen({
                                     duration={isMobile ? 760 : 980}
                                     distance={isMobile ? 18 : 56}
                                     variant="right"
-                                    reduceMotion={reduceMotion || isMobile}
+                                    reduceMotion={reduceMotion}
                                     style={[
                                         styles.trainerMockWrap,
                                         isMobile &&

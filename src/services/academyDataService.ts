@@ -22,7 +22,6 @@ import type {
   StudentDashboard,
   UserRole
 } from "../types/academy";
-import { Platform } from "react-native";
 import { reportApiService } from "./reportApiService";
 import { mapSavedReportsToCards } from "./reportFlowCore";
 import { reportStorageService } from "./reportStorageService";
@@ -69,9 +68,6 @@ export const academyDataService = {
         return simulateLatency(cards);
       } catch (error) {
         console.warn("[reports] backend fetch failed", error);
-        if (Platform.OS === "web") {
-          return simulateLatency([]);
-        }
       }
     }
 

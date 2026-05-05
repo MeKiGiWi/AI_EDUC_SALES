@@ -10,6 +10,19 @@ import type {
 const simulatorApiUrl = process.env.EXPO_PUBLIC_SIMULATOR_API_URL?.trim() ?? "";
 const simulatorDebugEnabled = process.env.EXPO_PUBLIC_SIMULATOR_DEBUG === "true";
 
+function getRuntimeApiUrl(): string {
+  const runtimeOverride =
+    typeof globalThis === "object" &&
+    globalThis &&
+    "__SIMULATOR_API_URL_OVERRIDE__" in globalThis &&
+    typeof (globalThis as { __SIMULATOR_API_URL_OVERRIDE__?: unknown }).__SIMULATOR_API_URL_OVERRIDE__ ===
+      "string"
+      ? (globalThis as { __SIMULATOR_API_URL_OVERRIDE__?: string }).__SIMULATOR_API_URL_OVERRIDE__
+      : "";
+
+  return runtimeOverride?.trim() || simulatorApiUrl;
+}
+
 export interface SimulatorApiErrorDetail {
   code?: string;
   message?: string;
@@ -33,7 +46,7 @@ export class SimulatorApiError extends Error {
 }
 
 function buildUrl(path: string) {
-  const base = simulatorApiUrl.trim();
+  const base = getRuntimeApiUrl().trim();
   if (!base) {
     return path;
   }
@@ -140,7 +153,7 @@ export function getSafeSimulatorErrorMessage(error: unknown): string {
 
 export const simulatorApiService = {
   isEnabled(): boolean {
-    return simulatorApiUrl.length > 0;
+    return getRuntimeApiUrl().length > 0;
   },
 
   isDebugEnabled(): boolean {

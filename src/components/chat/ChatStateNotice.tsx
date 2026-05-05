@@ -9,9 +9,16 @@ interface ChatStateNoticeProps {
   text: string;
   actionLabel?: string;
   onAction?: () => void;
+  testID?: string;
 }
 
-export function ChatStateNotice({ kind, text, actionLabel, onAction }: ChatStateNoticeProps) {
+export function ChatStateNotice({
+  kind,
+  text,
+  actionLabel,
+  onAction,
+  testID
+}: ChatStateNoticeProps) {
   const theme = useTheme();
   const color =
     kind === "error"
@@ -22,6 +29,7 @@ export function ChatStateNotice({ kind, text, actionLabel, onAction }: ChatState
 
   return (
     <View
+      testID={testID}
       style={[
         styles.notice,
         {

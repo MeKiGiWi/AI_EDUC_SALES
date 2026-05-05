@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { BottomTabs } from "../components/layout/BottomTabs";
 import { DesktopSidebar } from "../components/layout/DesktopSidebar";
@@ -6,6 +6,7 @@ import { MobileHeader } from "../components/layout/MobileHeader";
 import { AppCard } from "../components/ui/AppCard";
 import { AppScreen } from "../components/ui/AppScreen";
 import { roleWorkspaceOptions, simulatorEvaluationByScenarioId } from "../data/academyData";
+import { DEFAULT_BACKEND_DIFFICULTY } from "../data/simulatorMvpData";
 import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
 import { LandingScreen } from "../screens/landing/LandingScreen";
 import { ReportsScreen } from "../screens/reports/ReportsScreen";
@@ -14,14 +15,26 @@ import { SimulatorScreen } from "../screens/simulator/SimulatorScreen";
 import { StudentHomeScreen } from "../screens/student/StudentHomeScreen";
 import { academyDataService } from "../services/academyDataService";
 import {
-  DEFAULT_BACKEND_DIFFICULTY
-} from "../data/simulatorMvpData";
+  buildInitialMockDialogue,
+  buildMockCustomerFollowUp,
+  buildOptimisticManagerMessage,
+  countManagerReplies,
+  mapApiMessageToDialogueMessage,
+  mergeApiMessages
+} from "../services/simulatorDialogueService";
 import {
   getSafeSimulatorErrorMessage,
   simulatorApiService
 } from "../services/simulatorApiService";
 import { useTheme } from "../theme/useTheme";
-import type { ReportCard, SalesAcademyMock, SimulatorEvaluationPayloadDto, UserRole } from "../types/academy";
+import type {
+  ActiveDialogueSession,
+  DialogueMessage,
+  ReportCard,
+  SalesAcademyMock,
+  SimulatorEvaluationPayloadDto,
+  UserRole
+} from "../types/academy";
 import {
   isRouteAllowedForRole,
   roleHomeRoute,
@@ -36,6 +49,8 @@ type RouteState = {
   params?: RootStackParamList[RouteName];
 };
 
+const MOCK_REPLY_DELAY_MS = 220;
+
 export function AppNavigator() {
   const layout = useResponsiveLayout();
   useTheme();
@@ -45,9 +60,11 @@ export function AppNavigator() {
   const [activeScenarioId, setActiveScenarioId] = useState<string>("");
   const [trainerMode, setTrainerMode] = useState<"catalog" | "dialogue">("catalog");
   const [reports, setReports] = useState<ReportCard[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string>("");
-  const [isFinishingReport, setIsFinishingReport] = useState(false);
   const [simulatorStartError, setSimulatorStartError] = useState<string | null>(null);
+  const [activeDialogueSession, setActiveDialogueSession] = useState<ActiveDialogueSession | null>(
+    null
+  );
+  const activeSessionKeyRef = useRef<string>("");
 
   useEffect(() => {
     let isMounted = true;
@@ -61,7 +78,6 @@ export function AppNavigator() {
 
         setWorkspaceData(data);
         setActiveScenarioId(data.activeDialogue.selectedScenarioId);
-        setActiveSessionId(buildSessionId(data.activeDialogue.selectedScenarioId));
       })
       .catch(() => {
         if (isMounted) {
@@ -96,76 +112,250 @@ export function AppNavigator() {
     setRouteState({ name: route, params });
   }
 
+  function updateSession(updater: (current: ActiveDialogueSession) => ActiveDialogueSession) {
+    setActiveDialogueSession((current) => (current ? updater(current) : current));
+  }
+
   async function launchScenario(scenarioId: string) {
     setSimulatorStartError(null);
+    const selectedScenario = workspaceData?.scenarios.find((scenario) => scenario.id === scenarioId);
 
-    if (simulatorApiService.isEnabled()) {
-      try {
+    if (!selectedScenario) {
+      setSimulatorStartError("Выбранный сценарий не найден.");
+      setTrainerMode("catalog");
+      navigate("Simulator");
+      return;
+    }
+
+    try {
+      let nextSession: ActiveDialogueSession;
+
+      if (simulatorApiService.isEnabled()) {
         const response = await simulatorApiService.startDialogueSession(
           scenarioId,
           DEFAULT_BACKEND_DIFFICULTY
         );
-        setActiveSessionId(response.session_id);
-      } catch (error) {
-        setTrainerMode("catalog");
-        setRouteState({ name: "Simulator" });
-        setSimulatorStartError(getSafeSimulatorErrorMessage(error));
-        return;
+        nextSession = {
+          mode: "api",
+          sessionId: response.session_id,
+          scenarioId,
+          scenarioTitle: selectedScenario.title,
+          messages: [mapApiMessageToDialogueMessage(response.message)],
+          status: "active",
+          errorText: null,
+          isSending: false,
+          isFinishing: false
+        };
+      } else {
+        nextSession = {
+          mode: "mock",
+          sessionId: buildSessionId(scenarioId),
+          scenarioId,
+          scenarioTitle: selectedScenario.title,
+          messages: buildInitialMockDialogue({
+            scenarioId,
+            scenarioTitle: selectedScenario.title
+          }),
+          status: "active",
+          errorText: null,
+          isSending: false,
+          isFinishing: false
+        };
       }
-    } else {
-      setActiveSessionId(buildSessionId(scenarioId));
-    }
 
-    setActiveScenarioId(scenarioId);
-    setTrainerMode("dialogue");
-    navigate("Simulator", { scenarioId });
+      activeSessionKeyRef.current = nextSession.sessionId;
+      setActiveDialogueSession(nextSession);
+      setActiveScenarioId(scenarioId);
+      setTrainerMode("dialogue");
+      navigate("Simulator", { scenarioId });
+    } catch (error) {
+      setActiveDialogueSession(null);
+      setTrainerMode("catalog");
+      setRouteState({ name: "Simulator" });
+      setSimulatorStartError(getSafeSimulatorErrorMessage(error));
+    }
   }
+
   function openTrainerCatalog() {
     setTrainerMode("catalog");
     setSimulatorStartError(null);
     navigate("Simulator");
   }
-  function completeScenario() {
-    setTrainerMode("catalog");
-    navigate("StudentHome");
-  }
+
   function openReportViewer(reportId: string) {
     navigate("ReportViewer", { reportId });
   }
+
   function openReports(highlightReportId?: string) {
     navigate("Reports", highlightReportId ? { highlightReportId } : undefined);
   }
+
   function continueChatFromReport(scenarioId?: string) {
     if (scenarioId) {
-      launchScenario(scenarioId);
+      void launchScenario(scenarioId);
       return;
     }
 
     openTrainerCatalog();
   }
+
+  async function sendMessage(text: string): Promise<boolean> {
+    const session = activeDialogueSession;
+    const selectedScenario = workspaceData?.scenarios.find(
+      (scenario) => scenario.id === session?.scenarioId
+    );
+    const trimmedText = text.trim();
+
+    if (!session || !selectedScenario) {
+      return false;
+    }
+
+    if (!trimmedText) {
+      updateSession((current) => ({
+        ...current,
+        errorText: "Введите реплику, чтобы продолжить диалог."
+      }));
+      return false;
+    }
+
+    if (session.isSending || session.isFinishing || session.status === "finished") {
+      return false;
+    }
+
+    const optimisticMessage = buildOptimisticManagerMessage(trimmedText);
+    const sessionKey = session.sessionId;
+
+    updateSession((current) => ({
+      ...current,
+      messages: [...current.messages, optimisticMessage],
+      errorText: null,
+      isSending: true
+    }));
+
+    if (session.mode === "api") {
+      try {
+        const response = await simulatorApiService.sendDialogueMessage(session.sessionId, trimmedText);
+        if (activeSessionKeyRef.current !== sessionKey) {
+          return false;
+        }
+
+        setActiveDialogueSession((current) => {
+          if (!current || current.sessionId !== sessionKey) {
+            return current;
+          }
+
+          return {
+            ...current,
+            messages: mergeApiMessages(current.messages, response.messages, optimisticMessage.id),
+            status: response.status,
+            isSending: false,
+            errorText: response.status === "finished" ? "Сессия завершена." : null
+          };
+        });
+        return true;
+      } catch (error) {
+        if (activeSessionKeyRef.current !== sessionKey) {
+          return false;
+        }
+
+        updateSession((current) => ({
+          ...current,
+          messages: current.messages.filter((message) => message.id !== optimisticMessage.id),
+          isSending: false,
+          errorText: getSafeSimulatorErrorMessage(error)
+        }));
+        return false;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, MOCK_REPLY_DELAY_MS));
+    if (activeSessionKeyRef.current !== sessionKey) {
+      return false;
+    }
+
+    updateSession((current) => {
+      const customerReply: DialogueMessage = {
+        id: `mock-customer-${Date.now()}`,
+        author: "customer",
+        text: buildMockCustomerFollowUp(
+          selectedScenario,
+          trimmedText,
+          countManagerReplies(current.messages)
+        ),
+        time: optimisticMessage.time
+      };
+
+      return {
+        ...current,
+        messages: [...current.messages, customerReply],
+        isSending: false,
+        errorText: null
+      };
+    });
+    return true;
+  }
+
   async function finishScenarioAndOpenReport(params: {
     scenarioId: string;
     scenarioTitle: string;
   }) {
-    const existingReport = reports.find((report) => report.sessionId === activeSessionId);
+    const session = activeDialogueSession;
+    if (!session) {
+      return;
+    }
+
+    const existingReport = reports.find((report) => report.sessionId === session.sessionId);
     if (existingReport) {
       openReportViewer(existingReport.id);
       return;
     }
 
-    setIsFinishingReport(true);
+    if (countManagerReplies(session.messages) < 1) {
+      updateSession((current) => ({
+        ...current,
+        errorText: "Напишите хотя бы одну реплику перед отчетом."
+      }));
+      return;
+    }
+
+    updateSession((current) => ({ ...current, isFinishing: true, errorText: null }));
+
     try {
+      let evaluation: SimulatorEvaluationPayloadDto | undefined;
+
+      if (session.mode === "api") {
+        const response = await simulatorApiService.finishDialogueSession(session.sessionId);
+        evaluation = response.evaluation;
+
+        if (!evaluation) {
+          updateSession((current) => ({
+            ...current,
+            isFinishing: false,
+            errorText: "Не удалось получить оценку от backend. Попробуйте завершить сессию еще раз."
+          }));
+          return;
+        }
+      } else {
+        evaluation = buildMockEvaluation(params.scenarioTitle, params.scenarioId);
+      }
+
       const syncedReports = await academyDataService.saveLatestSimulatorReport({
         role: activeRole,
         scenarioId: params.scenarioId,
         scenarioTitle: params.scenarioTitle,
-        sessionId: activeSessionId,
-        evaluation: buildMockEvaluation(params.scenarioTitle, params.scenarioId)
+        sessionId: session.sessionId,
+        evaluation
       });
       setReports(syncedReports);
 
+      setActiveDialogueSession((current) =>
+        current && current.sessionId === session.sessionId
+          ? { ...current, status: "finished", isFinishing: false, errorText: null }
+          : current
+      );
+
       const createdReport =
-        syncedReports.find((report) => report.sessionId === activeSessionId) ?? syncedReports[0];
+        syncedReports.find((report) => report.sessionId === session.sessionId) ?? syncedReports[0];
 
       if (createdReport) {
         openReportViewer(createdReport.id);
@@ -173,8 +363,12 @@ export function AppNavigator() {
       }
 
       openReports();
-    } finally {
-      setIsFinishingReport(false);
+    } catch (error) {
+      updateSession((current) => ({
+        ...current,
+        isFinishing: false,
+        errorText: getSafeSimulatorErrorMessage(error)
+      }));
     }
   }
 
@@ -215,9 +409,7 @@ export function AppNavigator() {
   if (!workspaceData) {
     return (
       <AppScreen variant="app">
-        <AppCard>
-          Загрузка рабочего пространства...
-        </AppCard>
+        <AppCard>Загрузка рабочего пространства...</AppCard>
       </AppScreen>
     );
   }
@@ -252,7 +444,9 @@ export function AppNavigator() {
           data={workspaceData}
           reports={reports}
           onOpenReport={openReportViewer}
-          onOpenTrainer={(scenarioId) => launchScenario(scenarioId)}
+          onOpenTrainer={(scenarioId) => {
+            void launchScenario(scenarioId);
+          }}
         />
       ) : null}
 
@@ -267,13 +461,14 @@ export function AppNavigator() {
         <SimulatorScreen
           data={workspaceData}
           activeScenarioId={simulatorParams?.scenarioId ?? activeScenarioId}
+          activeSession={activeDialogueSession}
           mode={trainerMode}
           onBackToCatalog={openTrainerCatalog}
           onStartScenario={(scenarioId) => {
             void launchScenario(scenarioId);
           }}
+          onSendMessage={sendMessage}
           onFinishScenario={finishScenarioAndOpenReport}
-          isFinishingReport={isFinishingReport}
           startErrorText={simulatorStartError}
           onDismissStartError={() => setSimulatorStartError(null)}
         />
@@ -341,7 +536,9 @@ function buildMockEvaluation(
           name: "Формулировка ценности через выгоду",
           level: "Middle",
           argument: "Ценность уже связана с риском простоя и стоимостью владения.",
-          quote: ["Наши клиенты в среднем экономят до 18% за счёт меньшего простоя оборудования."],
+          quote: [
+            "Наши клиенты в среднем экономят до 18% за счёт меньшего простоя оборудования."
+          ],
           recommendations: ["Подкрепляйте выгоду одной цифрой под ситуацию клиента."]
         },
         {
@@ -349,12 +546,15 @@ function buildMockEvaluation(
           level: "Middle",
           argument: "Возражение обработано без давления и с сохранением доверия.",
           quote: ["Понимаю ваше опасение."],
-          recommendations: ["После признания сомнения задавайте один уточняющий вопрос до аргументации."]
+          recommendations: [
+            "После признания сомнения задавайте один уточняющий вопрос до аргументации."
+          ]
         },
         {
           name: "Фиксация следующего шага",
           level: "Junior",
-          argument: "Следующий шаг пока читается скорее как намерение, чем как договоренность.",
+          argument:
+            "Следующий шаг пока читается скорее как намерение, чем как договоренность.",
           quote: ["Могу показать расчёт по вашим данным, если интересно."],
           recommendations: ["Предлагайте конкретный созвон или аудит с датой."]
         }
@@ -418,7 +618,9 @@ function buildMockEvaluation(
         level: "Middle",
         argument: "Возражение обрабатывается спокойно и без давления.",
         quote: ["Понимаю, почему вы хотите проверить это подробнее."],
-        recommendations: ["После признания сомнения уточняйте, что именно нужно проверить."]
+        recommendations: [
+          "После признания сомнения уточняйте, что именно нужно проверить."
+        ]
       },
       {
         name: "Фиксация следующего шага",

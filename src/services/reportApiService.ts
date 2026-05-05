@@ -2,8 +2,21 @@ import type { ReportCard, SimulatorEvaluationPayloadDto, UserRole } from "../typ
 
 const backendApiUrl = process.env.EXPO_PUBLIC_SIMULATOR_API_URL?.trim() ?? "";
 
+function getRuntimeApiUrl(): string {
+  const runtimeOverride =
+    typeof globalThis === "object" &&
+    globalThis &&
+    "__SIMULATOR_API_URL_OVERRIDE__" in globalThis &&
+    typeof (globalThis as { __SIMULATOR_API_URL_OVERRIDE__?: unknown }).__SIMULATOR_API_URL_OVERRIDE__ ===
+      "string"
+      ? (globalThis as { __SIMULATOR_API_URL_OVERRIDE__?: string }).__SIMULATOR_API_URL_OVERRIDE__
+      : "";
+
+  return runtimeOverride?.trim() || backendApiUrl;
+}
+
 function buildUrl(path: string): string {
-  const base = backendApiUrl.trim();
+  const base = getRuntimeApiUrl().trim();
   if (!base) {
     return path;
   }
@@ -46,7 +59,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const reportApiService = {
   isEnabled(): boolean {
-    return backendApiUrl.length > 0;
+    return getRuntimeApiUrl().length > 0;
   },
 
   async fetchReports(role?: UserRole): Promise<ReportCard[]> {

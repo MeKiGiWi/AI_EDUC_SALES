@@ -1,20 +1,25 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { ChatStateNotice } from "../../components/chat/ChatStateNotice";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
+import {
+  calculateDialogueProgress,
+  countManagerReplies
+} from "../../services/simulatorDialogueService";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
-import type { SalesAcademyMock, ScenarioCardItem } from "../../types/academy";
+import type { ActiveDialogueSession, SalesAcademyMock, ScenarioCardItem } from "../../types/academy";
 
 interface SimulatorScreenProps {
   data: SalesAcademyMock;
   activeScenarioId?: string;
+  activeSession: ActiveDialogueSession | null;
   mode: "catalog" | "dialogue";
   onStartScenario: (scenarioId: string) => void;
   onBackToCatalog: () => void;
+  onSendMessage: (text: string) => Promise<boolean>;
   onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
-  isFinishingReport?: boolean;
   startErrorText?: string | null;
   onDismissStartError?: () => void;
 }
@@ -32,11 +37,12 @@ type SimulatorInfoSheetState =
 export function SimulatorScreen({
   data,
   activeScenarioId,
+  activeSession,
   mode,
   onStartScenario,
   onBackToCatalog,
+  onSendMessage,
   onFinishScenario,
-  isFinishingReport = false,
   startErrorText = null,
   onDismissStartError
 }: SimulatorScreenProps) {
@@ -65,7 +71,8 @@ export function SimulatorScreen({
   function openProgressInfo() {
     setInfoSheet({
       title: "Состояние тренажера",
-      description: "Каталог показывает тот набор сценариев, который реально доступен в текущем мобильном MVP.",
+      description:
+        "Каталог показывает тот набор сценариев, который реально доступен в текущем мобильном MVP.",
       lines: [
         `Активный сегмент: ${segment}.`,
         `Текущий фильтр: ${activeFilter}.`,
@@ -104,9 +111,10 @@ export function SimulatorScreen({
       <DialogueView
         data={data}
         selectedScenario={selectedScenario}
+        activeSession={activeSession}
         onBackToCatalog={onBackToCatalog}
+        onSendMessage={onSendMessage}
         onFinishScenario={onFinishScenario}
-        isFinishingReport={isFinishingReport}
       />
     );
   }
@@ -139,9 +147,22 @@ export function SimulatorScreen({
       ) : null}
 
       <View style={styles.segmentBlock}>
-        <View style={[styles.segmentedControl, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
-          <SegmentButton label="B2B" active={segment === "B2B"} onPress={() => setSegment("B2B")} />
-          <SegmentButton label="B2C" active={segment === "B2C"} onPress={() => setSegment("B2C")} />
+        <View
+          style={[
+            styles.segmentedControl,
+            { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+          ]}
+        >
+          <SegmentButton
+            label="B2B"
+            active={segment === "B2B"}
+            onPress={() => setSegment("B2B")}
+          />
+          <SegmentButton
+            label="B2C"
+            active={segment === "B2C"}
+            onPress={() => setSegment("B2C")}
+          />
         </View>
       </View>
 
@@ -161,9 +182,15 @@ export function SimulatorScreen({
       >
         <View style={[styles.heroContent, !layout.isWide && styles.heroStack]}>
           <View style={styles.heroText}>
-            <Text style={[styles.heroEyebrow, { color: theme.semantic.textSecondary }]}>Продолжить с места остановки</Text>
-            <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>{featuredScenario.title}</Text>
-            <Text style={[styles.heroDescription, { color: theme.semantic.textSecondary }]}>{featuredScenario.description}</Text>
+            <Text style={[styles.heroEyebrow, { color: theme.semantic.textSecondary }]}>
+              Продолжить с места остановки
+            </Text>
+            <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>
+              {featuredScenario.title}
+            </Text>
+            <Text style={[styles.heroDescription, { color: theme.semantic.textSecondary }]}>
+              {featuredScenario.description}
+            </Text>
             <View style={styles.heroPills}>
               <InfoPill label={featuredScenario.duration} />
               <InfoPill label={`Уровень: ${featuredScenario.level}`} />
@@ -173,13 +200,28 @@ export function SimulatorScreen({
 
           <View style={styles.heroIllustrationWrap}>
             <View style={[styles.heroIllustration, { backgroundColor: theme.colors.primaryPale }]}>
-              <View style={[styles.chatBlobLarge, { backgroundColor: "rgba(255,255,255,0.85)" }]} />
-              <View style={[styles.chatBlobSmall, { backgroundColor: "rgba(255,255,255,0.72)" }]} />
-              <View style={[styles.priceTag, { backgroundColor: theme.colors.primarySoft, borderColor: theme.semantic.actionPrimary }]}>
+              <View
+                style={[styles.chatBlobLarge, { backgroundColor: "rgba(255,255,255,0.85)" }]}
+              />
+              <View
+                style={[styles.chatBlobSmall, { backgroundColor: "rgba(255,255,255,0.72)" }]}
+              />
+              <View
+                style={[
+                  styles.priceTag,
+                  {
+                    backgroundColor: theme.colors.primarySoft,
+                    borderColor: theme.semantic.actionPrimary
+                  }
+                ]}
+              >
                 <Text style={styles.priceTagText}>₽</Text>
               </View>
             </View>
-            <Pressable onPress={() => onStartScenario(featuredScenario.id)} style={[styles.heroCta, { backgroundColor: theme.semantic.actionPrimary }]}>
+            <Pressable
+              onPress={() => onStartScenario(featuredScenario.id)}
+              style={[styles.heroCta, { backgroundColor: theme.semantic.actionPrimary }]}
+            >
               <Text style={styles.heroCtaText}>Начать тренировку</Text>
             </Pressable>
           </View>
@@ -195,7 +237,8 @@ export function SimulatorScreen({
               style={[
                 styles.filterPill,
                 {
-                  backgroundColor: activeFilter === label ? theme.colors.primaryPale : theme.semantic.card,
+                  backgroundColor:
+                    activeFilter === label ? theme.colors.primaryPale : theme.semantic.card,
                   borderColor: theme.semantic.border
                 }
               ]}
@@ -205,7 +248,9 @@ export function SimulatorScreen({
                   styles.filterPillText,
                   {
                     color:
-                      activeFilter === label ? theme.semantic.actionPrimary : theme.semantic.textPrimary
+                      activeFilter === label
+                        ? theme.semantic.actionPrimary
+                        : theme.semantic.textPrimary
                   }
                 ]}
               >
@@ -245,66 +290,88 @@ export function SimulatorScreen({
 function DialogueView({
   data,
   selectedScenario,
+  activeSession,
   onBackToCatalog,
-  onFinishScenario,
-  isFinishingReport
+  onSendMessage,
+  onFinishScenario
 }: {
   data: SalesAcademyMock;
   selectedScenario: ScenarioCardItem;
+  activeSession: ActiveDialogueSession | null;
   onBackToCatalog: () => void;
+  onSendMessage: (text: string) => Promise<boolean>;
   onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
-  isFinishingReport: boolean;
 }) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const dialogue = data.activeDialogue;
   const [draftMessage, setDraftMessage] = useState("");
-  const [inputNotice, setInputNotice] = useState<string | null>(null);
-  const [localMessages, setLocalMessages] = useState(dialogue.messages);
-  const [localManagerReplyCount, setLocalManagerReplyCount] = useState(dialogue.managerReplyCount);
-  const progress = Math.round((localManagerReplyCount / dialogue.replyTarget) * 100);
+  const [quickActionsVisible, setQuickActionsVisible] = useState(false);
+  const messageScrollRef = useRef<ScrollView | null>(null);
+
+  const messages = activeSession?.messages ?? [];
+  const managerReplyCount = countManagerReplies(messages);
+  const progress = calculateDialogueProgress(messages, dialogue.replyTarget);
+  const visibleReplyCountLabel =
+    managerReplyCount > dialogue.replyTarget
+      ? `${dialogue.replyTarget}+ / ${dialogue.replyTarget}`
+      : `${Math.min(managerReplyCount, dialogue.replyTarget)} / ${dialogue.replyTarget}`;
+  const isSending = activeSession?.isSending ?? false;
+  const isFinishing = activeSession?.isFinishing ?? false;
+  const isSessionActive = activeSession?.status === "active";
+  const typingVisible = isSending;
+  const errorText = activeSession?.errorText ?? null;
   const dialogueHeight = Math.max(Math.min(theme.viewport.height - 12, 724), 680);
   const dialogueBodyHeight = Math.max(Math.min(theme.viewport.height - 128, 620), 540);
 
-  function handleSendMessage() {
-    const text = draftMessage.trim();
-    if (!text) {
-      setInputNotice("Введите реплику, чтобы продолжить диалог.");
-      return;
-    }
-
-    const timestamp = formatDialogueTime(new Date());
-    const nextManagerReplyCount = localManagerReplyCount + 1;
-    const customerReply = buildCustomerFollowUp(selectedScenario, text, nextManagerReplyCount);
-
-    setLocalMessages((currentMessages) => [
-      ...currentMessages,
-      {
-        id: `manager-${nextManagerReplyCount}-${Date.now()}`,
-        author: "manager",
-        text,
-        time: timestamp
-      },
-      {
-        id: `customer-${nextManagerReplyCount}-${Date.now() + 1}`,
-        author: "customer",
-        text: customerReply,
-        time: timestamp
-      }
-    ]);
-    setLocalManagerReplyCount(nextManagerReplyCount);
+  useEffect(() => {
     setDraftMessage("");
-    setInputNotice("Реплика добавлена в диалог.");
+  }, [activeSession?.sessionId]);
+
+  function scrollToBottom(animated: boolean) {
+    messageScrollRef.current?.scrollToEnd({ animated });
+  }
+
+  async function handleSendMessage() {
+    const wasSent = await onSendMessage(draftMessage);
+    if (wasSent) {
+      setDraftMessage("");
+    }
+  }
+
+  function handlePickQuickAction(action: string) {
+    setDraftMessage(action);
+    setQuickActionsVisible(false);
   }
 
   return (
-    <View style={[styles.screen, layout.isDesktop && { height: dialogueHeight, gap: 10, justifyContent: "space-between" }]}>
+    <View
+      style={[
+        styles.screen,
+        layout.isDesktop && { height: dialogueHeight, gap: 10, justifyContent: "space-between" }
+      ]}
+    >
       <View style={[styles.dialogueHeader, !layout.isDesktop && styles.headerStack]}>
         <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
-        <View style={[styles.dialogueHeaderCenter, !layout.isDesktop && styles.dialogueHeaderCenterStack]}>
-          <Pressable onPress={onBackToCatalog} style={[styles.changeScenarioButton, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
-            <Text style={[styles.changeScenarioIcon, { color: theme.semantic.textSecondary }]}>⇄</Text>
-            <Text style={[styles.changeScenarioText, { color: theme.semantic.textPrimary }]}>Сменить сценарий</Text>
+        <View
+          style={[
+            styles.dialogueHeaderCenter,
+            !layout.isDesktop && styles.dialogueHeaderCenterStack
+          ]}
+        >
+          <Pressable
+            onPress={onBackToCatalog}
+            style={[
+              styles.changeScenarioButton,
+              { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+            ]}
+          >
+            <Text style={[styles.changeScenarioIcon, { color: theme.semantic.textSecondary }]}>
+              ⇄
+            </Text>
+            <Text style={[styles.changeScenarioText, { color: theme.semantic.textPrimary }]}>
+              Сменить сценарий
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -318,6 +385,7 @@ function DialogueView({
         ]}
       >
         <View
+          testID="simulator-chat-panel"
           style={[
             styles.chatPanel,
             {
@@ -334,137 +402,273 @@ function DialogueView({
           <View style={[styles.chatTopBar, { borderBottomColor: theme.semantic.borderSubtle }]}>
             <View style={styles.chatTopLeft}>
               <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
-                Реплики менеджера: <Text style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}>{localManagerReplyCount} / {dialogue.replyTarget}</Text>
+                Реплики менеджера:{" "}
+                <Text
+                  style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}
+                >
+                  {visibleReplyCountLabel}
+                </Text>
               </Text>
-              <View style={[styles.chatProgressTrack, { backgroundColor: theme.semantic.borderSubtle }]}>
-                <View style={[styles.chatProgressFill, { backgroundColor: theme.semantic.actionPrimary, width: `${progress}%` }]} />
+              <View
+                style={[
+                  styles.chatProgressTrack,
+                  { backgroundColor: theme.semantic.borderSubtle }
+                ]}
+              >
+                <View
+                  style={[
+                    styles.chatProgressFill,
+                    { backgroundColor: theme.semantic.actionPrimary, width: `${progress}%` }
+                  ]}
+                />
               </View>
             </View>
             <View style={styles.chatTopRight}>
               <View style={styles.chatStatusRow}>
-                <View style={[styles.statusDot, { backgroundColor: theme.semantic.success }]} />
-                <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>{dialogue.status}</Text>
+                <View
+                  style={[
+                    styles.statusDot,
+                    {
+                      backgroundColor:
+                        activeSession?.status === "finished"
+                          ? theme.semantic.warning
+                          : theme.semantic.success
+                    }
+                  ]}
+                />
+                <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
+                  {activeSession?.status === "finished" ? "Сессия завершена" : dialogue.status}
+                </Text>
               </View>
-              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>◔ {dialogue.time}</Text>
-              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>…</Text>
+              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
+                ◔ {messages[messages.length - 1]?.time ?? dialogue.time}
+              </Text>
             </View>
           </View>
 
           <View style={styles.personaRow}>
-            <View style={[styles.personaAvatar, { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }]}>
-              <Text style={[styles.personaAvatarText, { color: theme.semantic.actionPrimary }]}>РП</Text>
+            <View
+              style={[
+                styles.personaAvatar,
+                { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }
+              ]}
+            >
+              <Text style={[styles.personaAvatarText, { color: theme.semantic.actionPrimary }]}>
+                РП
+              </Text>
             </View>
             <View style={styles.personaText}>
-              <Text style={[styles.personaName, { color: theme.semantic.textPrimary }]}>{dialogue.persona.name}</Text>
-              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>Компания: {dialogue.persona.company}</Text>
-              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>Отдел: {dialogue.persona.department}</Text>
+              <Text style={[styles.personaName, { color: theme.semantic.textPrimary }]}>
+                {dialogue.persona.name}
+              </Text>
+              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>
+                Компания: {dialogue.persona.company}
+              </Text>
+              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>
+                Отдел: {dialogue.persona.department}
+              </Text>
             </View>
           </View>
 
+          {errorText ? (
+            <View style={styles.errorNoticeWrap}>
+              <ChatStateNotice
+                kind="error"
+                text={errorText}
+                testID="simulator-chat-error"
+              />
+            </View>
+          ) : null}
+
           <ScrollView
+            ref={messageScrollRef}
+            testID="simulator-message-list"
             style={styles.messageList}
-            contentContainerStyle={[
-              styles.messageListContent,
-              layout.isDesktop && styles.messageListContentDesktop
-            ]}
+            contentContainerStyle={styles.messageListContent}
             showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => scrollToBottom(true)}
+            onLayout={() => scrollToBottom(false)}
           >
-            {localMessages.map((message) => (
+            {messages.map((message) => (
               <View
                 key={message.id}
+                testID={
+                  message.author === "manager"
+                    ? "simulator-message-manager"
+                    : "simulator-message-customer"
+                }
                 style={[
                   styles.messageBubble,
-                  message.author === "manager" ? styles.messageBubbleManager : styles.messageBubbleCustomer,
+                  message.author === "manager"
+                    ? styles.messageBubbleManager
+                    : styles.messageBubbleCustomer,
                   {
                     backgroundColor:
-                      message.author === "manager" ? theme.colors.surfaceMint : theme.semantic.card,
+                      message.author === "manager"
+                        ? theme.colors.surfaceMint
+                        : theme.semantic.card,
                     borderColor: theme.semantic.border
                   }
                 ]}
               >
-                <Text style={[styles.messageText, { color: theme.semantic.textPrimary }]}>{message.text}</Text>
-                <Text style={[styles.messageTime, { color: theme.semantic.textMuted }]}>{message.time}</Text>
+                <Text style={[styles.messageText, { color: theme.semantic.textPrimary }]}>
+                  {message.text}
+                </Text>
+                <Text style={[styles.messageTime, { color: theme.semantic.textMuted }]}>
+                  {message.time}
+                </Text>
               </View>
             ))}
 
-            <View style={styles.typingRow}>
-              <View style={[styles.typingDots, { backgroundColor: theme.semantic.backgroundWarm, borderColor: theme.semantic.border }]}>
-                <Text style={[styles.typingDotsText, { color: theme.semantic.textMuted }]}>•••</Text>
+            {typingVisible ? (
+              <View testID="simulator-typing-indicator" style={styles.typingRow}>
+                <View
+                  style={[
+                    styles.typingDots,
+                    {
+                      backgroundColor: theme.semantic.backgroundWarm,
+                      borderColor: theme.semantic.border
+                    }
+                  ]}
+                >
+                  <Text style={[styles.typingDotsText, { color: theme.semantic.textMuted }]}>
+                    •••
+                  </Text>
+                </View>
+                <Text style={[styles.typingText, { color: theme.semantic.textMuted }]}>
+                  {dialogue.typingLabel}
+                </Text>
               </View>
-              <Text style={[styles.typingText, { color: theme.semantic.textMuted }]}>{dialogue.typingLabel}</Text>
-            </View>
+            ) : null}
           </ScrollView>
 
           <View
+            testID="simulator-chat-input-row"
             style={[
               styles.inputWrap,
-              { borderTopColor: theme.semantic.borderSubtle },
-              layout.isDesktop && styles.inputWrapDesktop
+              {
+                backgroundColor: theme.semantic.card,
+                borderTopColor: theme.semantic.borderSubtle
+              }
             ]}
           >
-            <View style={[styles.inputRow, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
+            <View
+              style={[
+                styles.inputRow,
+                { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+              ]}
+            >
               <TextInput
+                testID="simulator-chat-input"
+                accessibilityLabel="Поле ввода сообщения в тренажере"
                 placeholder="Напишите сообщение..."
                 placeholderTextColor={theme.semantic.textMuted}
                 style={[styles.chatInput, { color: theme.semantic.textPrimary }]}
                 value={draftMessage}
-                onChangeText={(value) => {
-                  setDraftMessage(value);
-                  if (inputNotice) {
-                    setInputNotice(null);
-                  }
+                onChangeText={setDraftMessage}
+                onSubmitEditing={() => {
+                  void handleSendMessage();
                 }}
-                onSubmitEditing={handleSendMessage}
+                editable={!isSending && isSessionActive && !isFinishing}
+                maxLength={4000}
               />
-              <View style={styles.inputActions}>
-                <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>⚡</Text>
-                <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>⌄</Text>
-              </View>
               <Pressable
-                onPress={handleSendMessage}
-                style={[styles.sendButton, { backgroundColor: theme.colors.primaryPale }]}
+                accessibilityLabel="Открыть быстрые подсказки"
+                onPress={() => setQuickActionsVisible(true)}
+                style={styles.quickActionButton}
               >
-                <Text style={[styles.sendButtonText, { color: theme.semantic.actionPrimary }]}>➤</Text>
+                <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>
+                  ⚡
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="simulator-send-button"
+                accessibilityLabel="Отправить сообщение"
+                onPress={() => {
+                  void handleSendMessage();
+                }}
+                disabled={!draftMessage.trim() || isSending || !isSessionActive || isFinishing}
+                style={[
+                  styles.sendButton,
+                  {
+                    backgroundColor: theme.colors.primaryPale,
+                    opacity:
+                      !draftMessage.trim() || isSending || !isSessionActive || isFinishing
+                        ? 0.48
+                        : 1
+                  }
+                ]}
+              >
+                <Text style={[styles.sendButtonText, { color: theme.semantic.actionPrimary }]}>
+                  ➤
+                </Text>
               </Pressable>
             </View>
-            {inputNotice ? (
-              <Text style={[styles.inputNotice, { color: theme.semantic.textSecondary }]}>
-                {inputNotice}
-              </Text>
-            ) : null}
           </View>
         </View>
 
         <View style={styles.insightColumn}>
-          <View style={[styles.insightCard, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
-            <Text style={[styles.insightTitle, { color: theme.semantic.textPrimary }]}>Контекст сценария</Text>
+          <View
+            style={[
+              styles.insightCard,
+              { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+            ]}
+          >
+            <Text style={[styles.insightTitle, { color: theme.semantic.textPrimary }]}>
+              Контекст сценария
+            </Text>
             <InsightTextBlock label="Контекст" text={dialogue.context} />
             <InsightTextBlock label="Цель" text={dialogue.goal} />
             <InsightTextBlock label="Возражение" text={`«${dialogue.objection}»`} />
           </View>
 
           <Pressable
+            testID="simulator-finish-button"
             onPress={() =>
               onFinishScenario({
                 scenarioId: selectedScenario.id,
                 scenarioTitle: selectedScenario.title
               })
             }
-            disabled={isFinishingReport}
+            disabled={isFinishing}
             style={[
               styles.finishButton,
               {
                 backgroundColor: theme.semantic.actionPrimary,
-                opacity: isFinishingReport ? 0.72 : 1
+                opacity: isFinishing ? 0.72 : 1
               }
             ]}
           >
             <Text style={styles.finishButtonText}>
-              {isFinishingReport ? "Сохраняем отчет..." : "Завершить и получить отчет"}
+              {isFinishing ? "Сохраняем отчет..." : "Завершить и получить отчет"}
             </Text>
           </Pressable>
         </View>
       </View>
+
+      <AppBottomSheet
+        visible={quickActionsVisible}
+        title="Быстрые подсказки"
+        description="Выберите заготовку, чтобы подставить ее в поле ввода."
+        onClose={() => setQuickActionsVisible(false)}
+      >
+        <View style={styles.quickActionsList}>
+          {dialogue.quickActions.map((action) => (
+            <Pressable
+              key={action}
+              onPress={() => handlePickQuickAction(action)}
+              style={[
+                styles.quickActionSheetItem,
+                { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }
+              ]}
+            >
+              <Text style={[styles.quickActionSheetText, { color: theme.semantic.textPrimary }]}>
+                {action}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </AppBottomSheet>
     </View>
   );
 }
@@ -502,7 +706,12 @@ function SegmentButton({
         }
       ]}
     >
-      <Text style={[styles.segmentLabel, { color: active ? theme.semantic.actionPrimary : theme.semantic.textPrimary }]}>
+      <Text
+        style={[
+          styles.segmentLabel,
+          { color: active ? theme.semantic.actionPrimary : theme.semantic.textPrimary }
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -534,12 +743,23 @@ function ScenarioTile({
       ]}
     >
       <View style={styles.scenarioTileTop}>
-        <View style={[styles.scenarioIconTile, { backgroundColor: toneBackground(theme, scenario.accent) }]}>
-          <Text style={[styles.scenarioIcon, { color: toneForeground(theme, scenario.accent) }]}>{scenario.icon}</Text>
+        <View
+          style={[
+            styles.scenarioIconTile,
+            { backgroundColor: toneBackground(theme, scenario.accent) }
+          ]}
+        >
+          <Text style={[styles.scenarioIcon, { color: toneForeground(theme, scenario.accent) }]}>
+            {scenario.icon}
+          </Text>
         </View>
         <View style={styles.scenarioText}>
-          <Text style={[styles.scenarioTitle, { color: theme.semantic.textPrimary }]}>{scenario.title}</Text>
-          <Text style={[styles.scenarioDescription, { color: theme.semantic.textSecondary }]}>{scenario.description}</Text>
+          <Text style={[styles.scenarioTitle, { color: theme.semantic.textPrimary }]}>
+            {scenario.title}
+          </Text>
+          <Text style={[styles.scenarioDescription, { color: theme.semantic.textSecondary }]}>
+            {scenario.description}
+          </Text>
         </View>
       </View>
       <View style={styles.scenarioFooter}>
@@ -547,12 +767,20 @@ function ScenarioTile({
         <InfoPill label={scenario.level} compact />
         {scenario.status === "new" ? (
           <View style={[styles.newBadge, { backgroundColor: "rgba(92,143,115,0.12)" }]}>
-            <Text style={[styles.newBadgeText, { color: theme.colors.info }]}>{scenario.progressLabel}</Text>
+            <Text style={[styles.newBadgeText, { color: theme.colors.info }]}>
+              {scenario.progressLabel}
+            </Text>
           </View>
         ) : (
           <ProgressInfoPill label="" value={scenario.progressValue ?? 0} compact />
         )}
-        <Pressable onPress={onPlay} style={[styles.playButton, { borderColor: theme.semantic.border, backgroundColor: theme.semantic.card }]}>
+        <Pressable
+          onPress={onPlay}
+          style={[
+            styles.playButton,
+            { borderColor: theme.semantic.border, backgroundColor: theme.semantic.card }
+          ]}
+        >
           <Text style={[styles.playButtonText, { color: theme.semantic.actionPrimary }]}>▶</Text>
         </Pressable>
       </View>
@@ -566,9 +794,14 @@ function CircleActionButton({ label, onPress }: { label: string; onPress: () => 
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.circleButton, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}
+      style={[
+        styles.circleButton,
+        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+      ]}
     >
-      <Text style={[styles.circleButtonText, { color: theme.semantic.textPrimary }]}>{label}</Text>
+      <Text style={[styles.circleButtonText, { color: theme.semantic.textPrimary }]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -608,16 +841,32 @@ function ProgressInfoPill({
         { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
       ]}
     >
-      {label ? <Text style={[styles.progressPillLabel, { color: theme.semantic.actionPrimary }]}>{label}</Text> : null}
-      <View style={[styles.progressPillTrack, { backgroundColor: theme.semantic.borderSubtle }]}>
-        <View style={[styles.progressPillFill, { backgroundColor: theme.semantic.actionPrimary, width: `${value}%` }]} />
+      {label ? (
+        <Text style={[styles.progressPillLabel, { color: theme.semantic.actionPrimary }]}>
+          {label}
+        </Text>
+      ) : null}
+      <View
+        style={[styles.progressPillTrack, { backgroundColor: theme.semantic.borderSubtle }]}
+      >
+        <View
+          style={[
+            styles.progressPillFill,
+            { backgroundColor: theme.semantic.actionPrimary, width: `${value}%` }
+          ]}
+        />
       </View>
-      <Text style={[styles.progressPillValue, { color: theme.semantic.textPrimary }]}>{value}%</Text>
+      <Text style={[styles.progressPillValue, { color: theme.semantic.textPrimary }]}>
+        {value}%
+      </Text>
     </View>
   );
 }
 
-function toneBackground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warning" | "info" | "violet" | "peach") {
+function toneBackground(
+  theme: ReturnType<typeof useTheme>,
+  tone: "mint" | "warning" | "info" | "violet" | "peach"
+) {
   if (tone === "warning") {
     return "rgba(213,162,77,0.16)";
   }
@@ -634,7 +883,10 @@ function toneBackground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warn
   return theme.colors.primaryPale;
 }
 
-function toneForeground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warning" | "info" | "violet" | "peach") {
+function toneForeground(
+  theme: ReturnType<typeof useTheme>,
+  tone: "mint" | "warning" | "info" | "violet" | "peach"
+) {
   if (tone === "warning") {
     return theme.semantic.warning;
   }
@@ -649,36 +901,6 @@ function toneForeground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warn
   }
 
   return theme.semantic.actionPrimary;
-}
-
-function formatDialogueTime(date: Date): string {
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-function buildCustomerFollowUp(
-  scenario: ScenarioCardItem,
-  managerText: string,
-  managerReplyCount: number
-): string {
-  if (scenario.id === "price-objection") {
-    return managerReplyCount >= 3
-      ? "Если мы увидим понятный пилот и сроки без простоя, готовы обсудить следующий шаг."
-      : "Аргумент понятен, но мне все еще важно понять, как это окупится в нашем бюджете.";
-  }
-
-  if (scenario.id === "timeline-negotiation") {
-    return "Тогда уточните, какие этапы и сроки вы готовы зафиксировать уже сейчас.";
-  }
-
-  if (scenario.id === "competitor-comparison") {
-    return "Хорошо, а в чем для нас будет практическая разница по сравнению с конкурентом?";
-  }
-
-  return managerText.length > 80
-    ? "Понял. Тогда уточните, какой следующий шаг вы предлагаете проверить первым."
-    : "Можете раскрыть это чуть конкретнее применительно к нашей ситуации?";
 }
 
 const styles = StyleSheet.create({
@@ -924,9 +1146,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600"
   },
-  sortChevron: {
-    fontSize: 16
-  },
   cardGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1052,7 +1271,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minHeight: 0,
     height: "100%",
-    position: "relative"
+    flexDirection: "column"
   },
   chatTopBar: {
     minHeight: 52,
@@ -1132,6 +1351,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18
   },
+  errorNoticeWrap: {
+    paddingHorizontal: 18,
+    paddingBottom: 8
+  },
   messageList: {
     flex: 1,
     minHeight: 0
@@ -1140,9 +1363,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 8,
     gap: 10
-  },
-  messageListContentDesktop: {
-    paddingBottom: 96
   },
   messageBubble: {
     maxWidth: "66%",
@@ -1191,23 +1411,8 @@ const styles = StyleSheet.create({
   inputWrap: {
     borderTopWidth: 1,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8
-  },
-  inputWrapDesktop: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 10,
-    borderTopWidth: 0,
-    paddingHorizontal: 16,
-    paddingTop: 0,
-    paddingBottom: 0
-  },
-  inputNotice: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 8
+    paddingTop: 10,
+    paddingBottom: 12
   },
   inputRow: {
     minHeight: 48,
@@ -1224,10 +1429,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingVertical: 0
   },
-  inputActions: {
-    flexDirection: "row",
+  quickActionButton: {
+    width: 32,
+    height: 32,
     alignItems: "center",
-    gap: 12
+    justifyContent: "center"
   },
   inputAction: {
     fontSize: 18
@@ -1285,5 +1491,19 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800"
+  },
+  quickActionsList: {
+    gap: 10
+  },
+  quickActionSheetItem: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12
+  },
+  quickActionSheetText: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600"
   }
 });

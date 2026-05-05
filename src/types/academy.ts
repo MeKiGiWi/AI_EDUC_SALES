@@ -312,6 +312,18 @@ export interface DialogueMessage {
   time: string;
 }
 
+export interface ActiveDialogueSession {
+  mode: "mock" | "api";
+  sessionId: string;
+  scenarioId: string;
+  scenarioTitle: string;
+  messages: DialogueMessage[];
+  status: "active" | "finished";
+  errorText: string | null;
+  isSending: boolean;
+  isFinishing: boolean;
+}
+
 export interface CompetencyProgress {
   id: string;
   label: string;

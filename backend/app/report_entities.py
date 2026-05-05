@@ -30,6 +30,7 @@ class ReportRecord(Base):
     available_formats: Mapped[list[str]] = mapped_column(JSON)
     preview_sections: Mapped[list[dict[str, object]]] = mapped_column(JSON)
     evaluation_payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    report_v2_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     session_id: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
     updated_at: Mapped[datetime] = mapped_column(

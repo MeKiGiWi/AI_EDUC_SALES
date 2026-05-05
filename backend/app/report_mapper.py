@@ -14,6 +14,8 @@ from app.models import (
     WorkspaceRole,
 )
 from app.report_entities import ReportRecord
+from app.report_v2 import adapt_legacy_evaluation_to_report_v2
+from app.schemas_report import SalesDialogueReportV2
 
 ROLE_OWNER_LABELS: dict[WorkspaceRole, str] = {
     WorkspaceRole.STUDENT: "Ученик",
@@ -141,6 +143,13 @@ def build_preview_sections(evaluation: EvaluationResultRaw, scenario_title: str,
 def create_report_record(payload: ReportCreateDto, report_id: str, created_at: datetime) -> ReportRecord:
     title = build_display_name(payload.scenario_title, created_at)
     preview_sections = build_preview_sections(payload.evaluation, payload.scenario_title, report_id)
+    report_v2 = payload.report_v2 or adapt_legacy_evaluation_to_report_v2(
+        evaluation=payload.evaluation,
+        dialogue_turns=[],
+        scenario_id=payload.scenario_id or report_id,
+        scenario_title=payload.scenario_title,
+        created_at=created_at,
+    )
     return ReportRecord(
         id=report_id,
         role=payload.role.value,
@@ -156,6 +165,7 @@ def create_report_record(payload: ReportCreateDto, report_id: str, created_at: d
         available_formats=[ExportFormat.PDF.value, ExportFormat.CSV.value],
         preview_sections=[section.model_dump() for section in preview_sections],
         evaluation_payload=payload.evaluation.model_dump(mode="json"),
+        report_v2_payload=report_v2.model_dump(mode="json"),
         session_id=payload.session_id,
         created_at=created_at,
         updated_at=created_at,
@@ -164,6 +174,9 @@ def create_report_record(payload: ReportCreateDto, report_id: str, created_at: d
 
 def to_report_card(record: ReportRecord) -> ReportCardDto:
     preview_sections = [ReportPreviewSectionDto(**item) for item in record.preview_sections]
+    report_v2 = None
+    if record.report_v2_payload:
+        report_v2 = SalesDialogueReportV2.model_validate(record.report_v2_payload)
     return ReportCardDto(
         id=record.id,
         title=record.title,
@@ -181,4 +194,5 @@ def to_report_card(record: ReportRecord) -> ReportCardDto:
         sessionId=record.session_id,
         availableFormats=[ExportFormat(value) for value in record.available_formats],
         previewSections=preview_sections,
+        reportV2=report_v2,
     )

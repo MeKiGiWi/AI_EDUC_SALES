@@ -220,6 +220,8 @@ async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None
     assert payload["status"] == "finished"
     assert "report" not in payload
     assert payload["evaluation"]["overall_level"] == "Middle"
+    assert payload["report_v2"]["reportVersion"] == "2.0"
+    assert payload["report_v2"]["summary"]["headline"]
     assert len(payload["evaluation"]["competencies"]) == 5
     assert [item["name"] for item in payload["evaluation"]["competencies"]] == [
         "Умение задавать вопросы",

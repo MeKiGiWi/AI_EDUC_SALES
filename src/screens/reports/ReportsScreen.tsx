@@ -7,7 +7,6 @@ import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
-import { roleLabels } from "../../navigation/routes";
 import { downloadReportFile } from "../../services/reportExportService";
 import { useTheme } from "../../theme/useTheme";
 import type { ExportFormat, ReportCard, ReportStatus, UserRole } from "../../types/academy";
@@ -239,20 +238,9 @@ export function ReportsScreen({
         </View>
       )}
 
-      <AppCard tone="mint">
-        <View style={styles.rowBetween}>
-          <View style={styles.flexBlock}>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Серверное хранилище</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              Отчеты не хранятся локально. Экран всегда показывает данные из PostgreSQL через backend.
-            </Text>
-            <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-              Текущая роль: {roleLabels[activeRole]} · Отчетов: {sortedReports.length}
-            </Text>
-          </View>
-          <AppButton label="Как это работает" onPress={openInfoSheet} tone="ghost" />
-        </View>
-      </AppCard>
+      <View style={styles.infoActionRow}>
+        <AppButton label="Как это работает" onPress={openInfoSheet} tone="ghost" />
+      </View>
 
       <AppBottomSheet
         visible={sheetState !== null}
@@ -322,11 +310,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     alignSelf: "flex-start"
   },
-  meta: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "700"
-  },
   filterRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -340,17 +323,8 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     alignItems: "stretch"
   },
-  rowBetween: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    flexWrap: "wrap"
-  },
-  flexBlock: {
-    flex: 1,
-    minWidth: 240,
-    gap: 6
+  infoActionRow: {
+    alignItems: "flex-start"
   },
   listItem: {
     fontSize: 15,

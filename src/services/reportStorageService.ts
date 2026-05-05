@@ -79,18 +79,28 @@ export const reportStorageService = {
     );
   },
 
-  async save(role: UserRole, scenarioTitle: string, evaluation: SavedSimulatorReport["evaluation"]): Promise<SavedSimulatorReport> {
+  async save(params: {
+    role: UserRole;
+    scenarioId?: string | null;
+    scenarioTitle: string;
+    sourceLabel?: string | null;
+    sessionId?: string | null;
+    evaluation: SavedSimulatorReport["evaluation"];
+  }): Promise<SavedSimulatorReport> {
     const now = new Date();
     const report: SavedSimulatorReport = {
       id: buildUniqueId(),
-      scenarioTitle,
-      displayName: buildDisplayName(scenarioTitle, now),
+      scenarioId: params.scenarioId ?? undefined,
+      scenarioTitle: params.scenarioTitle,
+      displayName: buildDisplayName(params.scenarioTitle, now),
       createdAt: now.toISOString(),
-      evaluation
+      sourceLabel: params.sourceLabel ?? undefined,
+      sessionId: params.sessionId ?? undefined,
+      evaluation: params.evaluation
     };
-    const existing = await readAll(role);
+    const existing = await readAll(params.role);
     existing.unshift(report);
-    await writeAll(role, existing.slice(0, 50));
+    await writeAll(params.role, existing.slice(0, 50));
     return report;
   },
 

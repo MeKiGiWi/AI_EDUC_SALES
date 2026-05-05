@@ -16,7 +16,7 @@ from app.models import (
     GraphDependencies,
 )
 from app.prompts import BASELINE_OPENING_MESSAGE
-from app.settings import get_agents_config
+from app.settings import get_agents_config, get_settings
 from app.store import InMemorySessionStore
 
 
@@ -39,10 +39,13 @@ def build_fake_graph(reply_text: str = "Давайте ближе к выгод�
 
 
 class FakeEvaluationAgent:
+    def __init__(self, expected_min_replies: int = 10) -> None:
+        self.expected_min_replies = expected_min_replies
+
     async def evaluate(self, dialogue: str, manager_replies: int, *, min_replies: int = 10) -> EvaluationResultRaw:
         assert dialogue
         assert manager_replies >= 1
-        assert min_replies == 10
+        assert min_replies == self.expected_min_replies
         return EvaluationResultRaw(
             overall_level=CompetencyLevel.MIDDLE,
             overall_comment="Диалог структурирован, но есть зоны для усиления.",
@@ -103,7 +106,7 @@ async def test_health_endpoint_returns_ok() -> None:
 async def test_create_session_returns_opening_message(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
-    monkeypatch.setattr(simulator_api, "build_graph", lambda agents_config: build_fake_graph())
+    monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
@@ -124,13 +127,14 @@ async def test_get_scenarios_returns_baseline() -> None:
     payload = response.json()
     assert response.status_code == status.HTTP_200_OK
     assert any(item["id"] == "baseline" for item in payload["items"])
+    assert any(item["id"] == "price-objection" for item in payload["items"])
 
 
 @pytest.mark.asyncio
 async def test_create_session_with_unknown_scenario_returns_404(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
-    monkeypatch.setattr(simulator_api, "build_graph", lambda agents_config: build_fake_graph())
+    monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "unknown-scenario"})
@@ -146,7 +150,7 @@ async def test_send_message_returns_buyer_reply(monkeypatch) -> None:
     monkeypatch.setattr(
         simulator_api,
         "build_graph",
-        lambda agents_config: build_fake_graph("Давайте ближе к выгоде для нас."),
+        lambda: build_fake_graph("Давайте ближе к выгоде для нас."),
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
@@ -171,7 +175,7 @@ async def test_send_message_stays_active_even_for_refusal_text(monkeypatch) -> N
     monkeypatch.setattr(
         simulator_api,
         "build_graph",
-        lambda agents_config: build_fake_graph("Не актуально, мы уже выбрали другого."),
+        lambda: build_fake_graph("Не актуально, мы уже выбрали другого."),
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
@@ -191,8 +195,10 @@ async def test_send_message_stays_active_even_for_refusal_text(monkeypatch) -> N
 async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
-    monkeypatch.setattr(simulator_api, "build_graph", lambda agents_config: build_fake_graph())
-    monkeypatch.setattr(simulator_api, "build_evaluation_agent", lambda agents_config: FakeEvaluationAgent())
+    monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
+    monkeypatch.setattr(simulator_api, "build_evaluation_agent", lambda: FakeEvaluationAgent(expected_min_replies=3))
+    monkeypatch.setenv("MIN_MANAGER_TURNS", "3")
+    get_settings.cache_clear()
     log_calls: list[dict[str, str]] = []
     monkeypatch.setattr(
         simulator_api,
@@ -226,3 +232,4 @@ async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None
     assert log_calls[0]["model_name"] == get_agents_config().buyer_agent_llm_settings.LLM_MODEL
     assert log_calls[0]["scenario_name"] == "baseline"
     assert "Менеджер:" in log_calls[0]["dialogue"]
+    get_settings.cache_clear()

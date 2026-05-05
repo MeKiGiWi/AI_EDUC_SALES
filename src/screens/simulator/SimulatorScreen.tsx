@@ -1,831 +1,1587 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
-
-import { useSessionStorage } from "../../hooks/useSessionStorage";
-
-import { ChatBubble } from "../../components/simulator/ChatBubble";
-import { FinishConfirmSheet } from "../../components/simulator/FinishConfirmSheet";
-import { ScenarioPicker } from "../../components/simulator/ScenarioPicker";
-import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
-import { AppButton } from "../../components/ui/AppButton";
-import { AppCard } from "../../components/ui/AppCard";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  SimulatorApiError,
-  simulatorApiService,
-  getSafeSimulatorErrorMessage
-} from "../../services/simulatorApiService";
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextStyle
+} from "react-native";
+
+import { ChatStateNotice } from "../../components/chat/ChatStateNotice";
+import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
+import {
+  calculateDialogueProgress,
+  countManagerReplies
+} from "../../services/simulatorDialogueService";
+import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
-import type {
-  KnowledgeMaterial,
-  LearningModule,
-  Scenario,
-  ScenarioMessage,
-  SimulatorApiMessageDto,
-  SimulatorEvaluationPayloadDto,
-  SimulatorPublicScenarioDto
-} from "../../types/academy";
+import type { ActiveDialogueSession, SalesAcademyMock, ScenarioCardItem } from "../../types/academy";
 
 interface SimulatorScreenProps {
-  modules: LearningModule[];
-  scenarios: Scenario[];
+  data: SalesAcademyMock;
   activeScenarioId?: string;
-  onOpenReports: () => void;
-  onReportSaved: (payload: {
-    scenarioTitle: string;
-    evaluation: SimulatorEvaluationPayloadDto;
-    sessionId?: string | null;
-  }) => void | Promise<void>;
-  onNavigateToReports: () => void;
+  activeSession: ActiveDialogueSession | null;
+  mode: "catalog" | "dialogue";
+  onStartScenario: (scenarioId: string) => void;
+  onBackToCatalog: () => void;
+  onSendMessage: (text: string) => Promise<boolean>;
+  onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
+  startErrorText?: string | null;
+  onDismissStartError?: () => void;
 }
 
-type DialoguePhase = "idle" | "active" | "finished";
+const trainerFilters = ["Все", "Новые"] as const;
+const chatInputWebReset = {
+  outlineStyle: "none",
+  scrollbarWidth: "none"
+} as unknown as TextStyle;
 
-const API_SIMULATOR_MODULE_ID = "mod-simulator-api";
-const TRAINING_INTRO_MESSAGE = `Коллега, приветствую!
-Ты получил входящий запрос от клиента – руководителя производства, который ищет кондиционер для цеха. Он разослал запросы нескольким поставщикам, ты – один из них.
-Твоя задача – стать единственным.
-Общайся так, как обычно ведёшь диалог с потенциальным покупателем. Диалог завершится, когда клиент примет решение о следующем шаге или окончательно уйдёт после повторного "подумаю". Минимальная длина диалога для честной оценки — 10 твоих реплик. Если хочешь завершить раньше, напиши Стоп.
-По итогам получишь обратную связь по своим профессиональным навыкам. Поехали?
-Нажми начать, чтобы начать`;
+type SimulatorInfoSheetState =
+  | {
+      title: string;
+      description: string;
+      lines: string[];
+    }
+  | null;
 
 export function SimulatorScreen({
-  modules,
-  scenarios,
+  data,
   activeScenarioId,
-  onOpenReports,
-  onReportSaved,
-  onNavigateToReports
+  activeSession,
+  mode,
+  onStartScenario,
+  onBackToCatalog,
+  onSendMessage,
+  onFinishScenario,
+  startErrorText = null,
+  onDismissStartError
 }: SimulatorScreenProps) {
   const theme = useTheme();
-  const apiEnabled = simulatorApiService.isEnabled();
-  const [apiScenarios, setApiScenarios] = useState<Scenario[]>([]);
-  const [simulatorUnavailableReason, setSimulatorUnavailableReason] = useState<string | null>(null);
-  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
-  const apiSimulatorModule = useMemo<LearningModule>(
-    () => ({
-      id: API_SIMULATOR_MODULE_ID,
-      title: "b2b продажи",
-      description: "Практика baseline-сценария с AI-клиентом.",
-      durationMinutes: 15,
-      completedPercent: 0,
-      nextStep: "Запустить baseline-сценарий",
-      statusLabel: "Активен"
-    }),
-    []
-  );
-  const simulatorModules = useMemo(() => {
-    if (!apiEnabled) {
-      return [apiSimulatorModule];
-    }
+  const layout = useResponsiveLayout();
+  const [segment, setSegment] = useState<"B2B" | "B2C">("B2B");
+  const [activeFilter, setActiveFilter] = useState<(typeof trainerFilters)[number]>("Все");
+  const [infoSheet, setInfoSheet] = useState<SimulatorInfoSheetState>(null);
 
-    return [apiSimulatorModule];
-  }, [apiEnabled, apiSimulatorModule]);
-  const catalogScenarios = apiScenarios;
-  const initialScenario = useMemo(
-    () => catalogScenarios.find((scenario) => scenario.id === activeScenarioId) ?? catalogScenarios[0],
-    [activeScenarioId, catalogScenarios]
-  );
-  const fallbackModuleId =
-    initialScenario?.moduleId ?? simulatorModules[0]?.id ?? catalogScenarios[0]?.moduleId ?? "";
-  const [selectedModuleId, setSelectedModuleId] = useState(fallbackModuleId);
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(
-    initialScenario?.id ?? catalogScenarios.find((scenario) => scenario.moduleId === fallbackModuleId)?.id
-  );
-  const [messages, setMessages] = useSessionStorage<ScenarioMessage[]>("sim_messages", []);
-  const [draft, setDraft] = useSessionStorage("sim_draft", "");
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useSessionStorage<string | null>("sim_session_id", null);
-  const [isBusy, setIsBusy] = useState(false);
-  const [dialoguePhase, setDialoguePhase] = useSessionStorage<DialoguePhase>("sim_dialogue_phase", "idle");
-  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const selectedScenario = data.scenarios.find((scenario) => scenario.id === activeScenarioId);
+  const featuredScenario = selectedScenario ?? data.scenarios[0];
+  const filteredScenarios = useMemo(() => {
+    return data.scenarios.filter((scenario) => {
+      if (scenario.segment !== segment) {
+        return false;
+      }
 
-  const visibleScenarios = useMemo(
-    () => catalogScenarios.filter((scenario) => scenario.moduleId === selectedModuleId),
-    [catalogScenarios, selectedModuleId]
-  );
-  const selectedScenario = useMemo(
-    () => visibleScenarios.find((scenario) => scenario.id === selectedScenarioId) ?? visibleScenarios[0],
-    [visibleScenarios, selectedScenarioId]
-  );
-  const scenarioContextLines = useMemo(() => {
+      if (activeFilter === "Новые") {
+        return scenario.status === "new";
+      }
+
+      return true;
+    });
+  }, [activeFilter, data.scenarios, segment]);
+
+  function openProgressInfo() {
+    setInfoSheet({
+      title: "Состояние тренажера",
+      description:
+        "Каталог показывает тот набор сценариев, который реально доступен в текущем мобильном MVP.",
+      lines: [
+        `Активный сегмент: ${segment}.`,
+        `Текущий фильтр: ${activeFilter}.`,
+        "После завершения тренировки отчет сохраняется и открывается автоматически."
+      ]
+    });
+  }
+
+  function openTrainerHelp() {
+    setInfoSheet({
+      title: "Как пройти тренировку",
+      description: "Тренажер больше не оставляет пустых действий и подсказывает следующий шаг.",
+      lines: [
+        "Выберите карточку сценария и начните диалог из каталога.",
+        "Если backend не подтверждает сценарий, UI покажет ошибку вместо тихого fallback.",
+        "Завершение диалога создает отчет и переводит в просмотр результата."
+      ]
+    });
+  }
+
+  if (mode === "dialogue") {
     if (!selectedScenario) {
-      return [];
-    }
-
-    const personaSummary = [
-      selectedScenario.persona.name,
-      selectedScenario.persona.roleTitle
-    ].filter(Boolean).join(", ");
-    const companyLabel = selectedScenario.persona.company
-      ? `${personaSummary}${personaSummary ? " в " : ""}${selectedScenario.persona.company}.`
-      : personaSummary
-        ? `${personaSummary}.`
-        : "";
-    const painPointsLabel = selectedScenario.persona.painPoints.length > 0
-      ? `Сейчас в фокусе: ${selectedScenario.persona.painPoints.join(", ")}.`
-      : "";
-    const moodLabel = selectedScenario.persona.mood ? `Настрой: ${selectedScenario.persona.mood}.` : "";
-    const objectionStyleLabel = selectedScenario.persona.objectionStyle
-      ? `Стиль реакции: ${selectedScenario.persona.objectionStyle}.`
-      : "";
-
-    return [companyLabel, painPointsLabel, moodLabel, objectionStyleLabel].filter(Boolean);
-  }, [selectedScenario]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadApiScenarios() {
-      if (!apiEnabled) {
-        if (!isMounted) {
-          return;
-        }
-
-        setApiScenarios([]);
-        setSimulatorUnavailableReason(
-          "Тренажер временно недоступен. Идут технические работы. Попробуйте зайти позже."
-        );
-        return;
-      }
-
-      try {
-        setIsCatalogLoading(true);
-        setSimulatorUnavailableReason(null);
-        const items = await simulatorApiService.fetchSimulatorScenarios();
-        if (!isMounted) {
-          return;
-        }
-
-        let mappedScenarios = items.map((item) => mapApiScenarioToScenario(item, API_SIMULATOR_MODULE_ID));
-        
-        if (mappedScenarios.length === 0) {
-          mappedScenarios = [
-            mapApiScenarioToScenario(
-              {
-                id: "baseline",
-                title: "Baseline",
-                openingMessage: "Добрый день.",
-                status: "ready"
-              },
-              API_SIMULATOR_MODULE_ID
-            )
-          ];
-        }
-
-        setApiScenarios(mappedScenarios);
-        setSelectedModuleId(API_SIMULATOR_MODULE_ID);
-        setSelectedScenarioId(mappedScenarios[0]?.id);
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setApiScenarios([]);
-        setSelectedModuleId(API_SIMULATOR_MODULE_ID);
-        setSelectedScenarioId(undefined);
-        setSimulatorUnavailableReason(
-          "Тренажер временно недоступен. Идут технические работы. Попробуйте обновить страницу через несколько минут."
-        );
-      } finally {
-        if (isMounted) {
-          setIsCatalogLoading(false);
-        }
-      }
-    }
-
-    loadApiScenarios();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [apiEnabled, reloadToken]);
-
-  useEffect(() => {
-    if (apiEnabled) {
-      setSelectedModuleId(API_SIMULATOR_MODULE_ID);
-      return;
-    }
-  }, [apiEnabled, fallbackModuleId, initialScenario, simulatorModules]);
-
-  useEffect(() => {
-    if (!selectedModuleId || !apiEnabled) {
-      setSelectedScenarioId(undefined);
-      return;
-    }
-
-    const firstScenarioId = apiScenarios.find((scenario) => scenario.moduleId === selectedModuleId)?.id;
-    setSelectedScenarioId((current) =>
-      current &&
-      apiScenarios.some((scenario) => scenario.moduleId === selectedModuleId && scenario.id === current)
-        ? current
-        : firstScenarioId
-    );
-  }, [apiEnabled, apiScenarios, selectedModuleId]);
-
-  useEffect(() => {
-    if (selectedScenario) {
-      resetScenario(false);
-      return;
-    }
-
-    setDraft("");
-    setSessionId(null);
-    setDialoguePhase("idle");
-    setMessages([]);
-  }, [apiEnabled, selectedScenario?.id]);
-
-  function createSystemMessage(text: string): ScenarioMessage {
-    return {
-      id: createClientId("system"),
-      speakerName: "Система",
-      speakerRole: "system",
-      text,
-      timestampLabel: formatTimestamp(new Date().toISOString())
-    };
-  }
-
-  function buildMissingApiUrlText(): string {
-    return "Ошибка конфигурации: EXPO_PUBLIC_SIMULATOR_API_URL не задан. Тренажер работает только через backend.";
-  }
-
-  function retrySimulatorConnection() {
-    setSuccessMessage(null);
-    setSimulatorUnavailableReason(null);
-    setReloadToken((current) => current + 1);
-  }
-
-  function formatSystemErrorText(operation: string, error: unknown): string {
-    console.error(`ERROR [${operation}]:`, error);
-    return getSafeSimulatorErrorMessage(error);
-  }
-
-  function appendSystemErrorMessage(operation: string, error: unknown): void {
-    const text = formatSystemErrorText(operation, error);
-    setMessages((current) => [...current, createSystemMessage(text)]);
-    setSuccessMessage(null);
-  }
-
-  function resetScenario(clearSuccess: boolean) {
-    setMessages(
-      apiEnabled && selectedScenario
-        ? [createSystemMessage(TRAINING_INTRO_MESSAGE)]
-        : [createSystemMessage(buildMissingApiUrlText())]
-    );
-    setDraft("");
-    setSessionId(null);
-    setDialoguePhase("idle");
-    if (clearSuccess) {
-      setSuccessMessage(null);
-    }
-  }
-
-  async function persistLatestReport(currentScenario: Scenario) {
-    const capturedSessionId = sessionId;
-    if (!capturedSessionId) {
-      throw new Error("Сначала запустите сценарий.");
-    }
-
-    const MAX_ATTEMPTS = 3;
-    const RETRY_DELAY_MS = 2000;
-
-    let evaluation: import("../../types/academy").SimulatorEvaluationPayloadDto | undefined;
-
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        const response = await simulatorApiService.finishDialogueSession(capturedSessionId);
-        if (response.evaluation) {
-          evaluation = response.evaluation;
-          break;
-        }
-        // evaluation missing — wait and retry (backend may still be generating)
-        if (attempt < MAX_ATTEMPTS) {
-          setSuccessMessage(`Генерируем отчёт... (попытка ${attempt}/${MAX_ATTEMPTS})`);
-          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-        }
-      } catch (err) {
-        // if backend returns error on already-finished session, try once more
-        if (attempt < MAX_ATTEMPTS) {
-          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-        } else {
-          throw err;
-        }
-      }
-    }
-
-    setDialoguePhase("finished");
-    setDraft("");
-
-    if (evaluation) {
-      setSuccessMessage("Сохраняем отчет...");
-
-      try {
-        await onReportSaved({
-          scenarioTitle: currentScenario.title,
-          evaluation,
-          sessionId: capturedSessionId
-        });
-        setSuccessMessage('Диалог завершён. Отчет сохранен во вкладке "Отчеты".');
-        onNavigateToReports();
-      } catch (error) {
-        console.error("[reports] failed to persist finished evaluation", error);
-        setSuccessMessage(
-          "Диалог завершён, но сохранить отчет не удалось. Попробуйте открыть вкладку «Отчеты» еще раз."
-        );
-      }
-    } else {
-      setSuccessMessage("Диалог завершён, но оценка не была получена от сервера. Попробуйте завершить ещё раз.");
-    }
-  }
-
-  async function startScenario() {
-    if (!selectedScenario) {
-      setSuccessMessage("Сначала выберите сценарий внутри модуля.");
-      return;
-    }
-
-    if (!apiEnabled) {
-      appendSystemErrorMessage("startScenario", new Error(buildMissingApiUrlText()));
-      return;
-    }
-
-    setSessionId(null);
-    try {
-      setIsBusy(true);
-      const response = await simulatorApiService.startDialogueSession(
-        selectedScenario.id,
-        "medium"
+      return (
+        <View style={styles.screen}>
+          <ChatStateNotice
+            kind="error"
+            text="Выбранный сценарий не найден. Вернитесь к списку и выберите доступный сценарий."
+            actionLabel="К списку сценариев"
+            onAction={onBackToCatalog}
+          />
+        </View>
       );
-      setSessionId(response.session_id);
-      setMessages([mapApiMessageToChatMessage(response.message, selectedScenario)]);
-      setDialoguePhase("active");
-      setDraft("");
-      setSuccessMessage(`Сценарий "${selectedScenario.title}" запущен.`);
-    } catch (error) {
-      appendSystemErrorMessage("startScenario", error);
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
-  async function sendReply(text: string) {
-    if (!selectedScenario) {
-      setSuccessMessage("Выберите сценарий, прежде чем отправлять реплику.");
-      return;
     }
 
-    const trimmedText = text.trim();
-    if (!trimmedText) {
-      setSuccessMessage("Сначала добавьте свою реплику.");
-      return;
-    }
-
-    if (dialoguePhase === "finished") {
-      setMessages((current) => [
-        ...current,
-        createSystemMessage('Диалог уже завершён. Нажмите "Повторить сценарий", чтобы начать заново.')
-      ]);
-      setSuccessMessage("Сессия уже завершена.");
-      return;
-    }
-
-    if (!apiEnabled) {
-      appendSystemErrorMessage("sendReply", new Error(buildMissingApiUrlText()));
-      return;
-    }
-
-    if (dialoguePhase === "idle") {
-      setSuccessMessage("Сначала нажмите Начать.");
-      return;
-    }
-
-    if (!sessionId) {
-      appendSystemErrorMessage("sendReply", new Error("Сначала запустите сценарий."));
-      return;
-    }
-
-    try {
-      setIsBusy(true);
-      const learnerMessage = createLearnerMessage(trimmedText);
-      setMessages((current) => [...current, learnerMessage]);
-      setDraft("");
-      const response = await simulatorApiService.sendDialogueMessage(sessionId, trimmedText);
-      setMessages((current) =>
-        mergeChatMessages(
-          current,
-          response.messages.map((message) => mapApiMessageToChatMessage(message, selectedScenario))
-        )
-      );
-      if (response.status === "finished") {
-        setDialoguePhase("finished");
-        await persistLatestReport(selectedScenario);
-      } else {
-        setSuccessMessage("Реплика отправлена.");
-      }
-    } catch (error) {
-      setMessages((current) => current.slice(0, -1));
-      setDraft(trimmedText);
-      appendSystemErrorMessage("sendReply", error);
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
-  async function finishScenario() {
-    if (!selectedScenario) {
-      return;
-    }
-
-    if (dialoguePhase === "finished") {
-      setMessages((current) => [
-        ...current,
-        createSystemMessage('Диалог уже завершён. Нажмите "Повторить сценарий", чтобы начать заново.')
-      ]);
-      return;
-    }
-
-    if (dialoguePhase !== "active") {
-      setSuccessMessage("Сначала начните диалог и подтвердите запуск.");
-      return;
-    }
-
-    const userMessageCount = messages.filter((msg) => msg.speakerRole === "learner").length;
-    if (userMessageCount < 10) {
-      setShowFinishConfirm(true);
-      return;
-    }
-
-    await finishActiveScenario();
-  }
-
-  async function confirmFinishScenario() {
-    setShowFinishConfirm(false);
-    await finishActiveScenario();
-  }
-
-  async function finishActiveScenario() {
-    if (!apiEnabled) {
-      appendSystemErrorMessage("finishScenario", new Error(buildMissingApiUrlText()));
-      return;
-    }
-
-    if (!sessionId) {
-      appendSystemErrorMessage("finishScenario", new Error("Сначала запустите сценарий."));
-      return;
-    }
-
-    try {
-      setIsBusy(true);
-      await persistLatestReport(selectedScenario);
-    } catch (error) {
-      appendSystemErrorMessage("finishScenario", error);
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
-  function handleSelectModule(moduleId: string) {
-    setSelectedModuleId(moduleId);
-    setSuccessMessage(null);
-  }
-
-  if (simulatorUnavailableReason) {
     return (
-      <View style={styles.trainerContent}>
-        <AppCard style={styles.dialogFullWidth}>
-          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Тренажер временно недоступен</Text>
-          <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-            {simulatorUnavailableReason}
-          </Text>
-          <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-            Мы уже восстанавливаем сервис. Повторите попытку позже.
-          </Text>
-          <View style={styles.buttonRow}>
-            <AppButton
-              label="Проверить снова"
-              onPress={retrySimulatorConnection}
-              tone="primary"
-              disabled={isCatalogLoading}
-            />
-          </View>
-        </AppCard>
-      </View>
-    );
-  }
-
-  if (isCatalogLoading && catalogScenarios.length === 0) {
-    return (
-      <View style={styles.trainerContent}>
-        <AppCard style={styles.dialogFullWidth}>
-          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Подключаем тренажер</Text>
-          <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-            Загружаем сценарии и проверяем доступность сервиса.
-          </Text>
-        </AppCard>
-      </View>
+      <DialogueView
+        data={data}
+        selectedScenario={selectedScenario}
+        activeSession={activeSession}
+        onBackToCatalog={onBackToCatalog}
+        onSendMessage={onSendMessage}
+        onFinishScenario={onFinishScenario}
+      />
     );
   }
 
   return (
-    <>
-      <ScenarioPicker
-        modules={simulatorModules}
-        scenarios={catalogScenarios}
-        selectedModuleId={selectedModuleId}
-        selectedScenarioId={selectedScenarioId}
-        onSelectModule={handleSelectModule}
-        onSelectScenario={setSelectedScenarioId}
-      />
-
-      {successMessage ? (
-        <AppCard>
-          <Text style={[styles.successText, { color: theme.semantic.success }]}>{successMessage}</Text>
-        </AppCard>
-      ) : null}
-
-      <View style={styles.trainerContent}>
-
-        <AppCard style={styles.dialogFullWidth}>
-          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Диалог</Text>
-          {selectedScenario ? (
-            <>
-              <View style={styles.chatArea}>
-                <View style={styles.contextMessageWrapper}>
-                  <View
-                    style={[
-                      styles.contextMessageBubble,
-                      {
-                        backgroundColor: theme.semantic.cardAccent,
-                        borderColor: theme.semantic.border,
-                        borderRadius: theme.radius.lg
-                      }
-                    ]}
-                  >
-                    <Text style={[styles.contextTitle, { color: theme.semantic.textPrimary }]}>Клиент и контекст</Text>
-                    {scenarioContextLines.length > 0 ? (
-                      scenarioContextLines.map((line) => (
-                        <Text key={line} style={[styles.text, { color: theme.semantic.textSecondary }]}>
-                          {line}
-                        </Text>
-                      ))
-                    ) : (
-                      <Text style={[styles.text, { color: theme.semantic.textSecondary }]}>
-                        {selectedScenario.title}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                {messages.map((message) => (
-                  <ChatBubble key={message.id} message={message} />
-                ))}
-              </View>
-              {dialoguePhase === "active" ? (
-                <TextInput
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder="Введите ваш ответ клиенту"
-                  placeholderTextColor={theme.semantic.textMuted}
-                  multiline
-                  editable={Boolean(selectedScenario) && apiEnabled && !isBusy}
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: theme.semantic.border,
-                      backgroundColor: theme.semantic.cardSubtle,
-                      color: theme.semantic.textPrimary
-                    }
-                  ]}
-                />
-              ) : null}
-            </>
-          ) : (
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              Для этого модуля сценарии скоро появятся. Выберите другой модуль, чтобы открыть диалоговую тренировку.
-            </Text>
-          )}
-          <View style={styles.buttonRow}>
-            {dialoguePhase === "idle" ? (
-              <AppButton
-                label="Начать"
-                onPress={startScenario}
-                tone="primary"
-                disabled={!selectedScenario || isBusy || !apiEnabled}
-              />
-            ) : dialoguePhase === "active" ? (
-              <>
-                <AppButton
-                  label="Отправить"
-                  onPress={() => sendReply(draft)}
-                  tone="primary"
-                  disabled={!selectedScenario || isBusy || !apiEnabled || dialoguePhase !== "active"}
-                />
-                <AppButton
-                  label="Завершить"
-                  onPress={finishScenario}
-                  tone="secondary"
-                  disabled={!selectedScenario || isBusy || !apiEnabled || dialoguePhase !== "active"}
-                />
-              </>
-            ) : (
-              <>
-                <AppButton
-                  label="Открыть отчеты"
-                  onPress={onOpenReports}
-                  tone="primary"
-                  disabled={isBusy}
-                />
-                <AppButton
-                  label="Повторить сценарий"
-                  onPress={() => resetScenario(true)}
-                  tone="ghost"
-                  disabled={isBusy}
-                />
-              </>
-            )}
-            {dialoguePhase !== "finished" ? (
-              <AppButton
-                label="Повторить сценарий"
-                onPress={() => resetScenario(true)}
-                tone="ghost"
-                disabled={isBusy}
-              />
-            ) : null}
-          </View>
-          <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-            {apiEnabled
-              ? dialoguePhase === "idle"
-                ? "Нажмите Начать, чтобы запустить диалог."
-                : dialoguePhase === "active"
-                  ? "Диалог активен. Цель — закрыть клиента на конкретный следующий шаг."
-                  : 'Диалог завершён. Последний отчет доступен во вкладке "Отчеты".'
-              : "Тренажер недоступен: требуется backend-конфигурация."}
+    <View style={styles.screen}>
+      <View style={[styles.headerRow, !layout.isDesktop && styles.headerStack]}>
+        <View style={styles.headerBlock}>
+          <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
+          <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
+            Практикуйте навыки продаж в реалистичных сценариях.
           </Text>
-        </AppCard>
+          <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
+            Выберите модуль и начните тренировку.
+          </Text>
+        </View>
+        <View style={styles.headerActions}>
+          <CircleActionButton label="◔" onPress={openProgressInfo} />
+          <CircleActionButton label="?" onPress={openTrainerHelp} />
+        </View>
       </View>
 
+      {startErrorText ? (
+        <ChatStateNotice
+          kind="error"
+          text={startErrorText}
+          actionLabel="Закрыть"
+          onAction={onDismissStartError}
+        />
+      ) : null}
 
+      <View style={styles.segmentBlock}>
+        <View
+          style={[
+            styles.segmentedControl,
+            { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+          ]}
+        >
+          <SegmentButton
+            label="B2B"
+            active={segment === "B2B"}
+            onPress={() => setSegment("B2B")}
+          />
+          <SegmentButton
+            label="B2C"
+            active={segment === "B2C"}
+            onPress={() => setSegment("B2C")}
+          />
+        </View>
+      </View>
 
-      <FinishConfirmSheet
-        visible={showFinishConfirm}
-        learnerMessageCount={messages.filter((m) => m.speakerRole === "learner").length}
-        onClose={() => setShowFinishConfirm(false)}
-        onConfirm={() => { void confirmFinishScenario(); }}
-        isBusy={isBusy}
-      />
-    </>
+      <View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: theme.semantic.card,
+            borderColor: theme.semantic.border,
+            shadowColor: theme.shadows.card.shadowColor,
+            shadowOpacity: theme.shadows.card.shadowOpacity,
+            shadowRadius: theme.shadows.card.shadowRadius,
+            shadowOffset: theme.shadows.card.shadowOffset,
+            elevation: theme.shadows.card.elevation
+          }
+        ]}
+      >
+        <View style={[styles.heroContent, !layout.isWide && styles.heroStack]}>
+          <View style={styles.heroText}>
+            <Text style={[styles.heroEyebrow, { color: theme.semantic.textSecondary }]}>
+              Продолжить с места остановки
+            </Text>
+            <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>
+              {featuredScenario.title}
+            </Text>
+            <Text style={[styles.heroDescription, { color: theme.semantic.textSecondary }]}>
+              {featuredScenario.description}
+            </Text>
+            <View style={styles.heroPills}>
+              <InfoPill label={featuredScenario.duration} />
+              <InfoPill label={`Уровень: ${featuredScenario.level}`} />
+              <ProgressInfoPill label="Прогресс" value={featuredScenario.progressValue ?? 0} />
+            </View>
+          </View>
+
+          <View style={styles.heroIllustrationWrap}>
+            <View style={[styles.heroIllustration, { backgroundColor: theme.colors.primaryPale }]}>
+              <View
+                style={[styles.chatBlobLarge, { backgroundColor: "rgba(255,255,255,0.85)" }]}
+              />
+              <View
+                style={[styles.chatBlobSmall, { backgroundColor: "rgba(255,255,255,0.72)" }]}
+              />
+              <View
+                style={[
+                  styles.priceTag,
+                  {
+                    backgroundColor: theme.colors.primarySoft,
+                    borderColor: theme.semantic.actionPrimary
+                  }
+                ]}
+              >
+                <Text style={styles.priceTagText}>₽</Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => onStartScenario(featuredScenario.id)}
+              style={[styles.heroCta, { backgroundColor: theme.semantic.actionPrimary }]}
+            >
+              <Text style={styles.heroCtaText}>Начать тренировку</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
+      <View style={[styles.filtersRow, !layout.isDesktop && styles.filtersStack]}>
+        <View style={styles.filterPills}>
+          {trainerFilters.map((label) => (
+            <Pressable
+              key={label}
+              onPress={() => setActiveFilter(label)}
+              style={[
+                styles.filterPill,
+                {
+                  backgroundColor:
+                    activeFilter === label ? theme.colors.primaryPale : theme.semantic.card,
+                  borderColor: theme.semantic.border
+                }
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  {
+                    color:
+                      activeFilter === label
+                        ? theme.semantic.actionPrimary
+                        : theme.semantic.textPrimary
+                  }
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.cardGrid}>
+        {filteredScenarios.map((scenario) => (
+          <ScenarioTile
+            key={scenario.id}
+            scenario={scenario}
+            onPlay={() => onStartScenario(scenario.id)}
+          />
+        ))}
+      </View>
+
+      <AppBottomSheet
+        visible={infoSheet !== null}
+        title={infoSheet?.title ?? ""}
+        description={infoSheet?.description}
+        onClose={() => setInfoSheet(null)}
+      >
+        {infoSheet?.lines.map((line) => (
+          <Text key={line} style={[styles.sheetLine, { color: theme.semantic.textPrimary }]}>
+            • {line}
+          </Text>
+        ))}
+      </AppBottomSheet>
+    </View>
   );
 }
 
-function mapApiScenarioToScenario(item: SimulatorPublicScenarioDto, moduleId: string): Scenario {
-  return {
-    id: item.id,
-    moduleId,
-    title: item.title,
-    goal: "Проведите короткий B2B-диалог с клиентом в чате.",
-    difficulty: "medium",
-    status: item.status,
-    channel: "chat",
-    targetCompetencies: [],
-    persona: {
-      id: `persona-${item.id}`,
-      name: "Клиент",
-      company: "",
-      roleTitle: "B2B клиент",
-      mood: "",
-      painPoints: [],
-      objectionStyle: ""
-    },
-    openingMessage: item.openingMessage,
-    suggestedActions: [],
-    quickReplies: [],
-    customerReplies: [],
-    transcript: []
-  };
-}
+function DialogueView({
+  data,
+  selectedScenario,
+  activeSession,
+  onBackToCatalog,
+  onSendMessage,
+  onFinishScenario
+}: {
+  data: SalesAcademyMock;
+  selectedScenario: ScenarioCardItem;
+  activeSession: ActiveDialogueSession | null;
+  onBackToCatalog: () => void;
+  onSendMessage: (text: string) => Promise<boolean>;
+  onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
+}) {
+  const theme = useTheme();
+  const layout = useResponsiveLayout();
+  const dialogue = data.activeDialogue;
+  const [draftMessage, setDraftMessage] = useState("");
+  const messageScrollRef = useRef<ScrollView | null>(null);
 
-function createClientId(prefix: string): string {
-  const randomFallback = Math.random().toString(36).slice(2, 8);
-  return `${prefix}-${Date.now()}-${crypto.randomUUID?.() ?? randomFallback}`;
-}
+  const messages = activeSession?.messages ?? [];
+  const managerReplyCount = countManagerReplies(messages);
+  const progress = calculateDialogueProgress(messages, dialogue.replyTarget);
+  const visibleReplyCountLabel =
+    managerReplyCount > dialogue.replyTarget
+      ? `${dialogue.replyTarget}+ / ${dialogue.replyTarget}`
+      : `${Math.min(managerReplyCount, dialogue.replyTarget)} / ${dialogue.replyTarget}`;
+  const isSending = activeSession?.isSending ?? false;
+  const isFinishing = activeSession?.isFinishing ?? false;
+  const isSessionActive = activeSession?.status === "active";
+  const typingVisible = isSending;
+  const typingDotsOpacity = useRef(new Animated.Value(0.35)).current;
+  const errorText = activeSession?.errorText ?? null;
+  const dialogueHeight = Math.max(theme.viewport.height - 18, 700);
+  const dialogueBodyHeight = Math.max(theme.viewport.height - 96, 580);
 
-function mapApiMessageToChatMessage(message: SimulatorApiMessageDto, scenario: Scenario): ScenarioMessage {
-  const speakerNameByRole = {
-    customer: scenario.persona.name || "Клиент",
-    learner: "Вы"
-  } as const;
+  useEffect(() => {
+    setDraftMessage("");
+  }, [activeSession?.sessionId]);
 
-  return {
-    id: message.id ?? createClientId("msg"),
-    speakerName: speakerNameByRole[message.role] ?? "Собеседник",
-    speakerRole: message.role,
-    text: message.text,
-    timestampLabel: formatTimestamp(message.created_at)
-  };
-}
+  useEffect(() => {
+    scrollToBottom(false);
+  }, [activeSession?.sessionId]);
 
-function createLearnerMessage(text: string): ScenarioMessage {
-  return {
-    id: createClientId("learner"),
-    speakerName: "Вы",
-    speakerRole: "learner",
-    text,
-    timestampLabel: formatTimestamp(new Date().toISOString())
-  };
-}
+  useEffect(() => {
+    scrollToBottom(true);
+  }, [messages.length, typingVisible]);
 
-function mergeChatMessages(current: ScenarioMessage[], incoming: ScenarioMessage[]): ScenarioMessage[] {
-  const merged = [...current];
-
-  for (const message of incoming) {
-    const lastMessage = merged[merged.length - 1];
-    if (
-      lastMessage &&
-      lastMessage.speakerRole === message.speakerRole &&
-      lastMessage.text.trim() === message.text.trim()
-    ) {
-      continue;
+  useEffect(() => {
+    if (!typingVisible) {
+      typingDotsOpacity.stopAnimation();
+      typingDotsOpacity.setValue(0.35);
+      return;
     }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(typingDotsOpacity, { toValue: 1, duration: 420, useNativeDriver: true }),
+        Animated.timing(typingDotsOpacity, {
+          toValue: 0.35,
+          duration: 420,
+          useNativeDriver: true
+        })
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [typingVisible, typingDotsOpacity]);
 
-    merged.push(message);
+  function scrollToBottom(animated: boolean) {
+    messageScrollRef.current?.scrollToEnd({ animated });
   }
 
-  return merged;
+  async function handleSendMessage() {
+    const messageToSend = draftMessage;
+    const trimmedMessage = messageToSend.trim();
+
+    if (!trimmedMessage) {
+      const wasSent = await onSendMessage(messageToSend);
+      if (wasSent) {
+        setDraftMessage("");
+      }
+      return;
+    }
+
+    setDraftMessage("");
+    const wasSent = await onSendMessage(messageToSend);
+    if (!wasSent) {
+      setDraftMessage(messageToSend);
+    }
+  }
+
+  return (
+    <View
+      style={[
+        styles.screen,
+        layout.isDesktop && { height: dialogueHeight, gap: 10 }
+      ]}
+    >
+      <View style={[styles.dialogueHeader, !layout.isDesktop && styles.headerStack]}>
+        <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
+        <View
+          style={[
+            styles.dialogueHeaderCenter,
+            !layout.isDesktop && styles.dialogueHeaderCenterStack
+          ]}
+        >
+          <Pressable
+            onPress={onBackToCatalog}
+            style={[
+              styles.changeScenarioButton,
+              { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+            ]}
+          >
+            <Text style={[styles.changeScenarioIcon, { color: theme.semantic.textSecondary }]}>
+              ⇄
+            </Text>
+            <Text style={[styles.changeScenarioText, { color: theme.semantic.textPrimary }]}>
+              Сменить сценарий
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.dialogueLayout,
+          !layout.isDesktop && styles.dialogueLayoutStack,
+          layout.isDesktop && styles.dialogueLayoutDesktop,
+          layout.isDesktop && { flex: 1, height: dialogueBodyHeight }
+        ]}
+      >
+        <View
+          testID="simulator-chat-panel"
+          style={[
+            styles.chatPanel,
+            {
+              backgroundColor: theme.semantic.card,
+              borderColor: theme.semantic.border,
+              shadowColor: theme.shadows.card.shadowColor,
+              shadowOpacity: theme.shadows.card.shadowOpacity,
+              shadowRadius: theme.shadows.card.shadowRadius,
+              shadowOffset: theme.shadows.card.shadowOffset,
+              elevation: theme.shadows.card.elevation
+            }
+          ]}
+        >
+          <View style={[styles.chatTopBar, { borderBottomColor: theme.semantic.borderSubtle }]}>
+            <View style={styles.chatTopLeft}>
+              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
+                Реплики менеджера:{" "}
+                <Text
+                  style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}
+                >
+                  {visibleReplyCountLabel}
+                </Text>
+              </Text>
+              <View
+                style={[
+                  styles.chatProgressTrack,
+                  { backgroundColor: theme.semantic.borderSubtle }
+                ]}
+              >
+                <View
+                  style={[
+                    styles.chatProgressFill,
+                    { backgroundColor: theme.semantic.actionPrimary, width: `${progress}%` }
+                  ]}
+                />
+              </View>
+            </View>
+            <View style={styles.chatTopRight}>
+              <View style={styles.chatStatusRow}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    {
+                      backgroundColor:
+                        activeSession?.status === "finished"
+                          ? theme.semantic.warning
+                          : theme.semantic.success
+                    }
+                  ]}
+                />
+                <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
+                  {activeSession?.status === "finished" ? "Сессия завершена" : dialogue.status}
+                </Text>
+              </View>
+              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
+                ◔ {messages[messages.length - 1]?.time ?? dialogue.time}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.personaRow}>
+            <View
+              style={[
+                styles.personaAvatar,
+                { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }
+              ]}
+            >
+              <Text style={[styles.personaAvatarText, { color: theme.semantic.actionPrimary }]}>
+                РП
+              </Text>
+            </View>
+            <View style={styles.personaText}>
+              <Text style={[styles.personaName, { color: theme.semantic.textPrimary }]}>
+                {dialogue.persona.name}
+              </Text>
+              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>
+                Компания: {dialogue.persona.company}
+              </Text>
+              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>
+                Отдел: {dialogue.persona.department}
+              </Text>
+            </View>
+          </View>
+
+          {errorText ? (
+            <View style={styles.errorNoticeWrap}>
+              <ChatStateNotice
+                kind="error"
+                text={errorText}
+                testID="simulator-chat-error"
+              />
+            </View>
+          ) : null}
+
+          <ScrollView
+            ref={messageScrollRef}
+            testID="simulator-message-list"
+            style={styles.messageList}
+            contentContainerStyle={styles.messageListContent}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => scrollToBottom(true)}
+            onLayout={() => scrollToBottom(false)}
+          >
+            {messages.map((message) => (
+              <View
+                key={message.id}
+                testID={
+                  message.author === "manager"
+                    ? "simulator-message-manager"
+                    : "simulator-message-customer"
+                }
+                style={[
+                  styles.messageBubble,
+                  message.author === "manager"
+                    ? styles.messageBubbleManager
+                    : styles.messageBubbleCustomer,
+                  {
+                    backgroundColor:
+                      message.author === "manager"
+                        ? theme.colors.surfaceMint
+                        : theme.semantic.card,
+                    borderColor: theme.semantic.border
+                  }
+                ]}
+              >
+                <Text style={[styles.messageText, { color: theme.semantic.textPrimary }]}>
+                  {message.text}
+                </Text>
+                <Text style={[styles.messageTime, { color: theme.semantic.textMuted }]}>
+                  {message.time}
+                </Text>
+              </View>
+            ))}
+
+            {typingVisible ? (
+              <View testID="simulator-typing-indicator" style={styles.typingRow}>
+                <View
+                  style={[
+                    styles.typingDots,
+                    {
+                      backgroundColor: theme.semantic.backgroundWarm,
+                      borderColor: theme.semantic.border
+                    }
+                  ]}
+                >
+                  <Animated.Text
+                    style={[
+                      styles.typingDotsText,
+                      { color: theme.semantic.textMuted, opacity: typingDotsOpacity }
+                    ]}
+                  >
+                    ...
+                  </Animated.Text>
+                </View>
+                <Text style={[styles.typingText, { color: theme.semantic.textMuted }]}>
+                  Печатает
+                </Text>
+              </View>
+            ) : null}
+          </ScrollView>
+
+          <View
+            pointerEvents="none"
+            style={[styles.inputFooterBackdrop, { backgroundColor: theme.semantic.card }]}
+          />
+
+          <View
+            testID="simulator-chat-input-row"
+            style={[
+              styles.inputWrap,
+              {
+                backgroundColor: theme.semantic.card,
+                borderTopColor: theme.semantic.borderSubtle
+              }
+            ]}
+          >
+            <View
+              style={[
+                styles.inputRow,
+                { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+              ]}
+            >
+              <TextInput
+                testID="simulator-chat-input"
+                accessibilityLabel="Поле ввода сообщения в тренажере"
+                placeholder="Напишите сообщение..."
+                placeholderTextColor={theme.semantic.textMuted}
+                style={[styles.chatInput, chatInputWebReset, { color: theme.semantic.textPrimary }]}
+                value={draftMessage}
+                onChangeText={setDraftMessage}
+                onSubmitEditing={() => {
+                  void handleSendMessage();
+                }}
+                multiline
+                textAlignVertical="center"
+                editable={!isSending && isSessionActive && !isFinishing}
+                scrollEnabled
+                numberOfLines={2}
+                maxLength={4000}
+              />
+              <Pressable
+                testID="simulator-send-button"
+                accessibilityLabel="Отправить сообщение"
+                onPress={() => {
+                  void handleSendMessage();
+                }}
+                disabled={!draftMessage.trim() || isSending || !isSessionActive || isFinishing}
+                style={[
+                  styles.sendButton,
+                  {
+                    backgroundColor:
+                      !draftMessage.trim() || isSending || !isSessionActive || isFinishing
+                        ? theme.semantic.backgroundWarm
+                        : theme.semantic.actionPrimary,
+                    borderColor:
+                      !draftMessage.trim() || isSending || !isSessionActive || isFinishing
+                        ? theme.semantic.border
+                        : "transparent",
+                    opacity:
+                      !draftMessage.trim() || isSending || !isSessionActive || isFinishing
+                        ? 0.48
+                        : 1
+                  }
+                ]}
+              >
+                <View
+                  style={[
+                    styles.sendArrow,
+                    {
+                      borderColor:
+                        !draftMessage.trim() || isSending || !isSessionActive || isFinishing
+                          ? theme.semantic.textMuted
+                          : "#FFFFFF"
+                    }
+                  ]}
+                />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.insightColumn}>
+          <View
+            style={[
+              styles.insightCard,
+              { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+            ]}
+          >
+            <Text style={[styles.insightTitle, { color: theme.semantic.textPrimary }]}>
+              Контекст сценария
+            </Text>
+            <InsightTextBlock label="Контекст" text={dialogue.context} />
+            <InsightTextBlock label="Цель" text={dialogue.goal} />
+            <InsightTextBlock label="Возражение" text={`«${dialogue.objection}»`} />
+          </View>
+
+          <Pressable
+            testID="simulator-finish-button"
+            onPress={() =>
+              onFinishScenario({
+                scenarioId: selectedScenario.id,
+                scenarioTitle: selectedScenario.title
+              })
+            }
+            disabled={isFinishing}
+            style={[
+              styles.finishButton,
+              {
+                backgroundColor: theme.semantic.actionPrimary,
+                opacity: isFinishing ? 0.72 : 1
+              }
+            ]}
+          >
+            <Text style={styles.finishButtonText}>
+              {isFinishing ? "Сохраняем отчет..." : "Завершить и получить отчет"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+    </View>
+  );
 }
 
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${hours}:${minutes}`;
+function InsightTextBlock({ label, text }: { label: string; text: string }) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.insightTextBlock}>
+      <Text style={[styles.insightLabel, { color: theme.semantic.textSecondary }]}>{label}</Text>
+      <Text style={[styles.insightText, { color: theme.semantic.textPrimary }]}>{text}</Text>
+    </View>
+  );
+}
+
+function SegmentButton({
+  label,
+  active,
+  onPress
+}: {
+  label: "B2B" | "B2C";
+  active: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.segmentButton,
+        {
+          backgroundColor: active ? theme.semantic.card : "transparent",
+          borderColor: active ? theme.semantic.actionPrimary : "transparent"
+        }
+      ]}
+    >
+      <Text
+        style={[
+          styles.segmentLabel,
+          { color: active ? theme.semantic.actionPrimary : theme.semantic.textPrimary }
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function ScenarioTile({
+  scenario,
+  onPlay
+}: {
+  scenario: ScenarioCardItem;
+  onPlay: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.scenarioTile,
+        {
+          backgroundColor: theme.semantic.card,
+          borderColor: theme.semantic.border,
+          shadowColor: theme.shadows.soft.shadowColor,
+          shadowOpacity: theme.shadows.soft.shadowOpacity,
+          shadowRadius: theme.shadows.soft.shadowRadius,
+          shadowOffset: theme.shadows.soft.shadowOffset,
+          elevation: theme.shadows.soft.elevation
+        }
+      ]}
+    >
+      <View style={styles.scenarioTileTop}>
+        <View
+          style={[
+            styles.scenarioIconTile,
+            { backgroundColor: toneBackground(theme, scenario.accent) }
+          ]}
+        >
+          <Text style={[styles.scenarioIcon, { color: toneForeground(theme, scenario.accent) }]}>
+            {scenario.icon}
+          </Text>
+        </View>
+        <View style={styles.scenarioText}>
+          <Text style={[styles.scenarioTitle, { color: theme.semantic.textPrimary }]}>
+            {scenario.title}
+          </Text>
+          <Text style={[styles.scenarioDescription, { color: theme.semantic.textSecondary }]}>
+            {scenario.description}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.scenarioFooter}>
+        {scenario.status === "new" ? (
+          <View
+            style={[
+              styles.newBadge,
+              styles.scenarioStatusBadge,
+              { backgroundColor: "rgba(92,143,115,0.12)" }
+            ]}
+          >
+            <Text style={[styles.newBadgeText, { color: theme.colors.info }]}>
+              {scenario.progressLabel}
+            </Text>
+          </View>
+        ) : (
+          <ProgressInfoPill label="" value={scenario.progressValue ?? 0} compact wide />
+        )}
+        <View style={styles.scenarioActionRow}>
+          <InfoPill label={scenario.duration} compact />
+          <InfoPill label={scenario.level} compact />
+          <Pressable
+            onPress={onPlay}
+            style={[
+              styles.playButton,
+              { borderColor: theme.semantic.border, backgroundColor: theme.semantic.card }
+            ]}
+          >
+            <Text style={[styles.playButtonText, { color: theme.semantic.actionPrimary }]}>▶</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function CircleActionButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.circleButton,
+        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+      ]}
+    >
+      <Text style={[styles.circleButtonText, { color: theme.semantic.textPrimary }]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function InfoPill({ label, compact }: { label: string; compact?: boolean }) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.infoPill,
+        compact && styles.infoPillCompact,
+        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+      ]}
+    >
+      <Text style={[styles.infoPillText, { color: theme.semantic.textPrimary }]}>{label}</Text>
+    </View>
+  );
+}
+
+function ProgressInfoPill({
+  label,
+  value,
+  compact,
+  wide
+}: {
+  label: string;
+  value: number;
+  compact?: boolean;
+  wide?: boolean;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.progressPill,
+        compact && styles.progressPillCompact,
+        wide && styles.progressPillWide,
+        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+      ]}
+    >
+      {label ? (
+        <Text style={[styles.progressPillLabel, { color: theme.semantic.actionPrimary }]}>
+          {label}
+        </Text>
+      ) : null}
+      <View
+        style={[styles.progressPillTrack, { backgroundColor: theme.semantic.borderSubtle }]}
+      >
+        <View
+          style={[
+            styles.progressPillFill,
+            { backgroundColor: theme.semantic.actionPrimary, width: `${value}%` }
+          ]}
+        />
+      </View>
+      <Text style={[styles.progressPillValue, { color: theme.semantic.textPrimary }]}>
+        {value}%
+      </Text>
+    </View>
+  );
+}
+
+function toneBackground(
+  theme: ReturnType<typeof useTheme>,
+  tone: "mint" | "warning" | "info" | "violet" | "peach"
+) {
+  if (tone === "warning") {
+    return "rgba(213,162,77,0.16)";
+  }
+  if (tone === "info") {
+    return "rgba(92,143,115,0.14)";
+  }
+  if (tone === "violet") {
+    return "rgba(120, 120, 180, 0.14)";
+  }
+  if (tone === "peach") {
+    return "rgba(200,92,74,0.10)";
+  }
+
+  return theme.colors.primaryPale;
+}
+
+function toneForeground(
+  theme: ReturnType<typeof useTheme>,
+  tone: "mint" | "warning" | "info" | "violet" | "peach"
+) {
+  if (tone === "warning") {
+    return theme.semantic.warning;
+  }
+  if (tone === "info") {
+    return theme.colors.info;
+  }
+  if (tone === "violet") {
+    return "#7B61B9";
+  }
+  if (tone === "peach") {
+    return "#D97045";
+  }
+
+  return theme.semantic.actionPrimary;
 }
 
 const styles = StyleSheet.create({
-  trainerContent: {
-    gap: 16
+  screen: {
+    gap: 18
   },
-  dialogFullWidth: {
-    width: "100%"
-  },
-  rowBetween: {
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    flexWrap: "wrap"
+    gap: 16
   },
-  title: {
+  headerStack: {
+    flexDirection: "column"
+  },
+  headerBlock: {
+    gap: 2
+  },
+  pageTitle: {
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: "800"
+  },
+  pageSubtitle: {
+    fontSize: 16,
+    lineHeight: 24
+  },
+  sheetLine: {
+    fontSize: 15,
+    lineHeight: 22
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 10
+  },
+  circleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  circleButtonText: {
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  segmentBlock: {
+    alignItems: "center",
+    gap: 10
+  },
+  segmentedControl: {
+    width: 580,
+    maxWidth: "100%",
+    minHeight: 58,
+    borderRadius: 999,
+    borderWidth: 1,
+    padding: 4,
+    flexDirection: "row",
+    gap: 6
+  },
+  segmentButton: {
+    flex: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  segmentLabel: {
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  heroCard: {
+    borderWidth: 1,
+    borderRadius: 30,
+    padding: 18
+  },
+  heroContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 20
+  },
+  heroStack: {
+    flexDirection: "column",
+    alignItems: "stretch"
+  },
+  heroText: {
+    flex: 1,
+    gap: 10
+  },
+  heroEyebrow: {
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  heroTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "800"
+  },
+  heroDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    maxWidth: 700
+  },
+  heroPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 4
+  },
+  infoPill: {
+    minHeight: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  infoPillCompact: {
+    minHeight: 38,
+    paddingHorizontal: 12
+  },
+  infoPillText: {
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  progressPill: {
+    minHeight: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  progressPillCompact: {
+    minHeight: 38,
+    paddingHorizontal: 10,
+    gap: 8
+  },
+  progressPillWide: {
+    alignSelf: "stretch",
+    justifyContent: "space-between"
+  },
+  progressPillLabel: {
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  progressPillTrack: {
+    width: 92,
+    height: 6,
+    borderRadius: 999,
+    overflow: "hidden"
+  },
+  progressPillFill: {
+    height: "100%",
+    borderRadius: 999
+  },
+  progressPillValue: {
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  heroIllustrationWrap: {
+    minWidth: 360,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14
+  },
+  heroIllustration: {
+    width: 220,
+    height: 150,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  chatBlobLarge: {
+    position: "absolute",
+    top: 22,
+    left: 42,
+    width: 86,
+    height: 78,
+    borderRadius: 22
+  },
+  chatBlobSmall: {
+    position: "absolute",
+    top: 76,
+    left: 70,
+    width: 72,
+    height: 56,
+    borderRadius: 18
+  },
+  priceTag: {
+    position: "absolute",
+    right: 40,
+    top: 36,
+    width: 58,
+    height: 92,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "6deg" }]
+  },
+  priceTagText: {
+    color: "#FFFFFF",
+    fontSize: 38,
+    fontWeight: "800"
+  },
+  heroCta: {
+    minHeight: 58,
+    borderRadius: 18,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  heroCtaText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800"
+  },
+  filtersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    flexWrap: "wrap",
+    justifyContent: "space-between"
+  },
+  filtersStack: {
+    alignItems: "stretch"
+  },
+  filterPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    flex: 1
+  },
+  filterPill: {
+    minHeight: 42,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  filterPillText: {
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  cardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 18
+  },
+  scenarioTile: {
+    width: "32.2%",
+    minWidth: 300,
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 16,
+    gap: 16,
+    flexGrow: 1,
+    minHeight: 248,
+    justifyContent: "space-between"
+  },
+  scenarioTileTop: {
+    flexDirection: "row",
+    gap: 14,
+    alignItems: "flex-start"
+  },
+  scenarioIconTile: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  scenarioIcon: {
+    fontSize: 24
+  },
+  scenarioText: {
+    flex: 1,
+    gap: 8,
+    minHeight: 104
+  },
+  scenarioTitle: {
     fontSize: 18,
     lineHeight: 24,
     fontWeight: "800"
   },
-  body: {
+  scenarioDescription: {
     fontSize: 15,
     lineHeight: 22
   },
-  meta: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "600"
+  scenarioFooter: {
+    gap: 10,
+    marginTop: "auto"
   },
-  buttonRow: {
+  scenarioActionRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10
+    alignItems: "center",
+    gap: 8
   },
-  chatArea: {
-    gap: 12
+  playButton: {
+    marginLeft: "auto",
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
   },
-  contextMessageWrapper: {
-    width: "100%"
-  },
-  contextMessageBubble: {
-    maxWidth: "92%",
-    padding: 14,
-    gap: 6,
-    borderWidth: 1
-  },
-  contextTitle: {
-    fontSize: 12,
-    lineHeight: 16,
+  playButtonText: {
+    fontSize: 18,
     fontWeight: "700"
   },
-  input: {
-    borderWidth: 1,
+  newBadge: {
+    minHeight: 38,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  scenarioStatusBadge: {
+    alignSelf: "stretch"
+  },
+  newBadgeText: {
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  dialogueHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    minHeight: 42
+  },
+  dialogueHeaderCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  dialogueHeaderCenterStack: {
+    flexDirection: "column",
+    alignItems: "stretch"
+  },
+  changeScenarioButton: {
+    minHeight: 42,
     borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    minHeight: 120,
-    textAlignVertical: "top",
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  changeScenarioIcon: {
+    fontSize: 17
+  },
+  changeScenarioText: {
+    fontSize: 16,
+    fontWeight: "600"
+  },
+  dialogueLayout: {
+    flexDirection: "row",
+    gap: 18,
+    alignItems: "flex-start"
+  },
+  dialogueLayoutDesktop: {
+    flex: 1,
+    minHeight: 0,
+    alignItems: "stretch",
+    paddingBottom: 10
+  },
+  dialogueLayoutStack: {
+    flexDirection: "column"
+  },
+  chatPanel: {
+    flex: 1.95,
+    borderWidth: 1,
+    borderRadius: 28,
+    overflow: "hidden",
+    flexShrink: 1,
+    minHeight: 0,
+    height: "100%",
+    flexDirection: "column",
+    marginBottom: 0
+  },
+  chatTopBar: {
+    minHeight: 52,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12
+  },
+  chatTopLeft: {
+    flex: 1,
+    gap: 6
+  },
+  chatTopMeta: {
     fontSize: 15,
     lineHeight: 20
   },
-  successText: {
-    fontSize: 14,
-    lineHeight: 20,
+  chatTopMetaStrong: {
     fontWeight: "700"
   },
-  text: {
-    fontSize: 15,
-    lineHeight: 21
+  chatProgressTrack: {
+    width: 168,
+    height: 7,
+    borderRadius: 999,
+    overflow: "hidden"
+  },
+  chatProgressFill: {
+    height: "100%",
+    borderRadius: 999
+  },
+  chatTopRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 18
+  },
+  chatStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999
+  },
+  personaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6
+  },
+  personaAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  personaAvatarText: {
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  personaText: {
+    gap: 2
+  },
+  personaName: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: "800"
+  },
+  personaMeta: {
+    fontSize: 13,
+    lineHeight: 18
+  },
+  errorNoticeWrap: {
+    paddingHorizontal: 18,
+    paddingBottom: 8
+  },
+  messageList: {
+    flex: 1,
+    minHeight: 0,
+    marginBottom: 78
+  },
+  messageListContent: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 96,
+    gap: 10
+  },
+  messageBubble: {
+    maxWidth: "66%",
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 6
+  },
+  messageBubbleCustomer: {
+    alignSelf: "flex-start",
+    borderTopLeftRadius: 10
+  },
+  messageBubbleManager: {
+    alignSelf: "flex-end",
+    borderTopRightRadius: 10
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20
+  },
+  messageTime: {
+    fontSize: 12,
+    textAlign: "right"
+  },
+  typingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  typingDots: {
+    minWidth: 38,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  typingDotsText: {
+    fontSize: 16,
+    letterSpacing: 2
+  },
+  typingText: {
+    fontSize: 14
+  },
+  inputFooterBackdrop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 74,
+    zIndex: 3
+  },
+  inputWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopWidth: 0,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 8,
+    minHeight: 72,
+    zIndex: 4,
+    elevation: 4
+  },
+  inputRow: {
+    minHeight: 50,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingLeft: 16,
+    paddingRight: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    overflow: "hidden"
+  },
+  chatInput: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    minHeight: 36,
+    maxHeight: 52,
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingRight: 2
+  },
+  sendButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0
+  },
+  sendArrow: {
+    width: 13,
+    height: 13,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderRadius: 1,
+    transform: [{ rotate: "45deg" }, { translateX: -2 }]
+  },
+  insightColumn: {
+    flex: 1,
+    gap: 14,
+    alignSelf: "stretch",
+    minHeight: 0,
+    justifyContent: "flex-start",
+    height: "100%"
+  },
+  insightCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 14,
+    gap: 12
+  },
+  insightTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "800"
+  },
+  insightTextBlock: {
+    gap: 6
+  },
+  insightLabel: {
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  insightText: {
+    fontSize: 14,
+    lineHeight: 22
+  },
+  finishButton: {
+    marginTop: 0,
+    minHeight: 46,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    marginBottom: 8
+  },
+  finishButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800"
   }
 });

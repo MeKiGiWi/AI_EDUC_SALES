@@ -13,12 +13,10 @@ interface BottomTabsProps {
 
 const tabLabels: Record<RouteName, string> = {
   Landing: "Старт",
-  StudentHome: "Домой",
-  Simulator: "Практика",
-  ManagerDashboard: "Команда",
-  HrDashboard: "HR/L&D",
-  Admin: "Админ",
-  Reports: "Отчеты"
+  StudentHome: "Личный кабинет",
+  Simulator: "Чат",
+  Reports: "Отчеты",
+  ReportViewer: "Отчет"
 };
 
 export function BottomTabs({ routes, activeRoute, onNavigate }: BottomTabsProps) {
@@ -71,8 +69,10 @@ const styles = StyleSheet.create({
     gap: 4
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: "700",
-    textAlign: "center"
+    textAlign: "center",
+    flexShrink: 1
   }
 });

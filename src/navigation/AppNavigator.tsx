@@ -1,33 +1,38 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { hrDashboardData, roleWorkspaceOptions } from "../data/academyData";
+import { BottomTabs } from "../components/layout/BottomTabs";
 import { DesktopSidebar } from "../components/layout/DesktopSidebar";
 import { MobileHeader } from "../components/layout/MobileHeader";
-import { BottomTabs } from "../components/layout/BottomTabs";
+import { AppCard } from "../components/ui/AppCard";
 import { AppScreen } from "../components/ui/AppScreen";
+import { roleWorkspaceOptions, simulatorEvaluationByScenarioId } from "../data/academyData";
+import { DEFAULT_BACKEND_DIFFICULTY } from "../data/simulatorMvpData";
 import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
 import { LandingScreen } from "../screens/landing/LandingScreen";
-import { StudentHomeScreen } from "../screens/student/StudentHomeScreen";
-import { SimulatorScreen } from "../screens/simulator/SimulatorScreen";
-import { ManagerDashboardScreen } from "../screens/manager/ManagerDashboardScreen";
-import { HrDashboardScreen } from "../screens/hr/HrDashboardScreen";
-import { AdminScreen } from "../screens/admin/AdminScreen";
 import { ReportsScreen } from "../screens/reports/ReportsScreen";
+import { ReportViewerScreen } from "../screens/reports/ReportViewerScreen";
+import { SimulatorScreen } from "../screens/simulator/SimulatorScreen";
+import { StudentHomeScreen } from "../screens/student/StudentHomeScreen";
 import { academyDataService } from "../services/academyDataService";
+import {
+  buildInitialMockDialogue,
+  buildMockCustomerFollowUp,
+  buildOptimisticManagerMessage,
+  countManagerReplies,
+  mapApiMessageToDialogueMessage,
+  mergeApiMessages
+} from "../services/simulatorDialogueService";
+import {
+  getSafeSimulatorErrorMessage,
+  simulatorApiService
+} from "../services/simulatorApiService";
 import { useTheme } from "../theme/useTheme";
 import type {
-  AcademyUser,
-  AdminSettings,
-  HrDashboard,
-  KnowledgeSection,
-  KnowledgeMaterial,
-  LearningModule,
-  ManagerDashboard,
+  ActiveDialogueSession,
+  DialogueMessage,
   ReportCard,
-  Scenario,
+  SalesAcademyMock,
   SimulatorEvaluationPayloadDto,
-  StudentDashboard,
   UserRole
 } from "../types/academy";
 import {
@@ -44,87 +49,63 @@ type RouteState = {
   params?: RootStackParamList[RouteName];
 };
 
+const MOCK_REPLY_DELAY_MS = 220;
+
 export function AppNavigator() {
-  const theme = useTheme();
   const layout = useResponsiveLayout();
-  const [activeRole, setActiveRole] = useState<UserRole>("student");
+  useTheme();
+  const activeRole: UserRole = "student";
   const [routeState, setRouteState] = useState<RouteState>({ name: "Landing" });
-  const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<AcademyUser | null>(null);
-  const [studentDashboard, setStudentDashboard] = useState<StudentDashboard | null>(null);
-  const [knowledgeSections, setKnowledgeSections] = useState<KnowledgeSection[]>([]);
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [learningModules, setLearningModules] = useState<LearningModule[]>([]);
-  const [managerDashboard, setManagerDashboard] = useState<ManagerDashboard | null>(null);
-  const [hrDashboard, setHrDashboard] = useState<HrDashboard | null>(null);
-  const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
+  const [workspaceData, setWorkspaceData] = useState<SalesAcademyMock | null>(null);
+  const [activeScenarioId, setActiveScenarioId] = useState<string>("");
+  const [trainerMode, setTrainerMode] = useState<"catalog" | "dialogue">("catalog");
   const [reports, setReports] = useState<ReportCard[]>([]);
-
-  async function loadReportsForRole(role: UserRole) {
-    const reportData = await academyDataService.getReports(role);
-    setReports(reportData);
-  }
+  const [simulatorStartError, setSimulatorStartError] = useState<string | null>(null);
+  const [activeDialogueSession, setActiveDialogueSession] = useState<ActiveDialogueSession | null>(
+    null
+  );
+  const activeSessionKeyRef = useRef<string>("");
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
+    let isMounted = true;
 
-      const [
-        studentData,
-        knowledgeData,
-        scenarioData,
-        managerData,
-        hrData,
-        adminData
-      ] = await Promise.all([
-        academyDataService.getStudentDashboard(),
-        academyDataService.getKnowledgeSections(),
-        academyDataService.getScenarios(),
-        academyDataService.getManagerDashboard(),
-        academyDataService.getHrDashboard(),
-        academyDataService.getAdminSettings()
-      ]);
+    void academyDataService
+      .getWorkspaceData(activeRole)
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
 
-      setStudentDashboard(studentData);
-      setLearningModules(studentData.modules);
-      setKnowledgeSections(knowledgeData);
-      setScenarios(scenarioData);
-      setManagerDashboard(managerData);
-      setHrDashboard(hrData);
-      setAdminSettings(adminData);
-      await loadReportsForRole(activeRole);
-      setLoading(false);
-    }
+        setWorkspaceData(data);
+        setActiveScenarioId(data.activeDialogue.selectedScenarioId);
+      })
+      .catch(() => {
+        if (isMounted) {
+          setWorkspaceData(null);
+        }
+      });
 
-    loadData().catch(() => setLoading(false));
+    void academyDataService
+      .getReports(activeRole)
+      .then((items) => {
+        if (isMounted) {
+          setReports(items);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setReports([]);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeRole]);
-
-  useEffect(() => {
-    if (routeState.name !== "Reports") {
-      return;
-    }
-
-    loadReportsForRole(activeRole).catch((error) => {
-      console.warn("[reports] refresh on Reports route failed", error);
-    });
-  }, [activeRole, routeState.name]);
-
-  useEffect(() => {
-    academyDataService.getCurrentUser(activeRole).then(setCurrentUser);
-  }, [activeRole]);
-
-  function goToLanding() {
-    setRouteState({ name: "Landing" });
-  }
-
-  function enterWorkspace(role: UserRole) {
-    setActiveRole(role);
-    setRouteState({ name: roleHomeRoute[role] });
-  }
 
   function navigate<T extends RouteName>(route: T, params?: RootStackParamList[T]) {
     if (route === "Landing") {
-      goToLanding();
+      setRouteState({ name: "Landing" });
       return;
     }
 
@@ -136,56 +117,312 @@ export function AppNavigator() {
     setRouteState({ name: route, params });
   }
 
-  async function handleSimulatorReportSaved(payload: {
-    scenarioTitle: string;
-    evaluation: SimulatorEvaluationPayloadDto;
-    sessionId?: string | null;
-  }) {
-    const allReports = await academyDataService.saveLatestSimulatorReport({
-      role: activeRole,
-      scenarioTitle: payload.scenarioTitle,
-      evaluation: payload.evaluation,
-      sessionId: payload.sessionId
-    });
-    setReports(allReports);
+  function enterWorkspace(_role: UserRole) {
+    setRouteState({ name: roleHomeRoute[activeRole] });
   }
 
+  function updateSession(updater: (current: ActiveDialogueSession) => ActiveDialogueSession) {
+    setActiveDialogueSession((current) => (current ? updater(current) : current));
+  }
+
+  async function launchScenario(scenarioId: string) {
+    setSimulatorStartError(null);
+    const selectedScenario = workspaceData?.scenarios.find((scenario) => scenario.id === scenarioId);
+
+    if (!selectedScenario) {
+      setSimulatorStartError("Выбранный сценарий не найден.");
+      setTrainerMode("catalog");
+      navigate("Simulator");
+      return;
+    }
+
+    try {
+      let nextSession: ActiveDialogueSession;
+
+      if (simulatorApiService.isEnabled()) {
+        const response = await simulatorApiService.startDialogueSession(
+          scenarioId,
+          DEFAULT_BACKEND_DIFFICULTY
+        );
+        nextSession = {
+          mode: "api",
+          sessionId: response.session_id,
+          scenarioId,
+          scenarioTitle: selectedScenario.title,
+          messages: [mapApiMessageToDialogueMessage(response.message)],
+          status: "active",
+          errorText: null,
+          isSending: false,
+          isFinishing: false
+        };
+      } else {
+        nextSession = {
+          mode: "mock",
+          sessionId: buildSessionId(scenarioId),
+          scenarioId,
+          scenarioTitle: selectedScenario.title,
+          messages: buildInitialMockDialogue({
+            scenarioId,
+            scenarioTitle: selectedScenario.title
+          }),
+          status: "active",
+          errorText: null,
+          isSending: false,
+          isFinishing: false
+        };
+      }
+
+      activeSessionKeyRef.current = nextSession.sessionId;
+      setActiveDialogueSession(nextSession);
+      setActiveScenarioId(scenarioId);
+      setTrainerMode("dialogue");
+      navigate("Simulator", { scenarioId });
+    } catch (error) {
+      setActiveDialogueSession(null);
+      setTrainerMode("catalog");
+      setRouteState({ name: "Simulator" });
+      setSimulatorStartError(getSafeSimulatorErrorMessage(error));
+    }
+  }
+
+  function openTrainerCatalog() {
+    setTrainerMode("catalog");
+    setSimulatorStartError(null);
+    navigate("Simulator");
+  }
+
+  function openReportViewer(reportId: string) {
+    navigate("ReportViewer", { reportId });
+  }
+
+  function openReports(highlightReportId?: string) {
+    navigate("Reports", highlightReportId ? { highlightReportId } : undefined);
+  }
+
+  function continueChatFromReport(scenarioId?: string) {
+    if (scenarioId) {
+      void launchScenario(scenarioId);
+      return;
+    }
+
+    openTrainerCatalog();
+  }
+
+  async function sendMessage(text: string): Promise<boolean> {
+    const session = activeDialogueSession;
+    const selectedScenario = workspaceData?.scenarios.find(
+      (scenario) => scenario.id === session?.scenarioId
+    );
+    const trimmedText = text.trim();
+
+    if (!session || !selectedScenario) {
+      return false;
+    }
+
+    if (!trimmedText) {
+      updateSession((current) => ({
+        ...current,
+        errorText: "Введите реплику, чтобы продолжить диалог."
+      }));
+      return false;
+    }
+
+    if (session.isSending || session.isFinishing || session.status === "finished") {
+      return false;
+    }
+
+    const optimisticMessage = buildOptimisticManagerMessage(trimmedText);
+    const sessionKey = session.sessionId;
+
+    updateSession((current) => ({
+      ...current,
+      messages: [...current.messages, optimisticMessage],
+      errorText: null,
+      isSending: true
+    }));
+
+    if (session.mode === "api") {
+      try {
+        const response = await simulatorApiService.sendDialogueMessage(session.sessionId, trimmedText);
+        if (activeSessionKeyRef.current !== sessionKey) {
+          return false;
+        }
+
+        setActiveDialogueSession((current) => {
+          if (!current || current.sessionId !== sessionKey) {
+            return current;
+          }
+
+          return {
+            ...current,
+            messages: mergeApiMessages(current.messages, response.messages, optimisticMessage.id),
+            status: response.status,
+            isSending: false,
+            errorText: response.status === "finished" ? "Сессия завершена." : null
+          };
+        });
+        return true;
+      } catch (error) {
+        if (activeSessionKeyRef.current !== sessionKey) {
+          return false;
+        }
+
+        updateSession((current) => ({
+          ...current,
+          messages: current.messages.filter((message) => message.id !== optimisticMessage.id),
+          isSending: false,
+          errorText: getSafeSimulatorErrorMessage(error)
+        }));
+        return false;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, MOCK_REPLY_DELAY_MS));
+    if (activeSessionKeyRef.current !== sessionKey) {
+      return false;
+    }
+
+    updateSession((current) => {
+      const customerReply: DialogueMessage = {
+        id: `mock-customer-${Date.now()}`,
+        author: "customer",
+        text: buildMockCustomerFollowUp(
+          selectedScenario,
+          trimmedText,
+          countManagerReplies(current.messages)
+        ),
+        time: optimisticMessage.time
+      };
+
+      return {
+        ...current,
+        messages: [...current.messages, customerReply],
+        isSending: false,
+        errorText: null
+      };
+    });
+    return true;
+  }
+
+  async function finishScenarioAndOpenReport(params: {
+    scenarioId: string;
+    scenarioTitle: string;
+  }) {
+    const session = activeDialogueSession;
+    if (!session) {
+      return;
+    }
+
+    const existingReport = reports.find((report) => report.sessionId === session.sessionId);
+    if (existingReport) {
+      openReportViewer(existingReport.id);
+      return;
+    }
+
+    if (countManagerReplies(session.messages) < 1) {
+      updateSession((current) => ({
+        ...current,
+        errorText: "Напишите хотя бы одну реплику перед отчетом."
+      }));
+      return;
+    }
+
+    updateSession((current) => ({ ...current, isFinishing: true, errorText: null }));
+
+    try {
+      let evaluation: SimulatorEvaluationPayloadDto | undefined;
+
+      if (session.mode === "api") {
+        const response = await simulatorApiService.finishDialogueSession(session.sessionId);
+        evaluation = response.evaluation;
+
+        if (!evaluation) {
+          updateSession((current) => ({
+            ...current,
+            isFinishing: false,
+            errorText: "Не удалось получить оценку от backend. Попробуйте завершить сессию еще раз."
+          }));
+          return;
+        }
+      } else {
+        evaluation = buildMockEvaluation(params.scenarioTitle, params.scenarioId);
+      }
+
+      const syncedReports = await academyDataService.saveLatestSimulatorReport({
+        role: activeRole,
+        scenarioId: params.scenarioId,
+        scenarioTitle: params.scenarioTitle,
+        sessionId: session.sessionId,
+        evaluation
+      });
+      setReports(syncedReports);
+
+      setActiveDialogueSession((current) =>
+        current && current.sessionId === session.sessionId
+          ? { ...current, status: "finished", isFinishing: false, errorText: null }
+          : current
+      );
+
+      const createdReport =
+        syncedReports.find((report) => report.sessionId === session.sessionId) ?? syncedReports[0];
+
+      if (createdReport) {
+        openReportViewer(createdReport.id);
+        return;
+      }
+
+      openReports();
+    } catch (error) {
+      updateSession((current) => ({
+        ...current,
+        isFinishing: false,
+        errorText: getSafeSimulatorErrorMessage(error)
+      }));
+    }
+  }
+
+  const visibleRoutes = useMemo(() => visibleRoutesForRole(activeRole), [activeRole]);
+  const navActiveRoute = routeState.name === "ReportViewer" ? "Reports" : routeState.name;
   const footer = useMemo(
     () =>
-      routeState.name === "Landing" || layout.isDesktop ? null : (
+      layout.isDesktop || routeState.name === "Landing" ? null : (
         <BottomTabs
-          routes={tabsByRole[activeRole]}
-          activeRoute={routeState.name}
+          routes={visibleRoutes}
+          activeRoute={navActiveRoute}
           onNavigate={(route) => navigate(route)}
         />
       ),
-    [activeRole, layout.isDesktop, routeState.name]
+    [layout.isDesktop, navActiveRoute, routeState.name, visibleRoutes]
   );
-  const knowledgeMaterials: KnowledgeMaterial[] = knowledgeSections.flatMap((section) => section.materials);
-
-  if (loading || !currentUser || !studentDashboard || !managerDashboard || !hrDashboard || !adminSettings) {
-    return (
-      <AppScreen variant="app">
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.semantic.actionPrimary} />
-          <Text style={[styles.loaderText, { color: theme.semantic.textSecondary }]}>
-            Загружаем рабочее пространство Академии продаж...
-          </Text>
-        </View>
-      </AppScreen>
-    );
-  }
-
   const currentRouteConfig = routeConfig[routeState.name];
   const simulatorParams =
     routeState.name === "Simulator"
       ? (routeState.params as RootStackParamList["Simulator"] | undefined)
       : undefined;
-  const reportParams =
+  const reportsParams =
     routeState.name === "Reports"
       ? (routeState.params as RootStackParamList["Reports"] | undefined)
       : undefined;
+  const reportViewerParams =
+    routeState.name === "ReportViewer"
+      ? (routeState.params as RootStackParamList["ReportViewer"])
+      : undefined;
+  const selectedReport = reportViewerParams
+    ? reports.find((report) => report.id === reportViewerParams.reportId)
+    : undefined;
   const isLanding = routeState.name === "Landing";
+  const showMobileHeader =
+    !layout.isDesktop && routeState.name !== "Simulator" && routeState.name !== "Landing";
+  const disableAppScroll =
+    routeState.name === "Simulator" && trainerMode === "dialogue" && layout.isDesktop;
+
+  if (!workspaceData) {
+    return (
+      <AppScreen variant="app">
+        <AppCard>Загрузка рабочего пространства...</AppCard>
+      </AppScreen>
+    );
+  }
 
   if (isLanding) {
     return <LandingScreen roleOptions={roleWorkspaceOptions} onEnterRole={enterWorkspace} />;
@@ -195,78 +432,210 @@ export function AppNavigator() {
     <AppScreen
       footer={footer ?? undefined}
       variant="app"
-      disableBottomPadding={false}
+      scrollEnabled={!disableAppScroll}
       sidebar={
-        <DesktopSidebar
-          activeRole={activeRole}
-          activeRoute={routeState.name}
-          user={currentUser}
-          routes={tabsByRole[activeRole]}
-          onNavigate={navigate}
-          onGoToLanding={goToLanding}
-        />
+        layout.isDesktop ? (
+          <DesktopSidebar
+            activeRole={activeRole}
+            activeRoute={navActiveRoute}
+            user={workspaceData.user}
+            routes={visibleRoutes}
+            onNavigate={navigate}
+          />
+        ) : undefined
       }
     >
-      <MobileHeader
-        title={currentRouteConfig.title}
-        subtitle={currentRouteConfig.description}
-        user={currentUser}
-        actionLabel="На лендинг"
-        onActionPress={goToLanding}
-      />
+      {showMobileHeader ? (
+        <MobileHeader
+          title={currentRouteConfig.title}
+          subtitle={currentRouteConfig.description}
+          user={workspaceData.user}
+        />
+      ) : null}
 
       {routeState.name === "StudentHome" ? (
-        <StudentHomeScreen dashboard={studentDashboard} materials={knowledgeMaterials} onNavigate={navigate} />
+        <StudentHomeScreen
+          data={workspaceData}
+          reports={reports}
+          onOpenReport={openReportViewer}
+          onOpenTrainer={(scenarioId) => {
+            void launchScenario(scenarioId);
+          }}
+        />
       ) : null}
 
       {routeState.name === "Simulator" ? (
         <SimulatorScreen
-          scenarios={scenarios}
-          modules={learningModules}
-          activeScenarioId={simulatorParams?.scenarioId}
-          onOpenReports={() => navigate("Reports")}
-          onReportSaved={handleSimulatorReportSaved}
-          onNavigateToReports={() => navigate("Reports")}
+          data={workspaceData}
+          activeScenarioId={simulatorParams?.scenarioId ?? activeScenarioId}
+          activeSession={activeDialogueSession}
+          mode={trainerMode}
+          onBackToCatalog={openTrainerCatalog}
+          onStartScenario={(scenarioId) => {
+            void launchScenario(scenarioId);
+          }}
+          onSendMessage={sendMessage}
+          onFinishScenario={finishScenarioAndOpenReport}
+          startErrorText={simulatorStartError}
+          onDismissStartError={() => setSimulatorStartError(null)}
         />
-      ) : null}
-
-      {routeState.name === "ManagerDashboard" ? (
-        <ManagerDashboardScreen dashboard={managerDashboard} onNavigate={navigate} />
-      ) : null}
-
-      {routeState.name === "HrDashboard" ? (
-        <HrDashboardScreen dashboard={hrDashboardDataOverride(hrDashboard)} onNavigate={navigate} />
-      ) : null}
-
-      {routeState.name === "Admin" ? (
-        <AdminScreen settings={adminSettings} onNavigate={navigate} />
       ) : null}
 
       {routeState.name === "Reports" ? (
         <ReportsScreen
           activeRole={activeRole}
           reports={reports}
-          highlightReportId={reportParams?.highlightReportId}
+          highlightReportId={reportsParams?.highlightReportId}
+          onOpenReport={openReportViewer}
+          onContinueChat={continueChatFromReport}
+        />
+      ) : null}
+
+      {routeState.name === "ReportViewer" ? (
+        <ReportViewerScreen
+          report={selectedReport}
+          onBack={() => openReports()}
+          onContinueChat={continueChatFromReport}
         />
       ) : null}
     </AppScreen>
   );
 }
 
-function hrDashboardDataOverride(dashboard: HrDashboard): HrDashboard {
-  return dashboard.tracks.length > 0 ? dashboard : hrDashboardData;
+function visibleRoutesForRole(role: UserRole): RouteName[] {
+  return tabsByRole[role];
 }
 
-const styles = StyleSheet.create({
-  loader: {
-    flex: 1,
-    minHeight: 420,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16
-  },
-  loaderText: {
-    fontSize: 15,
-    fontWeight: "600"
+function buildSessionId(scenarioId: string): string {
+  return `session-${scenarioId}-${Date.now()}`;
+}
+
+function buildMockEvaluation(
+  scenarioTitle: string,
+  scenarioId: string
+): SimulatorEvaluationPayloadDto {
+  const scenarioPresets: Record<string, SimulatorEvaluationPayloadDto> = {
+    "price-objection": {
+      overall_level: "Middle",
+      overall_comment:
+        "Вы спокойно отработали ценовое возражение и связали решение с бизнес-эффектом, но можно точнее зафиксировать следующий шаг.",
+      overall_recommendations: [
+        "Сначала уточняйте, с чем клиент сравнивает цену.",
+        "Заканчивайте разговор конкретным шагом с датой и участниками.",
+        "Подчеркивайте стоимость простоя раньше, чем переходите к аргументам."
+      ],
+      competencies: [
+        {
+          name: "Умение задавать вопросы",
+          level: "Middle",
+          argument: "Есть вопросы, которые помогают раскрыть контекст сравнения и критерии выбора.",
+          quote: ["Какие факторы для вас наиболее критичны при выборе поставщика?"],
+          recommendations: ["Добавьте вопрос про последствия ошибки выбора."]
+        },
+        {
+          name: "Диагностика потребности",
+          level: "Middle",
+          argument: "Хорошо проявлена попытка понять бюджетные ограничения клиента.",
+          quote: ["Нам важно уложиться в бюджет этого квартала."],
+          recommendations: ["Сильнее уточняйте источник внутреннего давления по бюджету."]
+        },
+        {
+          name: "Формулировка ценности через выгоду",
+          level: "Middle",
+          argument: "Ценность уже связана с риском простоя и стоимостью владения.",
+          quote: [
+            "Наши клиенты в среднем экономят до 18% за счёт меньшего простоя оборудования."
+          ],
+          recommendations: ["Подкрепляйте выгоду одной цифрой под ситуацию клиента."]
+        },
+        {
+          name: "Работа с возражением «подумаю / не сейчас»",
+          level: "Middle",
+          argument: "Возражение обработано без давления и с сохранением доверия.",
+          quote: ["Понимаю ваше опасение."],
+          recommendations: [
+            "После признания сомнения задавайте один уточняющий вопрос до аргументации."
+          ]
+        },
+        {
+          name: "Фиксация следующего шага",
+          level: "Junior",
+          argument:
+            "Следующий шаг пока читается скорее как намерение, чем как договоренность.",
+          quote: ["Могу показать расчёт по вашим данным, если интересно."],
+          recommendations: ["Предлагайте конкретный созвон или аудит с датой."]
+        }
+      ]
+    }
+  };
+
+  const evaluation = scenarioPresets[scenarioId];
+  if (evaluation) {
+    return evaluation;
   }
-});
+
+  const fallback = simulatorEvaluationByScenarioId["scn-1"];
+  if (fallback) {
+    return {
+      overall_level: "Middle",
+      overall_comment: `${scenarioTitle}: диалог завершен уверенно, но следующий шаг можно сделать конкретнее.`,
+      overall_recommendations: fallback.recommendations,
+      competencies: fallback.competencyScores.slice(0, 5).map((item) => ({
+        name: item.label,
+        level: item.value >= 85 ? "Senior" : item.value >= 70 ? "Middle" : "Junior",
+        argument: item.summary,
+        quote: [fallback.strongAnswerExample],
+        recommendations: fallback.whatToImprove.slice(0, 1)
+      }))
+    };
+  }
+
+  return {
+    overall_level: "Middle",
+    overall_comment: `${scenarioTitle}: диалог завершен, отчет сформирован по mock-оценке.`,
+    overall_recommendations: [
+      "Уточняйте критерии выбора клиента раньше.",
+      "Связывайте выгоду с риском бездействия.",
+      "Фиксируйте следующий шаг в конце разговора."
+    ],
+    competencies: [
+      {
+        name: "Умение задавать вопросы",
+        level: "Middle",
+        argument: "Вопросы помогают двигать разговор вперед и уточнять контекст.",
+        quote: ["Расскажите, пожалуйста, что для вас сейчас важнее всего?"],
+        recommendations: ["Добавьте вопрос про последствия текущей ситуации."]
+      },
+      {
+        name: "Диагностика потребности",
+        level: "Middle",
+        argument: "Есть базовая диагностика потребностей и ограничений клиента.",
+        quote: ["Что будет критично при выборе решения?"],
+        recommendations: ["Фиксируйте и бизнесовый, и операционный контекст."]
+      },
+      {
+        name: "Формулировка ценности через выгоду",
+        level: "Middle",
+        argument: "Аргументация понятная, но не всегда привязана к цифрам клиента.",
+        quote: ["Это поможет снизить риск простоя и ускорить внедрение."],
+        recommendations: ["Добавьте один конкретный измеримый эффект."]
+      },
+      {
+        name: "Работа с возражением «подумаю / не сейчас»",
+        level: "Middle",
+        argument: "Возражение обрабатывается спокойно и без давления.",
+        quote: ["Понимаю, почему вы хотите проверить это подробнее."],
+        recommendations: [
+          "После признания сомнения уточняйте, что именно нужно проверить."
+        ]
+      },
+      {
+        name: "Фиксация следующего шага",
+        level: "Junior",
+        argument: "Финальная договоренность пока недостаточно конкретна.",
+        quote: ["Давайте вернемся к этому чуть позже."],
+        recommendations: ["Сразу предлагайте дату, формат и цель следующего контакта."]
+      }
+    ]
+  };
+}

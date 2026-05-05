@@ -27,7 +27,7 @@ export function AppCard({ children, style, tone = "default" }: AppCardProps) {
           borderColor: theme.semantic.border,
           borderRadius: theme.radius.xl
         },
-        theme.shadows.card,
+        theme.shadows.soft,
         style
       ]}
     >

@@ -55,13 +55,13 @@ const styles = StyleSheet.create({
     gap: 6
   },
   title: {
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: "800"
   },
   subtitle: {
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 13,
+    lineHeight: 19
   },
   avatar: {
     width: 44,

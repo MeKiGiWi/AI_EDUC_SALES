@@ -1,10 +1,9 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { roleLabels, type RouteName } from "../../navigation/routes";
+import { type RouteName } from "../../navigation/routes";
 import type { AcademyUser, UserRole } from "../../types/academy";
 import { useTheme } from "../../theme/useTheme";
-import { AppButton } from "../ui/AppButton";
 
 interface DesktopSidebarProps {
   activeRole: UserRole;
@@ -12,60 +11,156 @@ interface DesktopSidebarProps {
   user: AcademyUser;
   routes: RouteName[];
   onNavigate: (route: RouteName) => void;
-  onGoToLanding: () => void;
 }
 
 const routeLabels: Record<RouteName, string> = {
   Landing: "Лендинг",
   StudentHome: "Главная",
   Simulator: "Тренажер",
-  ManagerDashboard: "Панель команды",
-  HrDashboard: "HR / L&D",
-  Admin: "Администрирование",
-  Reports: "Отчеты"
+  Reports: "Отчеты",
+  ReportViewer: "Просмотр отчета"
 };
 
 export function DesktopSidebar({
-  activeRole,
   activeRoute,
   user,
   routes,
-  onNavigate,
-  onGoToLanding
+  onNavigate
 }: DesktopSidebarProps) {
   const theme = useTheme();
+  const routeIcons: Partial<Record<RouteName, string>> = {
+    StudentHome: "⌂",
+    Simulator: "◉"
+  };
 
   return (
-    <View style={[styles.sidebar, { backgroundColor: theme.semantic.cardSubtle, borderColor: theme.semantic.border }]}>
+    <View
+      style={[
+        styles.sidebar,
+        {
+          backgroundColor: theme.semantic.backgroundWarm,
+          borderColor: theme.semantic.border
+        }
+      ]}
+    >
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.brandBlock}>
-          <Text style={[styles.brandTitle, { color: theme.semantic.textPrimary }]}>AI Sales Academy</Text>
+          <View style={styles.brandRow}>
+            <View
+              style={[
+                styles.brandIcon,
+                { backgroundColor: theme.semantic.actionSecondary }
+              ]}
+            >
+              <Text style={[styles.brandIconText, { color: theme.semantic.actionPrimary }]}>🎓</Text>
+            </View>
+            <Text style={[styles.brandTitle, { color: theme.semantic.textPrimary }]}>
+              AI Sales Academy
+            </Text>
+          </View>
           <Text style={[styles.brandSubtitle, { color: theme.semantic.textSecondary }]}>
             Рабочее пространство роли
           </Text>
         </View>
 
-        <View style={[styles.userCard, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}>
-          <Text style={[styles.userName, { color: theme.semantic.textPrimary }]}>{user.fullName}</Text>
-          <Text style={[styles.userMeta, { color: theme.semantic.textSecondary }]}>
-            {roleLabels[activeRole]} · {user.title}
-          </Text>
-          <Text style={[styles.userMeta, { color: theme.semantic.textMuted }]}>{user.teamName}</Text>
-          <AppButton label="На лендинг" onPress={onGoToLanding} tone="ghost" fullWidth />
+        <View
+          style={[
+            styles.userCard,
+            {
+              backgroundColor: theme.semantic.card,
+              borderColor: theme.semantic.border,
+              shadowColor: theme.shadows.soft.shadowColor,
+              shadowOpacity: theme.shadows.soft.shadowOpacity,
+              shadowRadius: theme.shadows.soft.shadowRadius,
+              shadowOffset: theme.shadows.soft.shadowOffset,
+              elevation: theme.shadows.soft.elevation
+            }
+          ]}
+        >
+          <View style={styles.userHeader}>
+            <View
+              style={[
+                styles.avatar,
+                { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }
+              ]}
+            >
+              <Text style={[styles.avatarText, { color: theme.semantic.actionPrimary }]}>АМ</Text>
+            </View>
+            <View style={styles.userMetaBlock}>
+              <Text style={[styles.userName, { color: theme.semantic.textPrimary }]}>{user.fullName}</Text>
+              <Text style={[styles.userMeta, { color: theme.semantic.textSecondary }]}>{user.title}</Text>
+              <Text style={[styles.userMeta, { color: theme.semantic.textSecondary }]}>{user.teamName}</Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={() => onNavigate("Landing")}
+            style={[
+              styles.statusRow,
+              { borderColor: theme.semantic.border, backgroundColor: theme.semantic.backgroundWarm }
+            ]}
+          >
+            <View style={styles.statusLabelRow}>
+              <View style={[styles.statusDot, { backgroundColor: theme.semantic.success }]} />
+              <Text style={[styles.statusText, { color: theme.semantic.textPrimary }]}>На лендинг</Text>
+            </View>
+            <Text style={[styles.statusArrow, { color: theme.semantic.textSecondary }]}>›</Text>
+          </Pressable>
         </View>
 
         <View style={styles.block}>
-          <Text style={[styles.blockLabel, { color: theme.semantic.textMuted }]}>Разделы</Text>
+          <Text style={[styles.blockLabel, { color: theme.semantic.textMuted }]}>РАЗДЕЛЫ</Text>
           {routes.map((route) => (
-            <AppButton
+            <Pressable
               key={route}
-              label={routeLabels[route]}
               onPress={() => onNavigate(route)}
-              tone={route === activeRoute ? "primary" : "ghost"}
-              fullWidth
-            />
+              style={[
+                styles.navItem,
+                {
+                  backgroundColor:
+                    route === activeRoute ? theme.semantic.actionPrimary : theme.semantic.card,
+                  borderColor: theme.semantic.border
+                }
+              ]}
+            >
+              <View style={styles.navInner}>
+                <View
+                  style={[
+                    styles.navIconTile,
+                    {
+                      backgroundColor:
+                        route === activeRoute ? "rgba(255,255,255,0.14)" : theme.semantic.backgroundWarm
+                    }
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.navIcon,
+                      {
+                        color:
+                          route === activeRoute ? "#FFFFFF" : theme.semantic.textSecondary
+                      }
+                    ]}
+                  >
+                    {routeIcons[route] ?? "•"}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.navLabel,
+                    {
+                      color:
+                        route === activeRoute ? "#FFFFFF" : theme.semantic.textPrimary
+                    }
+                  ]}
+                >
+                  {routeLabels[route]}
+                </Text>
+              </View>
+            </Pressable>
           ))}
         </View>
+
       </ScrollView>
     </View>
   );
@@ -77,15 +172,32 @@ const styles = StyleSheet.create({
     borderRightWidth: 1
   },
   content: {
-    padding: 20,
-    gap: 18
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 28,
+    gap: 20
   },
   brandBlock: {
-    gap: 4
+    gap: 6
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  brandIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  brandIconText: {
+    fontSize: 16
   },
   brandTitle: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: "800"
   },
   brandSubtitle: {
@@ -94,9 +206,30 @@ const styles = StyleSheet.create({
   },
   userCard: {
     borderWidth: 1,
-    borderRadius: 22,
-    padding: 16,
-    gap: 8
+    borderRadius: 24,
+    padding: 14,
+    gap: 14
+  },
+  userHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  userMetaBlock: {
+    flex: 1,
+    gap: 3
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: "700"
   },
   userName: {
     fontSize: 16,
@@ -115,5 +248,59 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 1.1
+  },
+  statusRow: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  statusLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999
+  },
+  statusText: {
+    fontSize: 15,
+    fontWeight: "600"
+  },
+  statusArrow: {
+    fontSize: 24,
+    lineHeight: 24
+  },
+  navItem: {
+    minHeight: 56,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    justifyContent: "center"
+  },
+  navInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  navIconTile: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  navIcon: {
+    fontSize: 17,
+    fontWeight: "700"
+  },
+  navLabel: {
+    fontSize: 16,
+    fontWeight: "700"
   }
 });

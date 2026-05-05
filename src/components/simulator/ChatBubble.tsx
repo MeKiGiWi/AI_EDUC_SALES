@@ -12,13 +12,37 @@ export function ChatBubble({ message }: ChatBubbleProps) {
   const theme = useTheme();
   const isLearner = message.speakerRole === "learner";
   const isCoach = message.speakerRole === "coach";
+  const isSystem = message.speakerRole === "system";
+
+  if (isSystem) {
+    return (
+      <View style={styles.systemWrapper}>
+        <View
+          style={[
+            styles.systemBubble,
+            {
+              backgroundColor: theme.semantic.card,
+              borderColor: theme.semantic.border,
+              borderRadius: theme.radius.lg
+            }
+          ]}
+        >
+          <Text style={[styles.meta, { color: theme.semantic.actionPrimary }]}>
+            {message.speakerName} · {message.timestampLabel}
+          </Text>
+          <Text style={[styles.text, { color: theme.semantic.textSecondary }]}>{message.text}</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View
       style={[
         styles.wrapper,
         {
-          alignSelf: isLearner ? "flex-end" : "stretch"
+          alignSelf: isLearner ? "flex-end" : "flex-start",
+          alignItems: isLearner ? "flex-end" : "flex-start"
         }
       ]}
     >
@@ -27,18 +51,20 @@ export function ChatBubble({ message }: ChatBubbleProps) {
           styles.bubble,
           {
             backgroundColor: isLearner
-              ? theme.semantic.cardAccent
+              ? theme.semantic.actionPrimary
               : isCoach
                 ? theme.semantic.actionSecondary
-                : theme.semantic.cardSubtle,
-            borderRadius: theme.radius.lg
+                : theme.semantic.card,
+            borderColor: isLearner ? theme.semantic.actionPrimary : theme.semantic.border,
+            borderRadius: theme.radius.lg,
+            borderBottomRightRadius: isLearner ? 6 : theme.radius.lg,
+            borderBottomLeftRadius: isLearner ? theme.radius.lg : 6
           }
         ]}
       >
-        <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-          {message.speakerName} · {message.timestampLabel}
+        <Text style={[styles.text, { color: isLearner ? "#FFFFFF" : theme.semantic.textPrimary }]}>
+          {message.text}
         </Text>
-        <Text style={[styles.text, { color: theme.semantic.textPrimary }]}>{message.text}</Text>
       </View>
     </View>
   );
@@ -46,19 +72,38 @@ export function ChatBubble({ message }: ChatBubbleProps) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    width: "100%"
+    width: "100%",
+    maxWidth: 720
+  },
+  systemWrapper: {
+    width: "100%",
+    alignItems: "center"
+  },
+  systemBubble: {
+    width: "100%",
+    maxWidth: 640,
+    padding: 16,
+    gap: 8,
+    borderWidth: 1
   },
   bubble: {
-    maxWidth: "92%",
-    padding: 14,
-    gap: 6
+    maxWidth: "82%",
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    borderWidth: 1,
+    shadowColor: "#1A3625",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1
   },
   meta: {
-    fontSize: 12,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: "700"
   },
   text: {
     fontSize: 15,
-    lineHeight: 21
+    lineHeight: 22
   }
 });

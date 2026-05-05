@@ -30,6 +30,8 @@ log_dialog/
 build/
 develop-eggs/
 dist/
+dist-e2e-api/
+dist-e2e-mock/
 downloads/
 eggs/
 .eggs/
@@ -78,6 +80,7 @@ htmlcov/
 coverage/
 .coverage
 .coverage.*
+test-results/
 
 # Runtime
 __pycache__/

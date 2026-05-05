@@ -5,7 +5,7 @@ import { useTheme } from "../../theme/useTheme";
 
 interface StatusPillProps {
   label: string;
-  tone?: "success" | "warning" | "neutral";
+  tone?: "success" | "warning" | "danger" | "neutral";
 }
 
 export function StatusPill({ label, tone = "neutral" }: StatusPillProps) {
@@ -16,6 +16,8 @@ export function StatusPill({ label, tone = "neutral" }: StatusPillProps) {
       ? theme.semantic.success
       : tone === "warning"
         ? theme.semantic.warning
+        : tone === "danger"
+          ? theme.semantic.danger
         : theme.semantic.textMuted;
 
   return (

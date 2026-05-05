@@ -15,11 +15,8 @@ interface ReportsScreenProps {
   activeRole: UserRole;
   reports: ReportCard[];
   highlightReportId?: string;
-  isLoading?: boolean;
-  loadError?: string | null;
   onOpenReport: (reportId: string) => void;
   onContinueChat: (scenarioId?: string) => void;
-  onRefresh: () => void;
 }
 
 type ReportsSheetState =
@@ -31,8 +28,6 @@ type ReportFilter = "all" | "ready" | "generating" | "error";
 
 const reportFilters: Array<{ id: ReportFilter; label: string }> = [
   { id: "all", label: "Все" },
-  { id: "ready", label: "Готовые" },
-  { id: "generating", label: "В процессе" },
   { id: "error", label: "Ошибки" }
 ];
 
@@ -43,7 +38,7 @@ const roleContent = {
       "Завершите диалог в тренажере — здесь появятся все ваши отчеты с предпросмотром и выгрузкой.",
     infoLines: [
       "После каждого завершенного диалога сохраняется новый отчет.",
-      "Все отчеты загружаются из PostgreSQL через backend.",
+      "Все отчеты хранятся локально на устройстве.",
       "Из этой вкладки доступны предпросмотр, PDF и CSV."
     ]
   },
@@ -52,7 +47,7 @@ const roleContent = {
     emptyDescription:
       "После завершения диалога руководитель увидит здесь все отчеты по практикам.",
     infoLines: [
-      "Отчеты загружаются из PostgreSQL после каждого завершения диалога.",
+      "Отчеты сохраняются локально после каждого завершения диалога.",
       "Из этой вкладки доступны предпросмотр, PDF и CSV."
     ]
   },
@@ -60,7 +55,7 @@ const roleContent = {
     emptyTitle: "Отчеты пока не поступили",
     emptyDescription: "Когда диалог будет завершен и сохранен, отчет появится здесь.",
     infoLines: [
-      "Все отчеты подгружаются из PostgreSQL.",
+      "Все отчеты хранятся локально на устройстве.",
       "Выгрузки строятся прямо из сохраненных отчетов."
     ]
   },
@@ -68,7 +63,7 @@ const roleContent = {
     emptyTitle: "Отчеты пока не зафиксированы",
     emptyDescription: "Пока ни один завершенный диалог не сохранил отчет.",
     infoLines: [
-      "Все отчеты подгружаются из PostgreSQL.",
+      "Все отчеты хранятся локально на устройстве.",
       "PDF и CSV формируются по запросу."
     ]
   }
@@ -82,11 +77,8 @@ export function ReportsScreen({
   activeRole,
   reports,
   highlightReportId,
-  isLoading = false,
-  loadError = null,
   onOpenReport,
-  onContinueChat,
-  onRefresh
+  onContinueChat
 }: ReportsScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
@@ -155,29 +147,14 @@ export function ReportsScreen({
         <View style={styles.headerText}>
           <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Отчеты</Text>
           <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
-            Здесь собраны все отчеты, сохраненные в PostgreSQL.
+            Здесь сохраняются результаты ваших сценариев.
           </Text>
         </View>
-        <AppButton
-          label={isLoading ? "Обновляем..." : "Обновить"}
-          onPress={onRefresh}
-          tone="ghost"
-          disabled={isLoading}
-        />
       </View>
 
       {successMessage ? (
         <AppCard>
           <Text style={[styles.successText, { color: theme.semantic.success }]}>{successMessage}</Text>
-        </AppCard>
-      ) : null}
-
-      {loadError ? (
-        <AppCard tone="mint">
-          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>
-            Не удалось загрузить отчеты
-          </Text>
-          <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{loadError}</Text>
         </AppCard>
       ) : null}
 
@@ -231,16 +208,11 @@ export function ReportsScreen({
                 onDownload={(item, format) => {
                   void handleExport(item, format);
                 }}
-                onContinueChat={(item) => onContinueChat(item.scenarioId ?? undefined)}
               />
             </View>
           ))}
         </View>
       )}
-
-      <View style={styles.infoActionRow}>
-        <AppButton label="Как это работает" onPress={openInfoSheet} tone="ghost" />
-      </View>
 
       <AppBottomSheet
         visible={sheetState !== null}
@@ -310,6 +282,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
     alignSelf: "flex-start"
   },
+  meta: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700"
+  },
   filterRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -323,8 +300,17 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     alignItems: "stretch"
   },
-  infoActionRow: {
-    alignItems: "flex-start"
+  rowBetween: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    flexWrap: "wrap"
+  },
+  flexBlock: {
+    flex: 1,
+    minWidth: 240,
+    gap: 6
   },
   listItem: {
     fontSize: 15,

@@ -4,7 +4,6 @@ import type {
   SimulatorEvaluationPayloadDto,
   UserRole
 } from "../types/academy";
-import { adaptLegacyEvaluationToReportV2 } from "../features/reports/adapters";
 
 const roleOwnerLabels: Record<UserRole, string> = {
   student: "Ученик",
@@ -108,17 +107,6 @@ export function savedReportToReportCard(saved: SavedSimulatorReport, role: UserR
     sourceLabel: saved.sourceLabel ?? "Диалог в чате",
     sessionId: saved.sessionId ?? null,
     availableFormats: ["pdf", "csv"],
-    evaluation,
-    reportV2: saved.reportV2 ?? adaptLegacyEvaluationToReportV2({
-      id: saved.id,
-      title: saved.displayName,
-      scenarioId: saved.scenarioId ?? null,
-      scenarioTitle: saved.scenarioTitle,
-      createdAt: saved.createdAt,
-      summary: evaluation.overall_comment,
-      ownerLabel: roleOwnerLabels[role],
-      evaluation
-    }),
     previewSections: [
       {
         id: `${saved.id}-resume`,
@@ -179,7 +167,6 @@ export function saveLatestSimulatorReportLocal(params: {
   sourceLabel?: string | null;
   sessionId?: string | null;
   evaluation: SimulatorEvaluationPayloadDto;
-  reportV2?: SavedSimulatorReport["reportV2"];
   existingReports?: SavedSimulatorReport[];
   createdAt?: string;
   reportId?: string;
@@ -194,8 +181,7 @@ export function saveLatestSimulatorReportLocal(params: {
     createdAt,
     sourceLabel: params.sourceLabel ?? "Диалог в чате",
     sessionId: params.sessionId ?? undefined,
-    evaluation: params.evaluation,
-    reportV2: params.reportV2
+    evaluation: params.evaluation
   };
   const savedReports = [savedReport, ...(params.existingReports ?? [])];
 

@@ -255,7 +255,6 @@ export interface SimulatorFinishResponseDto {
   session_id: string;
   status: "finished";
   evaluation?: SimulatorEvaluationPayloadDto;
-  report_v2?: SalesDialogueReportV2;
 }
 
 export interface TeamMember {
@@ -501,7 +500,6 @@ export interface SavedSimulatorReport {
   sourceLabel?: string;
   sessionId?: string;
   evaluation: SimulatorEvaluationPayloadDto;
-  reportV2?: SalesDialogueReportV2;
 }
 
 export interface ReportCard {
@@ -521,8 +519,6 @@ export interface ReportCard {
   sessionId: string | null;
   availableFormats: ExportFormat[];
   previewSections: ReportPreviewSection[];
-  evaluation?: SimulatorEvaluationPayloadDto;
-  reportV2?: SalesDialogueReportV2 | null;
 }
 
 export interface RoleWorkspaceOption {
@@ -532,4 +528,3 @@ export interface RoleWorkspaceOption {
   summary: string;
   capabilities: string[];
 }
-import type { SalesDialogueReportV2 } from "../features/reports/types";

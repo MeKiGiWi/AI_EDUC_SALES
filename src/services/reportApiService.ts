@@ -1,5 +1,4 @@
 import type { ReportCard, SimulatorEvaluationPayloadDto, UserRole } from "../types/academy";
-import type { SalesDialogueReportV2 } from "../features/reports/types";
 
 const backendApiUrl = process.env.EXPO_PUBLIC_SIMULATOR_API_URL?.trim() ?? "";
 
@@ -74,7 +73,6 @@ export const reportApiService = {
     scenarioId?: string | null;
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
-    reportV2?: SalesDialogueReportV2;
     sourceLabel?: string | null;
     sessionId?: string | null;
   }): Promise<ReportCard> {
@@ -85,14 +83,9 @@ export const reportApiService = {
         scenario_id: payload.scenarioId ?? null,
         scenario_title: payload.scenarioTitle,
         evaluation: payload.evaluation,
-        report_v2: payload.reportV2 ?? null,
         source_label: payload.sourceLabel ?? null,
         session_id: payload.sessionId ?? null
       })
     });
-  },
-
-  async fetchReport(reportId: string): Promise<ReportCard> {
-    return requestJson<ReportCard>(`/api/v1/reports/${encodeURIComponent(reportId)}`);
   }
 };

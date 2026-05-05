@@ -1,14 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { ReportStatusBadge } from "../../components/reports/ReportStatusBadge";
 import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { resolveReportV2 } from "../../features/reports/adapters";
-import { ReportPdfDocument } from "../../features/reports/components/ReportPdfDocument";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
-import { reportApiService } from "../../services/reportApiService";
 import { downloadReportFile } from "../../services/reportExportService";
 import { useTheme } from "../../theme/useTheme";
 import type { ReportCard } from "../../types/academy";
@@ -16,51 +13,14 @@ import type { ReportCard } from "../../types/academy";
 interface ReportViewerScreenProps {
   report?: ReportCard;
   onBack: () => void;
-  onContinueChat: (scenarioId?: string) => void;
 }
 
-export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportViewerScreenProps) {
+export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [resolvedReport, setResolvedReport] = useState<ReportCard | undefined>(report);
-  const [loadingReport, setLoadingReport] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setResolvedReport(report);
-  }, [report]);
-
-  useEffect(() => {
-    if (!report || report.reportV2 || !reportApiService.isEnabled()) {
-      return;
-    }
-    let active = true;
-    setLoadingReport(true);
-    void reportApiService
-      .fetchReport(report.id)
-      .then((nextReport) => {
-        if (active) {
-          setResolvedReport(nextReport);
-          setLoadError(null);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setLoadError("Показываем сохраненную версию отчета. Детальный JSON пока недоступен.");
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoadingReport(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [report]);
-
-  if (!resolvedReport) {
+  if (!report) {
     return (
       <EmptyState
         title="Отчет не найден"
@@ -72,11 +32,11 @@ export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportVie
   }
 
   async function handleCopy() {
-    if (!resolvedReport) {
+    if (!report) {
       return;
     }
 
-    const content = buildReportPlainText(resolvedReport);
+    const content = buildReportPlainText(report);
     if (
       Platform.OS === "web" &&
       typeof navigator !== "undefined" &&
@@ -89,19 +49,17 @@ export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportVie
   }
 
   async function handleExport(format: "pdf" | "csv") {
-    if (!resolvedReport) {
+    if (!report) {
       return;
     }
 
     try {
-      const message = await downloadReportFile(resolvedReport, format);
+      const message = await downloadReportFile(report, format);
       setStatusMessage(message);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Не удалось скачать отчет.");
     }
   }
-
-  const reportV2 = useMemo(() => resolveReportV2(resolvedReport), [resolvedReport]);
 
   return (
     <View style={styles.screen}>
@@ -117,41 +75,24 @@ export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportVie
       >
         <View style={styles.titleBlock}>
           <AppButton label="Назад к отчетам" onPress={onBack} tone="ghost" />
-          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{resolvedReport.title}</Text>
+          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
           <View style={styles.metaRow}>
-            <ReportStatusBadge status={resolvedReport.status} />
+            <ReportStatusBadge status={report.status} />
             <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-              {resolvedReport.scenarioTitle ?? "Сценарий"} · {resolvedReport.updatedAt}
+              {report.scenarioTitle ?? "Сценарий"} · {report.updatedAt}
             </Text>
           </View>
         </View>
         <View style={styles.actionRow}>
-          {resolvedReport.availableFormats.includes("pdf") ? (
+          {report.availableFormats.includes("pdf") ? (
             <AppButton label="Скачать PDF" onPress={() => { void handleExport("pdf"); }} tone="secondary" />
           ) : null}
-          {resolvedReport.availableFormats.includes("csv") ? (
+          {report.availableFormats.includes("csv") ? (
             <AppButton label="Скачать CSV" onPress={() => { void handleExport("csv"); }} tone="secondary" />
           ) : null}
           <AppButton label="Скопировать" onPress={() => { void handleCopy(); }} tone="ghost" />
-          <AppButton
-            label="Продолжить чат"
-            onPress={() => onContinueChat(resolvedReport.scenarioId ?? undefined)}
-            tone="primary"
-          />
         </View>
       </View>
-
-      {loadingReport ? (
-        <AppCard tone="mint">
-          <Text style={[styles.statusText, { color: theme.semantic.textPrimary }]}>Формируем детальную версию отчета...</Text>
-        </AppCard>
-      ) : null}
-
-      {loadError ? (
-        <AppCard tone="mint">
-          <Text style={[styles.statusText, { color: theme.semantic.textSecondary }]}>{loadError}</Text>
-        </AppCard>
-      ) : null}
 
       {statusMessage ? (
         <AppCard tone="mint">
@@ -159,17 +100,14 @@ export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportVie
         </AppCard>
       ) : null}
 
-      {Platform.OS === "web" ? (
-        <ReportPdfDocument report={reportV2} />
-      ) : (
       <View style={[styles.contentGrid, layout.isDesktop && styles.contentGridDesktop]}>
         <View style={styles.reportContent}>
           <AppCard style={styles.summaryCard}>
             <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Краткое резюме</Text>
-            <Text style={[styles.summary, { color: theme.semantic.textSecondary }]}>{resolvedReport.summary}</Text>
+            <Text style={[styles.summary, { color: theme.semantic.textSecondary }]}>{report.summary}</Text>
           </AppCard>
 
-          {resolvedReport.previewSections.map((section) => (
+          {report.previewSections.map((section) => (
             <AppCard key={section.id} style={styles.sectionCard}>
               <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>{section.title}</Text>
               <View style={styles.lines}>
@@ -185,13 +123,12 @@ export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportVie
 
         <AppCard tone="mint" style={[styles.metaPanel, !layout.isDesktop && styles.metaPanelMobile]}>
           <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Информация</Text>
-          <InfoRow label="Сценарий" value={resolvedReport.scenarioTitle ?? "Не указан"} />
-          <InfoRow label="Дата создания" value={resolvedReport.createdAt ? formatDate(resolvedReport.createdAt) : resolvedReport.updatedAt} />
-          <InfoRow label="Источник" value={resolvedReport.sourceLabel ?? "Чат"} />
-          <InfoRow label="Формат" value={resolvedReport.format.toUpperCase()} />
+          <InfoRow label="Сценарий" value={report.scenarioTitle ?? "Не указан"} />
+          <InfoRow label="Дата создания" value={report.createdAt ? formatDate(report.createdAt) : report.updatedAt} />
+          <InfoRow label="Источник" value={report.sourceLabel ?? "Чат"} />
+          <InfoRow label="Формат" value={report.format.toUpperCase()} />
         </AppCard>
       </View>
-      )}
     </View>
   );
 }

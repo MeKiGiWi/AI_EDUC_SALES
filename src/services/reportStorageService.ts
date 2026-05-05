@@ -86,7 +86,6 @@ export const reportStorageService = {
     sourceLabel?: string | null;
     sessionId?: string | null;
     evaluation: SavedSimulatorReport["evaluation"];
-    reportV2?: SavedSimulatorReport["reportV2"];
   }): Promise<SavedSimulatorReport> {
     const now = new Date();
     const report: SavedSimulatorReport = {
@@ -97,8 +96,7 @@ export const reportStorageService = {
       createdAt: now.toISOString(),
       sourceLabel: params.sourceLabel ?? undefined,
       sessionId: params.sessionId ?? undefined,
-      evaluation: params.evaluation,
-      reportV2: params.reportV2
+      evaluation: params.evaluation
     };
     const existing = await readAll(params.role);
     existing.unshift(report);

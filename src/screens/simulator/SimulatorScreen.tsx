@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,6 +47,14 @@ type SimulatorInfoSheetState =
       lines: string[];
     }
   | null;
+
+type WebTextInputKeyEvent = {
+  preventDefault?: () => void;
+  nativeEvent: {
+    key: string;
+    shiftKey?: boolean;
+  };
+};
 
 export function SimulatorScreen({
   data,
@@ -126,6 +135,7 @@ export function SimulatorScreen({
         selectedScenario={selectedScenario}
         activeSession={activeSession}
         onBackToCatalog={onBackToCatalog}
+        onRestartScenario={onStartScenario}
         onSendMessage={onSendMessage}
         onFinishScenario={onFinishScenario}
       />
@@ -207,7 +217,6 @@ export function SimulatorScreen({
             <View style={styles.heroPills}>
               <InfoPill label={featuredScenario.duration} />
               <InfoPill label={`Уровень: ${featuredScenario.level}`} />
-              <ProgressInfoPill label="Прогресс" value={featuredScenario.progressValue ?? 0} />
             </View>
           </View>
 
@@ -305,6 +314,7 @@ function DialogueView({
   selectedScenario,
   activeSession,
   onBackToCatalog,
+  onRestartScenario,
   onSendMessage,
   onFinishScenario
 }: {
@@ -312,6 +322,7 @@ function DialogueView({
   selectedScenario: ScenarioCardItem;
   activeSession: ActiveDialogueSession | null;
   onBackToCatalog: () => void;
+  onRestartScenario: (scenarioId: string) => void;
   onSendMessage: (text: string) => Promise<boolean>;
   onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
 }) {
@@ -330,6 +341,7 @@ function DialogueView({
       : `${Math.min(managerReplyCount, dialogue.replyTarget)} / ${dialogue.replyTarget}`;
   const isSending = activeSession?.isSending ?? false;
   const isFinishing = activeSession?.isFinishing ?? false;
+  const canFinishScenario = managerReplyCount >= dialogue.replyTarget && !isFinishing;
   const isSessionActive = activeSession?.status === "active";
   const typingVisible = isSending;
   const typingDotsOpacity = useRef(new Animated.Value(0.35)).current;
@@ -390,6 +402,20 @@ function DialogueView({
     if (!wasSent) {
       setDraftMessage(messageToSend);
     }
+  }
+
+  function handleInputKeyPress(event: unknown) {
+    if (Platform.OS !== "web") {
+      return;
+    }
+
+    const webEvent = event as WebTextInputKeyEvent;
+    if (webEvent.nativeEvent.key !== "Enter" || webEvent.nativeEvent.shiftKey) {
+      return;
+    }
+
+    webEvent.preventDefault?.();
+    void handleSendMessage();
   }
 
   return (
@@ -520,11 +546,38 @@ function DialogueView({
 
           {errorText ? (
             <View style={styles.errorNoticeWrap}>
-              <ChatStateNotice
-                kind="error"
-                text={errorText}
-                testID="simulator-chat-error"
-              />
+              <View style={styles.errorNoticeRow}>
+                <View style={styles.errorNoticeCard}>
+                  <ChatStateNotice
+                    kind="error"
+                    text={errorText}
+                    testID="simulator-chat-error"
+                  />
+                </View>
+                {activeSession?.status === "finished" ? (
+                  <Pressable
+                    testID="simulator-restart-button"
+                    accessibilityLabel="Запустить сценарий заново"
+                    onPress={() => onRestartScenario(selectedScenario.id)}
+                    style={[
+                      styles.restartScenarioButton,
+                      {
+                        backgroundColor: theme.semantic.card,
+                        borderColor: theme.semantic.border
+                      }
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.restartScenarioButtonText,
+                        { color: theme.semantic.actionPrimary }
+                      ]}
+                    >
+                      ↻
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
           ) : null}
 
@@ -624,6 +677,7 @@ function DialogueView({
                 style={[styles.chatInput, chatInputWebReset, { color: theme.semantic.textPrimary }]}
                 value={draftMessage}
                 onChangeText={setDraftMessage}
+                onKeyPress={handleInputKeyPress}
                 onSubmitEditing={() => {
                   void handleSendMessage();
                 }}
@@ -687,30 +741,47 @@ function DialogueView({
             </Text>
             <InsightTextBlock label="Контекст" text={dialogue.context} />
             <InsightTextBlock label="Цель" text={dialogue.goal} />
-            <InsightTextBlock label="Возражение" text={`«${dialogue.objection}»`} />
+            <InsightTextBlock label="История общения" text="Первый контакт с этим клиентом" />
           </View>
 
           <Pressable
             testID="simulator-finish-button"
-            onPress={() =>
+            onPress={() => {
+              if (!canFinishScenario) {
+                return;
+              }
               onFinishScenario({
                 scenarioId: selectedScenario.id,
                 scenarioTitle: selectedScenario.title
-              })
-            }
-            disabled={isFinishing}
+              });
+            }}
+            disabled={!canFinishScenario}
             style={[
               styles.finishButton,
               {
-                backgroundColor: theme.semantic.actionPrimary,
-                opacity: isFinishing ? 0.72 : 1
+                backgroundColor: canFinishScenario
+                  ? theme.semantic.actionPrimary
+                  : theme.semantic.card,
+                borderColor: canFinishScenario ? "transparent" : theme.semantic.border,
+                borderWidth: canFinishScenario ? 0 : 1,
+                opacity: 1
               }
             ]}
           >
-            <Text style={styles.finishButtonText}>
+            <Text
+              style={[
+                styles.finishButtonText,
+                { color: canFinishScenario ? "#FFFFFF" : theme.semantic.textMuted }
+              ]}
+            >
               {isFinishing ? "Сохраняем отчет..." : "Завершить и получить отчет"}
             </Text>
           </Pressable>
+          {!canFinishScenario ? (
+            <Text style={[styles.finishHintText, { color: theme.semantic.textMuted }]}>
+              Нужно 10 реплик для отчета ({managerReplyCount} / {dialogue.replyTarget})
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -820,9 +891,7 @@ function ScenarioTile({
               {scenario.progressLabel}
             </Text>
           </View>
-        ) : (
-          <ProgressInfoPill label="" value={scenario.progressValue ?? 0} compact wide />
-        )}
+        ) : null}
         <View style={styles.scenarioActionRow}>
           <InfoPill label={scenario.duration} compact />
           <InfoPill label={scenario.level} compact />
@@ -871,50 +940,6 @@ function InfoPill({ label, compact }: { label: string; compact?: boolean }) {
       ]}
     >
       <Text style={[styles.infoPillText, { color: theme.semantic.textPrimary }]}>{label}</Text>
-    </View>
-  );
-}
-
-function ProgressInfoPill({
-  label,
-  value,
-  compact,
-  wide
-}: {
-  label: string;
-  value: number;
-  compact?: boolean;
-  wide?: boolean;
-}) {
-  const theme = useTheme();
-
-  return (
-    <View
-      style={[
-        styles.progressPill,
-        compact && styles.progressPillCompact,
-        wide && styles.progressPillWide,
-        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
-      ]}
-    >
-      {label ? (
-        <Text style={[styles.progressPillLabel, { color: theme.semantic.actionPrimary }]}>
-          {label}
-        </Text>
-      ) : null}
-      <View
-        style={[styles.progressPillTrack, { backgroundColor: theme.semantic.borderSubtle }]}
-      >
-        <View
-          style={[
-            styles.progressPillFill,
-            { backgroundColor: theme.semantic.actionPrimary, width: `${value}%` }
-          ]}
-        />
-      </View>
-      <Text style={[styles.progressPillValue, { color: theme.semantic.textPrimary }]}>
-        {value}%
-      </Text>
     </View>
   );
 }
@@ -1084,42 +1109,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600"
   },
-  progressPill: {
-    minHeight: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12
-  },
-  progressPillCompact: {
-    minHeight: 38,
-    paddingHorizontal: 10,
-    gap: 8
-  },
-  progressPillWide: {
-    alignSelf: "stretch",
-    justifyContent: "space-between"
-  },
-  progressPillLabel: {
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  progressPillTrack: {
-    width: 92,
-    height: 6,
-    borderRadius: 999,
-    overflow: "hidden"
-  },
-  progressPillFill: {
-    height: "100%",
-    borderRadius: 999
-  },
-  progressPillValue: {
-    fontSize: 14,
-    fontWeight: "700"
-  },
   heroIllustrationWrap: {
     minWidth: 360,
     alignItems: "center",
@@ -1209,7 +1198,11 @@ const styles = StyleSheet.create({
   cardGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 18
+    gap: 18,
+    width: "100%",
+    maxWidth: 1128,
+    alignSelf: "center",
+    alignItems: "flex-start"
   },
   scenarioTile: {
     width: "32.2%",
@@ -1217,9 +1210,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     padding: 16,
-    gap: 16,
-    flexGrow: 1,
-    minHeight: 248,
+    gap: 14,
+    flexGrow: 0,
+    minHeight: 196,
     justifyContent: "space-between"
   },
   scenarioTileTop: {
@@ -1240,7 +1233,7 @@ const styles = StyleSheet.create({
   scenarioText: {
     flex: 1,
     gap: 8,
-    minHeight: 104
+    minHeight: 74
   },
   scenarioTitle: {
     fontSize: 18,
@@ -1426,6 +1419,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 8
   },
+  errorNoticeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  errorNoticeCard: {
+    flex: 1
+  },
+  restartScenarioButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0
+  },
+  restartScenarioButtonText: {
+    fontSize: 20,
+    lineHeight: 20,
+    fontWeight: "700"
+  },
   messageList: {
     flex: 1,
     minHeight: 0,
@@ -1542,7 +1557,7 @@ const styles = StyleSheet.create({
   },
   insightColumn: {
     flex: 1,
-    gap: 14,
+    gap: 4,
     alignSelf: "stretch",
     minHeight: 0,
     justifyContent: "flex-start",
@@ -1552,7 +1567,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     padding: 14,
-    gap: 12
+    gap: 12,
+    marginBottom: 10
   },
   insightTitle: {
     fontSize: 16,
@@ -1580,8 +1596,14 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   finishButtonText: {
-    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800"
+  },
+  finishHintText: {
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: "center",
+    marginTop: -1,
+    marginBottom: 8
   }
 });

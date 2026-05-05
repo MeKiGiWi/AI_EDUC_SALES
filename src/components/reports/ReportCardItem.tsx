@@ -12,15 +12,13 @@ interface ReportCardItemProps {
   downloadingFormat?: ExportFormat | null;
   onOpen: (reportId: string) => void;
   onDownload: (report: ReportCard, format: ExportFormat) => void;
-  onContinueChat: (report: ReportCard) => void;
 }
 
 export function ReportCardItem({
   report,
   downloadingFormat,
   onOpen,
-  onDownload,
-  onContinueChat
+  onDownload
 }: ReportCardItemProps) {
   const theme = useTheme();
   const status = report.status ?? "ready";
@@ -77,7 +75,6 @@ export function ReportCardItem({
             disabled={Boolean(downloadingFormat)}
           />
         ) : null}
-        <AppButton label="Продолжить чат" onPress={() => onContinueChat(report)} tone="ghost" />
       </View>
     </AppCard>
   );

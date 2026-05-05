@@ -3,12 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: npm run web -- --port 19006
+    command: npx expo start --web --port 19006 --host localhost
     environment:
-      CI: "1"
-      CHOKIDAR_USEPOLLING: "true"
       EXPO_PUBLIC_SIMULATOR_API_URL: http://localhost:8000
-      WATCHPACK_POLLING: "true"
+    stdin_open: true
+    tty: true
     ports:
       - "19006:19006"
       - "8081:8081"

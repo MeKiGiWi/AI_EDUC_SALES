@@ -11,6 +11,7 @@ from app.prompts import (
     BUYER_SYSTEM_PROMPT,
     OFFTOPIC_REFUSAL_MESSAGE,
     OFFTOPIC_WARNING_MESSAGE,
+    RUDE_REFUSAL_MESSAGE,
 )
 from app.scenario_repository import get_scenario_by_id, get_scenario_info
 
@@ -142,10 +143,11 @@ def _classify_sales_tone(deps: GraphDependencies):
 
 def _append_customer_left_message(deps: GraphDependencies):
     def node(state: GraphState) -> GraphState:
-        new_messages = [*state["messages"], AIMessage(content="КЛИЕНТ УШЕЛ")]
+        new_messages = [*state["messages"], AIMessage(content=RUDE_REFUSAL_MESSAGE)]
         updated_session = state["session"].model_copy(
             update={
                 "messages": new_messages,
+                "status": "finished",
             }
         )
         deps.session_store.save(updated_session)
@@ -153,7 +155,7 @@ def _append_customer_left_message(deps: GraphDependencies):
             "session": updated_session,
             "messages": new_messages,
             "status": updated_session.status,
-            "customer_message": "КЛИЕНТ УШЕЛ",
+            "customer_message": RUDE_REFUSAL_MESSAGE,
         }
 
     return node

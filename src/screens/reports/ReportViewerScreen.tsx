@@ -13,10 +13,9 @@ import type { ReportCard } from "../../types/academy";
 interface ReportViewerScreenProps {
   report?: ReportCard;
   onBack: () => void;
-  onContinueChat: (scenarioId?: string) => void;
 }
 
-export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportViewerScreenProps) {
+export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -92,11 +91,6 @@ export function ReportViewerScreen({ report, onBack, onContinueChat }: ReportVie
             <AppButton label="Скачать CSV" onPress={() => { void handleExport("csv"); }} tone="secondary" />
           ) : null}
           <AppButton label="Скопировать" onPress={() => { void handleCopy(); }} tone="ghost" />
-          <AppButton
-            label="Продолжить чат"
-            onPress={() => onContinueChat(report.scenarioId ?? undefined)}
-            tone="primary"
-          />
         </View>
       </View>
 

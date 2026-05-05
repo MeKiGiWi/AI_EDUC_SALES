@@ -7,7 +7,6 @@ import { AppButton } from "../../components/ui/AppButton";
 import { AppCard } from "../../components/ui/AppCard";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
-import { roleLabels } from "../../navigation/routes";
 import { downloadReportFile } from "../../services/reportExportService";
 import { useTheme } from "../../theme/useTheme";
 import type { ExportFormat, ReportCard, ReportStatus, UserRole } from "../../types/academy";
@@ -29,8 +28,6 @@ type ReportFilter = "all" | "ready" | "generating" | "error";
 
 const reportFilters: Array<{ id: ReportFilter; label: string }> = [
   { id: "all", label: "Все" },
-  { id: "ready", label: "Готовые" },
-  { id: "generating", label: "В процессе" },
   { id: "error", label: "Ошибки" }
 ];
 
@@ -211,27 +208,11 @@ export function ReportsScreen({
                 onDownload={(item, format) => {
                   void handleExport(item, format);
                 }}
-                onContinueChat={(item) => onContinueChat(item.scenarioId ?? undefined)}
               />
             </View>
           ))}
         </View>
       )}
-
-      <AppCard tone="mint">
-        <View style={styles.rowBetween}>
-          <View style={styles.flexBlock}>
-            <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>Локальное хранение</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              Все отчеты сохраняются локально на вашем устройстве. Хранится до 50 последних отчетов.
-            </Text>
-            <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-              Текущая роль: {roleLabels[activeRole]} · Отчетов: {sortedReports.length}
-            </Text>
-          </View>
-          <AppButton label="Как это работает" onPress={openInfoSheet} tone="ghost" />
-        </View>
-      </AppCard>
 
       <AppBottomSheet
         visible={sheetState !== null}

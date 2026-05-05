@@ -7,7 +7,11 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, Prom
 from pydantic import BaseModel, Field
 
 from app.models import EvaluationResultRaw
-from app.prompts import EVALUATION_SYSTEM_PROMPT, RUDE_CLASSIFIER_SYSTEM_PROMPT, TOPIC_CLASSIFIER_PROMPT
+from app.prompts import (
+    EVALUATION_SYSTEM_PROMPT,
+    RUDE_CLASSIFIER_SYSTEM_PROMPT,
+    TOPIC_CLASSIFIER_PROMPT,
+)
 
 
 class RudeCheckResult(BaseModel):

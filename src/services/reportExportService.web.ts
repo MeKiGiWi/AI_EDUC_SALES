@@ -1,4 +1,6 @@
 import type { ExportFormat, ReportCard } from "../types/academy";
+import { resolveReportV2 } from "../features/reports/adapters";
+import type { SalesDialogueReportV2 } from "../features/reports/types";
 import { themeTokens } from "../theme/tokens";
 
 const reportExportTheme = themeTokens;
@@ -20,6 +22,7 @@ interface RenderSectionCard {
   title: string;
   items: WrappedSectionLine[];
   height: number;
+  tone?: "default" | "good" | "warning" | "critical" | "muted";
 }
 
 function buildSafeFilename(report: ReportCard, extension: string): string {
@@ -37,15 +40,16 @@ function escapeCsvCell(value: string): string {
 }
 
 function buildCsv(report: ReportCard): string {
+  const reportV2 = resolveReportV2(report);
   const rows: string[][] = [
-    ["Отчет", report.title],
-    ["Владелец", report.ownerLabel],
+    ["Отчет", reportV2.summary.title],
+    ["Владелец", reportV2.participant?.displayName ?? report.ownerLabel],
     ["Обновлен", report.updatedAt],
     ["Формат", report.format.toUpperCase()],
     ["", ""]
   ];
 
-  report.previewSections.forEach((section) => {
+  buildPdfSections(reportV2).forEach((section) => {
     rows.push([section.title, ""]);
     section.lines.forEach((line) => {
       rows.push(["", line]);
@@ -192,7 +196,7 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
 
 function prepareSectionCard(
   ctx: CanvasRenderingContext2D,
-  section: ReportCard["previewSections"][number]
+  section: { title: string; lines: string[]; tone?: RenderSectionCard["tone"] }
 ): RenderSectionCard {
   ctx.font = `600 20px ${browserFontStack}`;
 
@@ -209,7 +213,8 @@ function prepareSectionCard(
   return {
     title: section.title,
     items,
-    height: 44 + 24 + contentHeight + 28
+    height: 44 + 24 + contentHeight + 28,
+    tone: section.tone
   };
 }
 
@@ -234,11 +239,11 @@ function drawPageBackground(ctx: CanvasRenderingContext2D): void {
   ctx.globalAlpha = 1;
 }
 
-function drawHeroCard(ctx: CanvasRenderingContext2D, report: ReportCard): number {
+function drawHeroCard(ctx: CanvasRenderingContext2D, report: ReportCard, reportV2: SalesDialogueReportV2): number {
   ctx.font = `800 44px ${browserFontStack}`;
-  const titleLines = wrapText(ctx, report.title, reportCardWidth - 120);
+  const titleLines = wrapText(ctx, reportV2.summary.title, reportCardWidth - 120);
   ctx.font = `500 24px ${browserFontStack}`;
-  const summaryLines = wrapText(ctx, report.summary, reportCardWidth - 120);
+  const summaryLines = wrapText(ctx, reportV2.summary.headline, reportCardWidth - 120);
 
   const heroHeight = 236 + titleLines.length * 50 + summaryLines.length * 30;
   const heroGradient = ctx.createLinearGradient(
@@ -287,7 +292,7 @@ function drawHeroCard(ctx: CanvasRenderingContext2D, report: ReportCard): number
   });
 
   const pillY = reportPagePadding + heroHeight - 72;
-  const pills = [report.ownerLabel, report.updatedAt];
+  const pills = [reportV2.participant?.displayName ?? report.ownerLabel, formatDateLabel(reportV2.case.createdAt), "Последний отчет"];
   let pillX = reportPagePadding + 34;
   ctx.font = `700 16px ${browserFontStack}`;
   pills.forEach((label) => {
@@ -320,7 +325,7 @@ function drawHeroCard(ctx: CanvasRenderingContext2D, report: ReportCard): number
 
 function drawContinuationHeader(
   ctx: CanvasRenderingContext2D,
-  report: ReportCard,
+  reportV2: SalesDialogueReportV2,
   pageIndex: number
 ): number {
   drawRoundedRect(
@@ -340,7 +345,7 @@ function drawContinuationHeader(
 
   ctx.fillStyle = reportExportTheme.semantic.textPrimary;
   ctx.font = `800 28px ${browserFontStack}`;
-  const titleLine = wrapText(ctx, report.title, reportCardWidth - 180)[0] ?? report.title;
+  const titleLine = wrapText(ctx, reportV2.summary.title, reportCardWidth - 180)[0] ?? reportV2.summary.title;
   ctx.fillText(titleLine, reportPagePadding + 28, reportPagePadding + 68);
 
   ctx.fillStyle = reportExportTheme.semantic.textMuted;
@@ -357,6 +362,16 @@ function drawSectionCard(
   card: RenderSectionCard,
   y: number
 ): void {
+  const toneFill =
+    card.tone === "good"
+      ? "#F3FCF7"
+      : card.tone === "warning"
+        ? "#FFF5F8"
+        : card.tone === "critical"
+          ? "#FFF0E8"
+          : card.tone === "muted"
+            ? "#F7FAF8"
+            : "#FFFFFF";
   ctx.save();
   ctx.shadowColor = "rgba(16, 33, 20, 0.08)";
   ctx.shadowBlur = 18;
@@ -368,7 +383,7 @@ function drawSectionCard(
     reportCardWidth,
     card.height,
     reportCardRadius,
-    "#FFFFFF",
+    toneFill,
     reportExportTheme.semantic.border
   );
   ctx.restore();
@@ -428,6 +443,8 @@ function drawPageFooter(
 }
 
 function buildPdfCanvases(report: ReportCard): HTMLCanvasElement[] {
+  const reportV2 = resolveReportV2(report);
+  const sections = buildPdfSections(reportV2);
   const pages: Array<{ canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }> = [];
   const createPage = () => {
     const page = createCanvasContext();
@@ -437,15 +454,15 @@ function buildPdfCanvases(report: ReportCard): HTMLCanvasElement[] {
   };
 
   let page = createPage();
-  let currentY = drawHeroCard(page.ctx, report);
+  let currentY = drawHeroCard(page.ctx, report, reportV2);
 
-  report.previewSections.forEach((section) => {
+  sections.forEach((section) => {
     const card = prepareSectionCard(page.ctx, section);
     const maxY = reportPageHeight - reportPagePadding - reportPageFooterHeight;
 
     if (currentY + card.height > maxY) {
       page = createPage();
-      currentY = drawContinuationHeader(page.ctx, report, pages.length - 1);
+      currentY = drawContinuationHeader(page.ctx, reportV2, pages.length - 1);
     }
 
     drawSectionCard(page.ctx, card, currentY);
@@ -457,6 +474,93 @@ function buildPdfCanvases(report: ReportCard): HTMLCanvasElement[] {
   });
 
   return pages.map((item) => item.canvas);
+}
+
+function buildPdfSections(report: SalesDialogueReportV2): Array<{ title: string; lines: string[]; tone?: RenderSectionCard["tone"] }> {
+  const sections: Array<{ title: string; lines: string[]; tone?: RenderSectionCard["tone"] }> = [
+    {
+      title: "Краткое резюме",
+      lines: report.summary.shortResume
+    },
+    {
+      title: "Компетенции",
+      lines: report.competencies.map((item) => `${item.title}: ${item.level}${typeof item.score === "number" ? ` · ${item.score}%` : ""} — ${item.comment}`)
+    },
+    {
+      title: "Анализ диалога по фразам",
+      lines: []
+    }
+  ];
+
+  report.dialogueAnalysis.forEach((turn) => {
+    const isClient = turn.speaker === "client";
+    sections.push({
+      title: `${turn.speakerLabel}${turn.timestamp ? ` · ${turn.timestamp}` : ""}`,
+      tone:
+        turn.analysis.status === "good"
+          ? "good"
+          : turn.analysis.status === "neutral"
+            ? "muted"
+            : turn.analysis.status === "critical"
+              ? "critical"
+              : "warning",
+      lines: [
+        turn.text,
+        `Анализ: ${turn.analysis.comment}`,
+        ...(turn.analysis.recommendation && !isClient ? [`Дополнительный совет: ${turn.analysis.recommendation}`] : [])
+      ]
+    });
+  });
+
+  sections.push({
+    title: "Сильные стороны",
+    lines:
+      report.strengths.length > 0
+        ? report.strengths.flatMap((item) => [
+            `${item.title}: ${item.comment}`,
+            ...item.evidence.map((line) => `Цитата: ${line}`)
+          ])
+        : ["Явные сильные стороны не были выделены автоматически."]
+  });
+
+  sections.push({
+    title: "Зоны развития",
+    lines: report.developmentAreas.flatMap((item) => [
+      `${item.title}: ${item.comment}`,
+      ...item.actions.map((line) => line)
+    ])
+  });
+
+  sections.push({
+    title: "Рекомендуемые следующие шаги",
+    lines:
+      report.nextSteps && report.nextSteps.length > 0
+        ? report.nextSteps
+        : ["Рекомендации будут расширены после следующего полного анализа."]
+  });
+
+  if (report.meta.fallback) {
+    sections.push({
+      title: "Примечание",
+      tone: "warning",
+      lines: ["Отчет сформирован в ограниченном режиме. Некоторые рекомендации могут быть неполными."]
+    });
+  }
+
+  return sections;
+}
+
+function formatDateLabel(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 async function buildPdfBlob(report: ReportCard): Promise<Blob> {

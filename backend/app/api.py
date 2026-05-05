@@ -21,6 +21,7 @@ from app.models import (
     SessionMessageResponseDto,
     SessionStatus,
 )
+from app.report_v2 import adapt_legacy_evaluation_to_report_v2, build_dialogue_turns
 from app.runtime import SESSION_STORE, build_evaluation_agent, build_graph
 from app.scenario_repository import get_scenario_by_id, list_scenarios
 
@@ -193,7 +194,6 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
     result = await graph.ainvoke(initial_state)
     visible_messages = filter_visible_messages(result["messages"])
     dialogue_text, manager_replies = extract_dialogue_for_evaluation(visible_messages)
-
     if not dialogue_text:
         return SessionFinishResponseDto(
             session_id=session_id,
@@ -218,11 +218,21 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Произошла ошибка при формировании оценки, попробуйте позже. {exc}",
+            detail=f"Не удалось получить оценку от модели. {exc}",
         ) from exc
+
+    created_at = session.completed_at or datetime.now(timezone.utc)
+    report_v2 = adapt_legacy_evaluation_to_report_v2(
+        evaluation=evaluation,
+        dialogue_turns=build_dialogue_turns(visible_messages),
+        scenario_id=session.scenario_id,
+        scenario_title=get_scenario_by_id(session.scenario_id)["title"] if get_scenario_by_id(session.scenario_id) else session.scenario_id,
+        created_at=created_at,
+    )
 
     return SessionFinishResponseDto(
         session_id=session_id,
         status=SessionStatus(result["status"]),
         evaluation=evaluation,
+        report_v2=report_v2,
     )

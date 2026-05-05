@@ -9,6 +9,7 @@ from uuid import uuid4
 from langchain_core.messages import BaseMessage
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import TypedDict
+from app.schemas_report import SalesDialogueReportV2
 
 if TYPE_CHECKING:
     from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
@@ -192,6 +193,7 @@ class SessionFinishResponseDto(BaseModel):
     session_id: str
     status: SessionStatus
     evaluation: EvaluationResultRaw | None = None
+    report_v2: SalesDialogueReportV2 | None = None
 
 
 class WorkspaceRole(str, Enum):
@@ -244,6 +246,7 @@ class ReportCardDto(BaseModel):
     sessionId: str | None = None
     availableFormats: list[ExportFormat]
     previewSections: list[ReportPreviewSectionDto]
+    reportV2: SalesDialogueReportV2 | None = None
 
 
 class ReportListResponseDto(BaseModel):
@@ -257,3 +260,4 @@ class ReportCreateDto(BaseModel):
     source_label: str | None = Field(default=None, max_length=120)
     evaluation: EvaluationResultRaw
     session_id: str | None = Field(default=None, max_length=200)
+    report_v2: SalesDialogueReportV2 | None = None

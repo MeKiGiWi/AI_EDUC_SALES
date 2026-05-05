@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { StyleSheet, Text } from "react-native";
 
 import { BottomTabs } from "../components/layout/BottomTabs";
 import { DesktopSidebar } from "../components/layout/DesktopSidebar";
 import { MobileHeader } from "../components/layout/MobileHeader";
+import { AppBottomSheet } from "../components/ui/AppBottomSheet";
+import { AppButton } from "../components/ui/AppButton";
 import { AppCard } from "../components/ui/AppCard";
 import { AppScreen } from "../components/ui/AppScreen";
 import { roleWorkspaceOptions, simulatorEvaluationByScenarioId } from "../data/academyData";
@@ -26,6 +29,7 @@ import {
   getSafeSimulatorErrorMessage,
   simulatorApiService
 } from "../services/simulatorApiService";
+import { reportApiService } from "../services/reportApiService";
 import { useTheme } from "../theme/useTheme";
 import type {
   ActiveDialogueSession,
@@ -51,6 +55,12 @@ type RouteState = {
 
 const MOCK_REPLY_DELAY_MS = 220;
 
+type ReportReadySheetState =
+  | {
+      scenarioTitle: string;
+    }
+  | null;
+
 export function AppNavigator() {
   const layout = useResponsiveLayout();
   useTheme();
@@ -61,10 +71,43 @@ export function AppNavigator() {
   const [trainerMode, setTrainerMode] = useState<"catalog" | "dialogue">("catalog");
   const [reports, setReports] = useState<ReportCard[]>([]);
   const [simulatorStartError, setSimulatorStartError] = useState<string | null>(null);
+  const [reportsLoadError, setReportsLoadError] = useState<string | null>(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportReadySheet, setReportReadySheet] = useState<ReportReadySheetState>(null);
   const [activeDialogueSession, setActiveDialogueSession] = useState<ActiveDialogueSession | null>(
     null
   );
   const activeSessionKeyRef = useRef<string>("");
+
+  async function refreshReports(options?: { silent?: boolean }) {
+    if (!reportApiService.isEnabled()) {
+      setReports([]);
+      setReportsLoadError("Backend отчетов не подключен. Список из PostgreSQL недоступен.");
+      return [];
+    }
+
+    if (!options?.silent) {
+      setReportsLoading(true);
+    }
+
+    try {
+      const items = await academyDataService.getReports(activeRole);
+      setReports(items);
+      setReportsLoadError(null);
+      return items;
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Не удалось загрузить список отчетов из PostgreSQL.";
+      setReportsLoadError(message);
+      return [];
+    } finally {
+      if (!options?.silent) {
+        setReportsLoading(false);
+      }
+    }
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -85,23 +128,23 @@ export function AppNavigator() {
         }
       });
 
-    void academyDataService
-      .getReports(activeRole)
-      .then((items) => {
-        if (isMounted) {
-          setReports(items);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setReports([]);
-        }
-      });
+    void refreshReports({ silent: true }).then((items) => {
+      if (!isMounted) {
+        return;
+      }
+      setReports(items);
+    });
 
     return () => {
       isMounted = false;
     };
   }, [activeRole]);
+
+  useEffect(() => {
+    if (routeState.name === "Reports") {
+      void refreshReports();
+    }
+  }, [routeState.name]);
 
   function navigate<T extends RouteName>(route: T, params?: RootStackParamList[T]) {
     if (route === "Landing") {
@@ -315,7 +358,7 @@ export function AppNavigator() {
 
     const existingReport = reports.find((report) => report.sessionId === session.sessionId);
     if (existingReport) {
-      openReportViewer(existingReport.id);
+      setReportReadySheet({ scenarioTitle: params.scenarioTitle });
       return;
     }
 
@@ -331,10 +374,12 @@ export function AppNavigator() {
 
     try {
       let evaluation: SimulatorEvaluationPayloadDto | undefined;
+      let reportV2: ReportCard["reportV2"] | undefined;
 
       if (session.mode === "api") {
         const response = await simulatorApiService.finishDialogueSession(session.sessionId);
         evaluation = response.evaluation;
+        reportV2 = response.report_v2;
 
         if (!evaluation) {
           updateSession((current) => ({
@@ -348,30 +393,33 @@ export function AppNavigator() {
         evaluation = buildMockEvaluation(params.scenarioTitle, params.scenarioId);
       }
 
-      const syncedReports = await academyDataService.saveLatestSimulatorReport({
-        role: activeRole,
-        scenarioId: params.scenarioId,
-        scenarioTitle: params.scenarioTitle,
-        sessionId: session.sessionId,
-        evaluation
-      });
-      setReports(syncedReports);
-
       setActiveDialogueSession((current) =>
         current && current.sessionId === session.sessionId
           ? { ...current, status: "finished", isFinishing: false, errorText: null }
           : current
       );
 
-      const createdReport =
-        syncedReports.find((report) => report.sessionId === session.sessionId) ?? syncedReports[0];
-
-      if (createdReport) {
-        openReportViewer(createdReport.id);
+      if (!reportApiService.isEnabled()) {
+        updateSession((current) => ({
+          ...current,
+          isFinishing: false,
+          errorText: "Backend отчетов недоступен. Отчет не может быть сохранен в PostgreSQL."
+        }));
         return;
       }
 
-      openReports();
+      await reportApiService.createReport({
+        role: activeRole,
+        scenarioId: params.scenarioId,
+        scenarioTitle: params.scenarioTitle,
+        sourceLabel: "Диалог в чате",
+        sessionId: session.sessionId,
+        evaluation,
+        reportV2: reportV2 ?? undefined
+      });
+      await refreshReports({ silent: true });
+      setTrainerMode("catalog");
+      setReportReadySheet({ scenarioTitle: params.scenarioTitle });
     } catch (error) {
       updateSession((current) => ({
         ...current,
@@ -486,8 +534,13 @@ export function AppNavigator() {
           activeRole={activeRole}
           reports={reports}
           highlightReportId={reportsParams?.highlightReportId}
+          isLoading={reportsLoading}
+          loadError={reportsLoadError}
           onOpenReport={openReportViewer}
           onContinueChat={continueChatFromReport}
+          onRefresh={() => {
+            void refreshReports();
+          }}
         />
       ) : null}
 
@@ -498,6 +551,38 @@ export function AppNavigator() {
           onContinueChat={continueChatFromReport}
         />
       ) : null}
+
+      <AppBottomSheet
+        visible={reportReadySheet !== null}
+        title="Отчет сохранен"
+        description="Мы сохранили отчет в PostgreSQL. Он будет ждать вас на странице «Отчеты»."
+        onClose={() => setReportReadySheet(null)}
+      >
+        <AppCard tone="mint">
+          <Text style={styles.reportReadyTitle}>
+            {reportReadySheet?.scenarioTitle ?? "Диалог"} завершен.
+          </Text>
+          <Text style={styles.reportReadyBody}>
+            Откройте страницу отчетов, чтобы посмотреть результат, экспортировать его или вернуться к нему позже.
+          </Text>
+        </AppCard>
+        <AppCard tone="mint">
+          <AppButton
+            label="Перейти в отчеты"
+            onPress={() => {
+              setReportReadySheet(null);
+              openReports();
+            }}
+            fullWidth
+          />
+        </AppCard>
+        <AppButton
+          label="Остаться в тренажере"
+          onPress={() => setReportReadySheet(null)}
+          tone="ghost"
+          fullWidth
+        />
+      </AppBottomSheet>
     </AppScreen>
   );
 }
@@ -639,3 +724,15 @@ function buildMockEvaluation(
     ]
   };
 }
+
+const styles = StyleSheet.create({
+  reportReadyTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: "800"
+  },
+  reportReadyBody: {
+    fontSize: 15,
+    lineHeight: 22
+  }
+});

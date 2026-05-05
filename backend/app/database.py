@@ -68,6 +68,7 @@ def ensure_reports_schema(engine) -> None:
         "status": "ALTER TABLE reports ADD COLUMN status VARCHAR(24)",
         "source_label": "ALTER TABLE reports ADD COLUMN source_label VARCHAR(120)",
         "session_id": "ALTER TABLE reports ADD COLUMN session_id VARCHAR(200)",
+        "report_v2_payload": "ALTER TABLE reports ADD COLUMN report_v2_payload JSON",
     }
 
     with engine.begin() as connection:

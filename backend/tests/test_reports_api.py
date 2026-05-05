@@ -119,6 +119,7 @@ async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     assert created_payload["sourceLabel"] == "simulator"
     assert created_payload["sessionId"] == "session-123"
     assert any(section["title"] == "Рекомендации" for section in created_payload["previewSections"])
+    assert created_payload["reportV2"]["reportVersion"] == "2.0"
 
     assert created_duplicate.status_code == status.HTTP_201_CREATED
     assert created_duplicate_payload["id"] == created_payload["id"]
@@ -145,6 +146,7 @@ async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     assert fetched_payload["scenarioTitle"] == "Baseline сценарий"
     assert fetched_payload["sourceLabel"] == "simulator"
     assert fetched_payload["sessionId"] == "session-123"
+    assert fetched_payload["reportV2"]["summary"]["title"].startswith("Отчет по диалогу")
 
 
 @pytest.mark.asyncio

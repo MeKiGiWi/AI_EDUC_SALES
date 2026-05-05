@@ -15,7 +15,6 @@ import type {
   KnowledgeSection,
   ManagerDashboard,
   ReportCard,
-  SavedSimulatorReport,
   SalesAcademyMock,
   Scenario,
   SimulatorEvaluationPayloadDto,
@@ -23,8 +22,6 @@ import type {
   UserRole
 } from "../types/academy";
 import { reportApiService } from "./reportApiService";
-import { mapSavedReportsToCards } from "./reportFlowCore";
-import { reportStorageService } from "./reportStorageService";
 
 const simulateLatency = async <T>(data: T): Promise<T> =>
   new Promise((resolve) => {
@@ -62,18 +59,12 @@ export const academyDataService = {
   },
 
   async getReports(role: UserRole): Promise<ReportCard[]> {
-    if (reportApiService.isEnabled()) {
-      try {
-        const cards = await reportApiService.fetchReports(role);
-        return simulateLatency(cards);
-      } catch (error) {
-        console.warn("[reports] backend fetch failed", error);
-      }
+    if (!reportApiService.isEnabled()) {
+      return simulateLatency([]);
     }
 
-    const saved = await reportStorageService.getAll(role);
-    const fallbackCards = mapSavedReportsToCards(saved, role);
-    return simulateLatency(fallbackCards);
+    const cards = await reportApiService.fetchReports(role);
+    return simulateLatency(cards);
   },
 
   async saveLatestSimulatorReport(params: {
@@ -81,40 +72,23 @@ export const academyDataService = {
     scenarioId?: string | null;
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
+    reportV2?: ReportCard["reportV2"];
     sessionId?: string | null;
   }): Promise<ReportCard[]> {
-    if (reportApiService.isEnabled()) {
-      try {
-        await reportApiService.createReport({
-          role: params.role,
-          scenarioId: params.scenarioId,
-          scenarioTitle: params.scenarioTitle,
-          evaluation: params.evaluation,
-          sourceLabel: "Диалог в чате",
-          sessionId: params.sessionId
-        });
-        const syncedCards = await reportApiService.fetchReports(params.role);
-        return simulateLatency(syncedCards);
-      } catch (error) {
-        console.warn("[reports] backend sync failed, saving local fallback", error);
-      }
+    if (!reportApiService.isEnabled()) {
+      throw new Error("Backend отчетов недоступен. Проверьте подключение к серверу.");
     }
 
-    // Native/local fallback stays in place until we have full auth-bound syncing.
-    const saved = await reportStorageService.save({
+    await reportApiService.createReport({
       role: params.role,
       scenarioId: params.scenarioId,
       scenarioTitle: params.scenarioTitle,
+      evaluation: params.evaluation,
+      reportV2: params.reportV2 ?? undefined,
       sourceLabel: "Диалог в чате",
-      sessionId: params.sessionId,
-      evaluation: params.evaluation
+      sessionId: params.sessionId
     });
-
-    const allSaved = await reportStorageService.getAll(params.role);
-    const hasSaved = allSaved.some((item) => item.id === saved.id);
-    const normalizedSaved = hasSaved ? allSaved : [saved, ...allSaved];
-
-    const fallbackCards = mapSavedReportsToCards(normalizedSaved, params.role);
-    return simulateLatency(fallbackCards);
+    const syncedCards = await reportApiService.fetchReports(params.role);
+    return simulateLatency(syncedCards);
   }
 };

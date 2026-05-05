@@ -214,15 +214,17 @@ export const simulatorApiService = {
   },
 
   async finishDialogueSession(sessionId: string): Promise<SimulatorFinishResponseDto> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
     try {
       return await requestJson<SimulatorFinishResponseDto>(withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/finish`), {
         method: "POST",
-        signal: controller.signal
       });
-    } finally {
-      clearTimeout(timeoutId);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new SimulatorApiError(
+          "Сервер прервал ожидание формирования отчета. Попробуйте открыть отчет еще раз после завершения обработки."
+        );
+      }
+      throw error;
     }
   }
 };

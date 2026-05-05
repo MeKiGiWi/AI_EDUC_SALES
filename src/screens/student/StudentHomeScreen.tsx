@@ -282,27 +282,38 @@ export function StudentHomeScreen({
         {filteredHistory.length > 0 ? (
           <>
             <View style={styles.tableHeader}>
-              {["Дата", "Модуль", "Сценарий", "Уровень", "Экспорт"].map((title) => (
-                <Text
-                  key={title}
-                  style={[styles.tableHeaderText, { color: theme.semantic.textMuted }]}
-                >
-                  {title}
-                </Text>
+              {[
+                { title: "Дата", style: styles.tableDateColumn },
+                { title: "Модуль", style: styles.tableModuleColumn },
+                { title: "Сценарий", style: styles.tableScenarioColumn },
+                { title: "Уровень", style: styles.tableLevelColumn },
+                { title: "Экспорт", style: styles.tableExportColumn }
+              ].map((column) => (
+                <View key={column.title} style={column.style}>
+                  <Text style={[styles.tableHeaderText, { color: theme.semantic.textMuted }]}>
+                    {column.title}
+                  </Text>
+                </View>
               ))}
             </View>
 
             {filteredHistory.map((item) => (
               <View key={item.id} style={[styles.tableRow, { borderTopColor: theme.semantic.borderSubtle }]}>
-                <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.updatedAt}</Text>
-                <Pressable onPress={() => onOpenReport(item.id)} style={styles.tableLinkCell}>
+                <View style={styles.tableDateColumn}>
+                  <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.updatedAt}</Text>
+                </View>
+                <Pressable onPress={() => onOpenReport(item.id)} style={styles.tableModuleColumn}>
                   <Text style={[styles.tableText, styles.tableStrong, { color: theme.semantic.actionPrimary }]}>
                     {item.title}
                   </Text>
                 </Pressable>
-                <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.scenarioTitle}</Text>
-                <LevelBadge level={toHistoryLevel(item)} />
-                <View style={styles.exportCell}>
+                <View style={styles.tableScenarioColumn}>
+                  <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.scenarioTitle}</Text>
+                </View>
+                <View style={styles.tableLevelColumn}>
+                  <LevelBadge level={toHistoryLevel(item)} />
+                </View>
+                <View style={[styles.tableExportColumn, styles.exportCell]}>
                   <SecondaryActionButton
                     label="PDF"
                     compact
@@ -781,7 +792,8 @@ const styles = StyleSheet.create({
   tableCard: {
     borderWidth: 1,
     borderRadius: 28,
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     gap: 10
   },
   tableHeader: {
@@ -789,8 +801,22 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 6
   },
+  tableDateColumn: {
+    flex: 1.05
+  },
+  tableModuleColumn: {
+    flex: 1.05
+  },
+  tableScenarioColumn: {
+    flex: 1.05
+  },
+  tableLevelColumn: {
+    flex: 0.9
+  },
+  tableExportColumn: {
+    flex: 0.95
+  },
   tableHeaderText: {
-    flex: 1.2,
     fontSize: 13,
     fontWeight: "600"
   },
@@ -802,12 +828,8 @@ const styles = StyleSheet.create({
     gap: 8
   },
   tableText: {
-    flex: 1.2,
     fontSize: 14,
     lineHeight: 20
-  },
-  tableLinkCell: {
-    flex: 1.2
   },
   tableStrong: {
     fontWeight: "500"
@@ -824,7 +846,6 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   exportCell: {
-    flex: 1,
     flexDirection: "row",
     gap: 8,
     justifyContent: "flex-start"

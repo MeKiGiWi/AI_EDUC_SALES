@@ -482,13 +482,13 @@ async function buildPdfBlob(report: ReportCard): Promise<Blob> {
   return pdf.output("blob");
 }
 
-export async function openExport(report: ReportCard, format: ExportFormat): Promise<void> {
+export async function downloadReportFile(report: ReportCard, format: ExportFormat): Promise<string> {
   if (format === "csv") {
     const blob = new Blob([`\uFEFF${buildCsv(report)}`], {
       type: "text/csv;charset=utf-8"
     });
     downloadBlob(buildSafeFilename(report, "csv"), blob);
-    return;
+    return `CSV для отчета "${report.title}" скачивается.`;
   }
 
   if (format === "pdf") {
@@ -510,6 +510,12 @@ export async function openExport(report: ReportCard, format: ExportFormat): Prom
       }
       throw error;
     }
-    return;
+    return `PDF для отчета "${report.title}" скачивается.`;
   }
+
+  return "Формат выгрузки пока не поддерживается.";
+}
+
+export async function openExport(report: ReportCard, format: ExportFormat): Promise<string> {
+  return downloadReportFile(report, format);
 }

@@ -1,410 +1,862 @@
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import type { RootStackParamList, RouteName } from "../../navigation/routes";
-import type { FeedbackItem, KnowledgeMaterial, LearningModule, StudentDashboard } from "../../types/academy";
-import { DevelopmentPlanCard } from "../../components/student/DevelopmentPlanCard";
-import { AppCard } from "../../components/ui/AppCard";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
-import { AppButton } from "../../components/ui/AppButton";
-import { ProgressBar } from "../../components/ui/ProgressBar";
-import { StatusPill } from "../../components/ui/StatusPill";
+import { openExport } from "../../services/reportExportService";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { useTheme } from "../../theme/useTheme";
+import type { ReportCard, SalesAcademyMock } from "../../types/academy";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { AppCard } from "../../components/ui/AppCard";
 
 interface StudentHomeScreenProps {
-  dashboard: StudentDashboard;
-  materials: KnowledgeMaterial[];
-  onNavigate: <T extends RouteName>(route: T, params?: RootStackParamList[T]) => void;
+  data: SalesAcademyMock;
+  reports: ReportCard[];
+  onOpenReport: (reportId: string) => void;
+  onOpenTrainer: (scenarioId: string) => void;
 }
 
-type StudentSheetState =
-  | { kind: "module"; module: LearningModule }
-  | { kind: "feedback"; feedback: FeedbackItem[] }
-  | { kind: "material"; material: KnowledgeMaterial }
-  | { kind: "plan"; title: string; description: string; items: string[] }
-  | { kind: "export"; title: string; description: string; items: string[] }
+const filterLabels = ["Все", "Новые"] as const;
+
+type HomeInfoSheetState =
+  | {
+      title: string;
+      description: string;
+      lines: string[];
+    }
   | null;
 
-export function StudentHomeScreen({ dashboard, materials, onNavigate }: StudentHomeScreenProps) {
+export function StudentHomeScreen({
+  data,
+  reports,
+  onOpenReport,
+  onOpenTrainer
+}: StudentHomeScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
-  const [sheetState, setSheetState] = useState<StudentSheetState>(null);
-  const [plannedRecommendations, setPlannedRecommendations] = useState<string[]>([]);
-  const [selectedModuleId, setSelectedModuleId] = useState(dashboard.modules[1]?.id ?? dashboard.modules[0]?.id ?? "");
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<(typeof filterLabels)[number]>("Все");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [infoSheet, setInfoSheet] = useState<HomeInfoSheetState>(null);
 
-  const selectedModule = useMemo(
-    () => dashboard.modules.find((module) => module.id === selectedModuleId) ?? dashboard.modules[0],
-    [dashboard.modules, selectedModuleId]
-  );
-  const findMaterial = (materialId: string) => materials.find((material) => material.id === materialId);
-
-  const openModuleSheet = (module: LearningModule) => {
-    setSelectedModuleId(module.id);
-    setSheetState({ kind: "module", module });
-  };
-
-  const openMaterialSheet = (materialId: string) => {
-    const material = findMaterial(materialId);
-
-    if (!material) {
-      setSuccessMessage("Материал пока недоступен, но тренировка и рекомендации уже открыты в этом экране.");
-      return;
+  const isCompact = !layout.isDesktop;
+  const latestReport = reports[0];
+  const filteredHistory = useMemo(() => {
+    if (activeFilter === "Все") {
+      return reports;
     }
 
-    setSheetState({ kind: "material", material });
-  };
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    return reports.filter((report) => {
+      const createdAt = new Date(report.createdAt).getTime();
+      return !Number.isNaN(createdAt) && createdAt >= dayAgo;
+    });
+  }, [activeFilter, reports]);
 
-  const addRecommendationToPlan = (recommendation: string) => {
-    setPlannedRecommendations((current) =>
-      current.includes(recommendation) ? current : [...current, recommendation]
-    );
-    setSuccessMessage("Рекомендация добавлена в персональный план.");
-  };
+  const latestReportStrengths = latestReport
+    ? getSectionLines(latestReport, ["Сильные стороны"]).slice(0, 3)
+    : [];
+  const latestReportGrowthPoints = latestReport
+    ? getSectionLines(latestReport, ["Зоны роста", "Зоны развития"]).slice(0, 3)
+    : [];
+  const latestReportLevel = latestReport ? getReportLevel(latestReport) : "Middle";
+  const latestReportScore = latestReport ? getReportScore(latestReport) : 0;
 
-  const sheetTitle =
-    sheetState?.kind === "module"
-      ? sheetState.module.title
-        : sheetState?.kind === "feedback"
-          ? "Обратная связь по последней практике"
-          : sheetState?.kind === "material"
-            ? sheetState.material.title
-        : sheetState?.title ?? "";
+  async function handleExport(report: ReportCard, format: "pdf" | "csv") {
+    try {
+      const message = await openExport(report, format);
+      setStatusMessage(message);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Не удалось подготовить экспорт.");
+    }
+  }
 
-  const sheetDescription =
-    sheetState?.kind === "module"
-      ? sheetState.module.description
-      : sheetState?.kind === "feedback"
-        ? "Разбор сильных сторон, зоны роста и конкретных действий на следующую практику."
-        : sheetState?.kind === "material"
-          ? sheetState.material.description
-        : sheetState?.description ?? "";
-  const moduleWidth = layout.isDesktop ? "48%" : "100%";
+  function openStatusInfo() {
+    setInfoSheet({
+      title: "Как обновляется главная",
+      description: "Главная показывает реальный последний отчет и историю после завершения тренировки.",
+      lines: [
+        "Новый отчет появляется сверху автоматически после сохранения.",
+        "Фильтр «Новые» показывает отчеты за последние 24 часа.",
+        "PDF и CSV можно выгрузить прямо из карточек отчетов."
+      ]
+    });
+  }
+
+  function openHelpInfo() {
+    setInfoSheet({
+      title: "Что доступно на главной",
+      description: "Главная больше не ведет в пустые действия и работает как реальная точка входа в report flow.",
+      lines: [
+        "Открыть последний отчет и перейти в его viewer.",
+        "Скачать PDF или CSV из последнего отчета и истории.",
+        "Если отчетов нет, перейти в тренажер и начать первую практику."
+      ]
+    });
+  }
 
   return (
-    <>
-      <AppCard tone="mint">
-        <StatusPill label={dashboard.level.currentLevel} tone="success" />
-        <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>
-          Ближайшая практика: {dashboard.nearestPracticeTitle}
-        </Text>
-        <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-          {dashboard.nearestPracticeDescription}
-        </Text>
-        <ProgressBar
-          value={dashboard.level.progressToNextLevel}
-          label={`До уровня "${dashboard.level.nextLevel}"`}
-        />
-        <View style={styles.buttonRow}>
-          <AppButton
-            label="Продолжить обучение"
-            onPress={() => openModuleSheet(selectedModule)}
-            tone="primary"
-          />
-          <AppButton
-            label="Открыть тренажер"
-            onPress={() =>
-              onNavigate("Simulator", {
-                scenarioId: dashboard.highlightedScenario.id
-              })
-            }
-            tone="secondary"
-          />
-          <AppButton
-            label="Объяснить материал"
-            onPress={() => openMaterialSheet("mat-4")}
-            tone="ghost"
-          />
+    <View style={styles.screen}>
+      <View style={[styles.headerRow, isCompact && styles.headerColumn]}>
+        <View style={styles.headerBlock}>
+          <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Главная</Text>
+          <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
+            Центральное рабочее пространство с аналитикой и результатами последних тренировок.
+          </Text>
         </View>
-      </AppCard>
+        <View style={styles.headerActions}>
+          <CircleActionButton label="◔" onPress={openStatusInfo} />
+          <CircleActionButton label="?" onPress={openHelpInfo} />
+        </View>
+      </View>
 
-      {successMessage ? (
-        <AppCard>
-          <Text style={[styles.successText, { color: theme.semantic.success }]}>{successMessage}</Text>
+      {statusMessage ? (
+        <AppCard tone="mint">
+          <Text style={[styles.statusMessage, { color: theme.semantic.success }]}>{statusMessage}</Text>
         </AppCard>
       ) : null}
 
-      <AppCard>
-        <View style={styles.progressCardContent}>
-          <View style={styles.progressHeader}>
-            <View style={styles.flexBlock}>
-              <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>
-                Текущий уровень и общий прогресс
-              </Text>
-              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                {dashboard.level.levelDescription}
-              </Text>
-            </View>
-            <Text style={[styles.progressPercent, { color: theme.semantic.textPrimary }]}>
-              {dashboard.overallProgressPercent}%
-            </Text>
-          </View>
-          <ProgressBar
-            value={dashboard.overallProgressPercent}
-            label="Общий прогресс обучения"
-          />
-          <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-            Команда: {dashboard.user.teamName} · Последняя активность: {dashboard.user.lastActiveAt}
-          </Text>
-        </View>
-      </AppCard>
-
-      <AppCard>
-        <View style={styles.rowBetween}>
-          <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>Активные модули</Text>
-          <StatusPill label={`${dashboard.modules.length} в работе`} tone="neutral" />
-        </View>
-        <View style={[styles.wrapGrid, styles.moduleGrid]}>
-          {dashboard.modules.slice(0, 3).map((module) => (
-            <View key={module.id} style={[styles.moduleRow, { width: moduleWidth }]}>
-              <View style={styles.flexBlock}>
-                <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>{module.title}</Text>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{module.description}</Text>
-                <ProgressBar value={module.completedPercent} label={module.nextStep} />
+      <View style={[styles.contentSplit, !layout.isWide && styles.contentSplitStack]}>
+        <View
+          style={[
+            styles.reportCard,
+            {
+              backgroundColor: theme.semantic.card,
+              borderColor: theme.semantic.border,
+              shadowColor: theme.shadows.card.shadowColor,
+              shadowOpacity: theme.shadows.card.shadowOpacity,
+              shadowRadius: theme.shadows.card.shadowRadius,
+              shadowOffset: theme.shadows.card.shadowOffset,
+              elevation: theme.shadows.card.elevation
+            }
+          ]}
+        >
+          {latestReport ? (
+            <>
+              <View style={[styles.rowBetween, styles.reportTop]}>
+                <View style={styles.reportHeading}>
+                  <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Последний отчет</Text>
+                  <View style={[styles.badge, { backgroundColor: theme.colors.primaryPale }]}>
+                    <Text style={[styles.badgeText, { color: theme.semantic.actionPrimary }]}>
+                      {latestReport.updatedAt}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <AppButton
-                label="Продолжить обучение"
-                onPress={() => openModuleSheet(module)}
-                tone="secondary"
-              />
-            </View>
-          ))}
-        </View>
-      </AppCard>
 
-      <AppCard>
-        <Text style={[styles.cardTitle, { color: theme.semantic.textPrimary }]}>Последние оценки по компетенциям</Text>
-        {dashboard.scores.map((score) => (
-          <View key={score.competencyId} style={styles.scoreRow}>
-            <View style={styles.flexBlock}>
-              <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>
-                {score.competencyName}
-              </Text>
-              <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-                {score.benchmarkLabel}
-              </Text>
-            </View>
-            <StatusPill
-              label={`${score.value}/100 · ${score.trend}`}
-              tone={score.value >= 80 ? "success" : "warning"}
+              <View style={[styles.reportHeroRow, !layout.isDesktop && styles.reportHeroStack]}>
+                <View style={styles.reportIdentity}>
+                  <View style={[styles.reportIconTile, { backgroundColor: theme.colors.primaryPale }]}>
+                    <Text style={[styles.reportIcon, { color: theme.semantic.actionPrimary }]}>⌕</Text>
+                  </View>
+                  <View style={styles.flexBlock}>
+                    <Text style={[styles.reportTitle, { color: theme.semantic.textPrimary }]}>{latestReport.title}</Text>
+                    <Text style={[styles.reportMeta, { color: theme.semantic.textSecondary }]}>
+                      {`Модуль: ${latestReport.scenarioTitle} · Источник: ${latestReport.sourceLabel ?? "Диалог"}`}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.scoreBlock}>
+                  <Text style={[styles.scoreValue, { color: theme.semantic.textPrimary }]}>{latestReportScore}%</Text>
+                  <Text style={[styles.scoreLabel, { color: theme.semantic.actionPrimary }]}>
+                    {`Уровень: ${latestReportLevel}`}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.listColumns, isCompact && styles.listColumnsStack]}>
+                <View style={styles.feedbackColumn}>
+                  <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Сильные стороны</Text>
+                  {latestReportStrengths.map((item) => (
+                    <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
+                      ✓ {item}
+                    </Text>
+                  ))}
+                </View>
+                <View style={styles.feedbackColumn}>
+                  <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
+                  {latestReportGrowthPoints.map((item) => (
+                    <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
+                      ⚠ {item}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.actionRow}>
+                <PrimaryActionButton label="Открыть" onPress={() => onOpenReport(latestReport.id)} />
+                <SecondaryActionButton label="PDF" onPress={() => { void handleExport(latestReport, "pdf"); }} />
+                <SecondaryActionButton label="CSV" onPress={() => { void handleExport(latestReport, "csv"); }} />
+              </View>
+            </>
+          ) : (
+            <EmptyState
+              title="Последний отчет появится после первой практики"
+              description="Завершите диалог в тренажере, чтобы увидеть здесь реальный отчет и историю результатов."
+              actionLabel="Перейти в тренажер"
+              onAction={() => onOpenTrainer(data.activeDialogue.selectedScenarioId)}
             />
-          </View>
-        ))}
-        <View style={styles.textSection}>
-          <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
-          {dashboard.growthPoints.map((point) => (
-            <Text key={point} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-              • {point}
-            </Text>
-          ))}
+          )}
         </View>
-        <View style={styles.buttonRow}>
-          <AppButton
-            label="Посмотреть обратную связь"
-            onPress={() => setSheetState({ kind: "feedback", feedback: dashboard.feedback })}
-            tone="primary"
-          />
-          <AppButton
-            label="Объяснить материал"
-            onPress={() => openMaterialSheet("mat-5")}
-            tone="ghost"
-          />
-        </View>
-      </AppCard>
 
-      <DevelopmentPlanCard
-        track={dashboard.developmentTrack}
-        isAdded={plannedRecommendations.length > 0}
-        onOpen={() =>
-          setSheetState({
-            kind: "plan",
-            title: "Персональный план развития",
-            description: "Здесь собраны текущий трек, этапы развития и рекомендации, которые уже выбраны для следующей практики.",
-            items: [
-              ...dashboard.developmentTrack.milestones,
-              ...plannedRecommendations
-            ]
-          })
-        }
-        onAddToPlan={() => addRecommendationToPlan("Повторить сценарий про цену и зафиксировать новый шаблон ответа.")}
-        onDownloadPlan={() =>
-          setSheetState({
-            kind: "export",
-            title: "План развития подготовлен",
-            description: "Ниже показаны блоки, которые войдут в личную выгрузку плана развития.",
-            items: [
-              `Уровень: ${dashboard.level.currentLevel}`,
-              `Следующий уровень: ${dashboard.level.nextLevel}`,
-              ...dashboard.developmentTrack.milestones,
-              ...plannedRecommendations
-            ]
-          })
-        }
-      />
+        <View
+          style={[
+            styles.recommendationsCard,
+            {
+              backgroundColor: theme.semantic.card,
+              borderColor: theme.semantic.border,
+              shadowColor: theme.shadows.soft.shadowColor,
+              shadowOpacity: theme.shadows.soft.shadowOpacity,
+              shadowRadius: theme.shadows.soft.shadowRadius,
+              shadowOffset: theme.shadows.soft.shadowOffset,
+              elevation: theme.shadows.soft.elevation
+            }
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Что улучшить</Text>
+          <View style={styles.recommendationList}>
+            {data.recommendations.map((item) => (
+              <View key={item.id} style={styles.recommendationRow}>
+                <View style={[styles.recommendationIconTile, { backgroundColor: toneBackground(theme, item.tone) }]}>
+                  <Text style={[styles.recommendationIcon, { color: toneForeground(theme, item.tone) }]}>{item.icon}</Text>
+                </View>
+                <View style={styles.flexBlock}>
+                  <Text style={[styles.recommendationTitle, { color: theme.semantic.textPrimary }]}>{item.title}</Text>
+                  <Text style={[styles.recommendationText, { color: theme.semantic.textSecondary }]}>{item.description}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      <View style={[styles.filtersLayout, !layout.isDesktop && styles.filtersLayoutStack]}>
+        <View style={[styles.filtersControls, !layout.isDesktop && styles.filtersControlsStack]}>
+          <View style={styles.filterPills}>
+            {filterLabels.map((label) => (
+              <Pressable
+                key={label}
+                onPress={() => setActiveFilter(label)}
+                style={[
+                  styles.filterPill,
+                  {
+                    backgroundColor:
+                      activeFilter === label ? theme.colors.primaryPale : theme.semantic.card,
+                    borderColor: theme.semantic.border
+                  }
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    {
+                      color:
+                        activeFilter === label
+                          ? theme.semantic.actionPrimary
+                          : theme.semantic.textPrimary
+                    }
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.tableCard,
+          {
+            backgroundColor: theme.semantic.card,
+            borderColor: theme.semantic.border,
+            shadowColor: theme.shadows.soft.shadowColor,
+            shadowOpacity: theme.shadows.soft.shadowOpacity,
+            shadowRadius: theme.shadows.soft.shadowRadius,
+            shadowOffset: theme.shadows.soft.shadowOffset,
+            elevation: theme.shadows.soft.elevation
+          }
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>История отчетов</Text>
+        {filteredHistory.length > 0 ? (
+          <>
+            <View style={styles.tableHeader}>
+              {["Дата", "Модуль", "Сценарий", "Уровень", "Экспорт"].map((title) => (
+                <Text
+                  key={title}
+                  style={[styles.tableHeaderText, { color: theme.semantic.textMuted }]}
+                >
+                  {title}
+                </Text>
+              ))}
+            </View>
+
+            {filteredHistory.map((item) => (
+              <View key={item.id} style={[styles.tableRow, { borderTopColor: theme.semantic.borderSubtle }]}>
+                <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.updatedAt}</Text>
+                <Pressable onPress={() => onOpenReport(item.id)} style={styles.tableLinkCell}>
+                  <Text style={[styles.tableText, styles.tableStrong, { color: theme.semantic.actionPrimary }]}>
+                    {item.title}
+                  </Text>
+                </Pressable>
+                <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.scenarioTitle}</Text>
+                <LevelBadge level={toHistoryLevel(item)} />
+                <View style={styles.exportCell}>
+                  <SecondaryActionButton
+                    label="PDF"
+                    compact
+                    onPress={() => { void handleExport(item, "pdf"); }}
+                  />
+                  <SecondaryActionButton
+                    label="CSV"
+                    compact
+                    onPress={() => { void handleExport(item, "csv"); }}
+                  />
+                </View>
+              </View>
+            ))}
+
+            <View style={[styles.paginationRow, !layout.isDesktop && styles.paginationStack]}>
+              <Text style={[styles.paginationMeta, { color: theme.semantic.textMuted }]}>
+                {`Показано ${filteredHistory.length} из ${reports.length} отчетов`}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <EmptyState
+            title="История отчетов пока пуста"
+            description="Сначала завершите хотя бы одну практику, и история заполнится реальными отчетами без mock-данных."
+            actionLabel="Начать тренировку"
+            onAction={() => onOpenTrainer(data.activeDialogue.selectedScenarioId)}
+          />
+        )}
+      </View>
 
       <AppBottomSheet
-        visible={sheetState !== null}
-        title={sheetTitle}
-        description={sheetDescription}
-        onClose={() => setSheetState(null)}
+        visible={infoSheet !== null}
+        title={infoSheet?.title ?? ""}
+        description={infoSheet?.description}
+        onClose={() => setInfoSheet(null)}
       >
-        {sheetState?.kind === "module" ? (
-          <>
-            <StatusPill label={sheetState.module.statusLabel} tone="success" />
-            <Text style={[styles.body, { color: theme.semantic.textPrimary }]}>
-              Длительность: {sheetState.module.durationMinutes} мин.
-            </Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              Следующий шаг: {sheetState.module.nextStep}
-            </Text>
-            <AppButton
-              label="Начать тренировку"
-              onPress={() => {
-                setSheetState(null);
-                onNavigate("Simulator");
-              }}
-              tone="primary"
-            />
-          </>
-        ) : null}
-
-        {sheetState?.kind === "feedback" ? (
-          <>
-            {sheetState.feedback.map((item) => (
-              <View key={item.id} style={styles.feedbackRow}>
-                <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>{item.title}</Text>
-                <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>{item.summary}</Text>
-                <Text style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                  • {item.recommendedAction}
-                </Text>
-              </View>
-            ))}
-          </>
-        ) : null}
-
-        {sheetState?.kind === "material" ? (
-          <>
-            <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>Коротко и просто</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              {sheetState.material.aiPlainExplanation}
-            </Text>
-            <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>Как применить в диалоге</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              {sheetState.material.applyInDialogue}
-            </Text>
-            <Text style={[styles.actionTitle, { color: theme.semantic.textPrimary }]}>Пример ответа клиенту</Text>
-            <Text style={[styles.body, { color: theme.semantic.textSecondary }]}>
-              {sheetState.material.clientAnswerExample}
-            </Text>
-          </>
-        ) : null}
-
-        {sheetState?.kind === "plan" || sheetState?.kind === "export" ? (
-          <>
-            {sheetState.items.map((item) => (
-              <Text key={item} style={[styles.listItem, { color: theme.semantic.textPrimary }]}>
-                • {item}
-              </Text>
-            ))}
-          </>
-        ) : null}
+        {infoSheet?.lines.map((line) => (
+          <Text key={line} style={[styles.sheetLine, { color: theme.semantic.textPrimary }]}>
+            • {line}
+          </Text>
+        ))}
       </AppBottomSheet>
-    </>
+    </View>
   );
 }
 
+function CircleActionButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.circleButton, { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }]}
+    >
+      <Text style={[styles.circleButtonText, { color: theme.semantic.textPrimary }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function PrimaryActionButton({ label, onPress }: { label: string; onPress?: () => void }) {
+  const theme = useTheme();
+  const isDisabled = !onPress;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={isDisabled}
+      style={[
+        styles.primaryButton,
+        { backgroundColor: theme.semantic.actionPrimary },
+        isDisabled && styles.buttonDisabled
+      ]}
+    >
+      <Text style={styles.primaryButtonText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function SecondaryActionButton({
+  label,
+  compact,
+  wide,
+  onPress
+}: {
+  label: string;
+  compact?: boolean;
+  wide?: boolean;
+  onPress?: () => void;
+}) {
+  const theme = useTheme();
+  const isDisabled = !onPress;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={isDisabled}
+      style={[
+        styles.secondaryButton,
+        compact && styles.secondaryButtonCompact,
+        wide && styles.secondaryButtonWide,
+        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border },
+        isDisabled && styles.buttonDisabled
+      ]}
+    >
+      <Text style={[styles.secondaryButtonText, { color: theme.semantic.textPrimary }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function LevelBadge({ level }: { level: "junior" | "middle" | "senior" }) {
+  const theme = useTheme();
+  const config =
+    level === "senior"
+      ? { label: "Senior", background: theme.colors.primaryPale, color: theme.semantic.actionPrimary }
+      : level === "middle"
+        ? { label: "Middle", background: "rgba(213,162,77,0.14)", color: theme.semantic.warning }
+        : { label: "Junior", background: "rgba(200,92,74,0.12)", color: theme.semantic.danger };
+
+  return (
+    <View style={[styles.statusBadge, { backgroundColor: config.background }]}>
+      <Text style={[styles.statusBadgeText, { color: config.color }]}>{config.label}</Text>
+    </View>
+  );
+}
+
+function getSectionLines(report: ReportCard, titles: string[]): string[] {
+  const section = report.previewSections.find((item) => titles.includes(item.title));
+  return section?.lines ?? [];
+}
+
+function getReportLevel(report: ReportCard): "Junior" | "Middle" | "Senior" {
+  const resumeSection = report.previewSections.find((section) => section.title === "Краткое резюме");
+  const levelLine = resumeSection?.lines.find((line) => line.startsWith("Общий уровень:"));
+  if (levelLine?.includes("Senior")) {
+    return "Senior";
+  }
+  if (levelLine?.includes("Junior")) {
+    return "Junior";
+  }
+  return "Middle";
+}
+
+function getReportScore(report: ReportCard): number {
+  const competencySection = report.previewSections.find((section) => section.title === "Компетенции");
+  const lines = competencySection?.lines ?? [];
+  if (lines.length === 0) {
+    return 0;
+  }
+
+  const total = lines.reduce((sum, line) => {
+    if (line.includes(": Senior")) {
+      return sum + 92;
+    }
+    if (line.includes(": Junior")) {
+      return sum + 60;
+    }
+    return sum + 78;
+  }, 0);
+
+  return Math.round(total / lines.length);
+}
+
+function toHistoryLevel(report: ReportCard): "junior" | "middle" | "senior" {
+  const level = getReportLevel(report);
+  if (level === "Senior") {
+    return "senior";
+  }
+  if (level === "Junior") {
+    return "junior";
+  }
+  return "middle";
+}
+
+function toneBackground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warning" | "violet") {
+  if (tone === "warning") {
+    return "rgba(213,162,77,0.16)";
+  }
+  if (tone === "violet") {
+    return "rgba(120, 120, 180, 0.14)";
+  }
+
+  return theme.colors.primaryPale;
+}
+
+function toneForeground(theme: ReturnType<typeof useTheme>, tone: "mint" | "warning" | "violet") {
+  if (tone === "warning") {
+    return theme.semantic.warning;
+  }
+  if (tone === "violet") {
+    return "#7B61B9";
+  }
+
+  return theme.semantic.actionPrimary;
+}
+
 const styles = StyleSheet.create({
-  heroTitle: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: "800"
+  screen: {
+    gap: 18
   },
-  wrapGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12
-  },
-  moduleGrid: {
-    alignItems: "stretch"
-  },
-  rowBetween: {
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    flexWrap: "wrap"
+    gap: 16
   },
-  flexBlock: {
+  headerColumn: {
+    flexDirection: "column"
+  },
+  headerBlock: {
     flex: 1,
-    gap: 8
+    gap: 6
   },
-  progressCardContent: {
-    gap: 12
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    flexWrap: "wrap"
-  },
-  progressPercent: {
-    fontSize: 28,
-    lineHeight: 32,
+  pageTitle: {
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: "800"
   },
-  cardTitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: "800"
-  },
-  sectionTitle: {
+  pageSubtitle: {
     fontSize: 16,
-    lineHeight: 22,
-    fontWeight: "700"
+    lineHeight: 24
   },
-  body: {
+  statusMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "800"
+  },
+  sheetLine: {
     fontSize: 15,
     lineHeight: 22
   },
-  meta: {
-    fontSize: 12,
-    fontWeight: "600"
-  },
-  buttonRow: {
+  headerActions: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 10
   },
-  moduleRow: {
-    gap: 12
+  circleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
   },
-  actionTitle: {
+  circleButtonText: {
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  contentSplit: {
+    flexDirection: "row",
+    gap: 18,
+    alignItems: "stretch"
+  },
+  contentSplitStack: {
+    flexDirection: "column"
+  },
+  reportCard: {
+    flex: 1.75,
+    borderWidth: 1,
+    borderRadius: 30,
+    padding: 22,
+    gap: 20
+  },
+  recommendationsCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 30,
+    padding: 22,
+    gap: 20
+  },
+  rowBetween: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  reportTop: {
+    alignItems: "flex-start"
+  },
+  reportHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap"
+  },
+  sectionTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: "800"
+  },
+  badge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  reportHeroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16
+  },
+  reportHeroStack: {
+    flexDirection: "column",
+    alignItems: "flex-start"
+  },
+  reportIdentity: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    flex: 1
+  },
+  reportIconTile: {
+    width: 70,
+    height: 70,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  reportIcon: {
+    fontSize: 28,
+    fontWeight: "700"
+  },
+  flexBlock: {
+    flex: 1,
+    gap: 6
+  },
+  reportTitle: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "800"
+  },
+  reportMeta: {
+    fontSize: 15,
+    lineHeight: 22
+  },
+  scoreBlock: {
+    minWidth: 120,
+    alignItems: "flex-end",
+    gap: 4
+  },
+  scoreValue: {
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: "800"
+  },
+  scoreLabel: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "700"
+  },
+  listColumns: {
+    flexDirection: "row",
+    gap: 20
+  },
+  listColumnsStack: {
+    flexDirection: "column"
+  },
+  feedbackColumn: {
+    flex: 1,
+    gap: 10
+  },
+  listTitle: {
     fontSize: 16,
     lineHeight: 22,
     fontWeight: "700"
   },
-  scoreRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    flexWrap: "wrap"
-  },
-  textSection: {
-    gap: 8
-  },
   listItem: {
+    fontSize: 15,
+    lineHeight: 22
+  },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12
+  },
+  primaryButton: {
+    minHeight: 46,
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  secondaryButton: {
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  secondaryButtonCompact: {
+    minHeight: 32,
+    paddingHorizontal: 12
+  },
+  secondaryButtonWide: {
+    paddingHorizontal: 20
+  },
+  buttonDisabled: {
+    opacity: 0.5
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  recommendationList: {
+    gap: 18
+  },
+  recommendationRow: {
+    flexDirection: "row",
+    gap: 14,
+    alignItems: "flex-start"
+  },
+  recommendationIconTile: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  recommendationIcon: {
+    fontSize: 20,
+    fontWeight: "700"
+  },
+  recommendationTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "700"
+  },
+  recommendationText: {
     fontSize: 14,
     lineHeight: 20
   },
-  successText: {
+  filtersLayout: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    justifyContent: "flex-end"
+  },
+  filtersLayoutStack: {
+    flexDirection: "column",
+    alignItems: "stretch"
+  },
+  filtersControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 14
+  },
+  filtersControlsStack: {
+    flexDirection: "column",
+    alignItems: "stretch"
+  },
+  filterPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "flex-end"
+  },
+  filterPill: {
+    minHeight: 42,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  filterPillText: {
     fontSize: 14,
-    lineHeight: 20,
+    fontWeight: "600"
+  },
+  tableCard: {
+    borderWidth: 1,
+    borderRadius: 28,
+    padding: 16,
+    gap: 10
+  },
+  tableHeader: {
+    flexDirection: "row",
+    paddingTop: 8,
+    paddingBottom: 6
+  },
+  tableHeaderText: {
+    flex: 1.2,
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  tableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: 1,
+    paddingVertical: 12,
+    gap: 8
+  },
+  tableText: {
+    flex: 1.2,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  tableLinkCell: {
+    flex: 1.2
+  },
+  tableStrong: {
+    fontWeight: "500"
+  },
+  statusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+    minWidth: 106
+  },
+  statusBadgeText: {
+    fontSize: 12,
     fontWeight: "700"
   },
-  feedbackRow: {
+  exportCell: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "flex-start"
+  },
+  paginationRow: {
+    paddingTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  paginationStack: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 10
+  },
+  paginationMeta: {
+    fontSize: 13
+  },
+  paginationControls: {
+    flexDirection: "row",
     gap: 8
+  },
+  pageButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  pageButtonText: {
+    fontSize: 14,
+    fontWeight: "700"
   }
 });

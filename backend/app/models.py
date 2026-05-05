@@ -214,6 +214,13 @@ class ReportType(str, Enum):
     COMPETENCY_DYNAMICS = "competency_dynamics"
 
 
+class ReportStatus(str, Enum):
+    DRAFT = "draft"
+    GENERATING = "generating"
+    READY = "ready"
+    ERROR = "error"
+
+
 class ReportPreviewSectionDto(BaseModel):
     id: str
     title: str
@@ -225,10 +232,16 @@ class ReportCardDto(BaseModel):
     title: str
     role: WorkspaceRole
     reportType: ReportType
+    scenarioId: str | None = None
+    scenarioTitle: str
+    status: ReportStatus
     summary: str
     format: ExportFormat
+    createdAt: str
     updatedAt: str
     ownerLabel: str
+    sourceLabel: str | None = None
+    sessionId: str | None = None
     availableFormats: list[ExportFormat]
     previewSections: list[ReportPreviewSectionDto]
 
@@ -239,6 +252,8 @@ class ReportListResponseDto(BaseModel):
 
 class ReportCreateDto(BaseModel):
     role: WorkspaceRole
+    scenario_id: str | None = Field(default=None, max_length=200)
     scenario_title: str = Field(min_length=1, max_length=300)
+    source_label: str | None = Field(default=None, max_length=120)
     evaluation: EvaluationResultRaw
     session_id: str | None = Field(default=None, max_length=200)

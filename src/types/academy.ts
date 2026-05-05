@@ -12,6 +12,7 @@ export type ReportType =
   | "team_performance"
   | "learning_adoption"
   | "competency_dynamics";
+export type ReportStatus = "draft" | "generating" | "ready" | "error";
 export type ExportFormat = "pdf" | "xlsx" | "csv";
 export type ScenarioSpeakerRole = "coach" | "customer" | "learner" | "system";
 export type ScenarioStatus = "ready" | "active" | "completed";
@@ -274,6 +275,97 @@ export interface DashboardMetric {
   tone: "positive" | "neutral" | "warning";
 }
 
+export interface RecommendationItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  tone: "mint" | "warning" | "violet";
+}
+
+export interface ReportHistoryItem {
+  id: string;
+  date: string;
+  module: string;
+  scenario: string;
+  level: "junior" | "middle" | "senior";
+}
+
+export interface ScenarioCardItem {
+  id: string;
+  title: string;
+  description: string;
+  duration: string;
+  level: string;
+  progressLabel: string;
+  progressValue?: number;
+  status: "inProgress" | "new";
+  segment: "B2B" | "B2C";
+  icon: string;
+  accent: "mint" | "warning" | "info" | "violet" | "peach";
+}
+
+export interface DialogueMessage {
+  id: string;
+  author: "customer" | "manager";
+  text: string;
+  time: string;
+}
+
+export interface ActiveDialogueSession {
+  mode: "mock" | "api";
+  sessionId: string;
+  scenarioId: string;
+  scenarioTitle: string;
+  messages: DialogueMessage[];
+  status: "active" | "finished";
+  errorText: string | null;
+  isSending: boolean;
+  isFinishing: boolean;
+}
+
+export interface CompetencyProgress {
+  id: string;
+  label: string;
+  value: number;
+}
+
+export interface SalesAcademyMock {
+  user: AcademyUser;
+  progress: number;
+  lastReport: {
+    badge: string;
+    title: string;
+    meta: string;
+    averageScore: number;
+    strengths: string[];
+    growthPoints: string[];
+  };
+  recommendations: RecommendationItem[];
+  reportHistory: ReportHistoryItem[];
+  scenarios: ScenarioCardItem[];
+  activeDialogue: {
+    selectedScenarioId: string;
+    managerReplyCount: number;
+    replyTarget: number;
+    status: string;
+    time: string;
+    persona: {
+      name: string;
+      role: string;
+      company: string;
+      department: string;
+    };
+    context: string;
+    goal: string;
+    objection: string;
+    messages: DialogueMessage[];
+    typingLabel: string;
+    quickActions: string[];
+  };
+  competencies: CompetencyProgress[];
+}
+
 export interface ActionItem {
   id: string;
   title: string;
@@ -401,9 +493,12 @@ export interface AdminSettings {
 
 export interface SavedSimulatorReport {
   id: string;
+  scenarioId?: string;
   scenarioTitle: string;
   displayName: string;
   createdAt: string;
+  sourceLabel?: string;
+  sessionId?: string;
   evaluation: SimulatorEvaluationPayloadDto;
 }
 
@@ -412,10 +507,16 @@ export interface ReportCard {
   title: string;
   role: UserRole;
   reportType: ReportType;
+  scenarioId: string | null;
+  scenarioTitle: string;
+  status: ReportStatus;
   summary: string;
   format: ExportFormat;
+  createdAt: string;
   updatedAt: string;
   ownerLabel: string;
+  sourceLabel: string | null;
+  sessionId: string | null;
   availableFormats: ExportFormat[];
   previewSections: ReportPreviewSection[];
 }

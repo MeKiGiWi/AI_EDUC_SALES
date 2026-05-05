@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useRef } from "react";
 import { ScrollView, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -12,6 +12,8 @@ interface AppScreenProps {
   variant?: "app" | "landing";
   disableBottomPadding?: boolean;
   sidebar?: ReactNode;
+  fullBleed?: boolean;
+  scrollEnabled?: boolean;
 }
 
 export function AppScreen({
@@ -20,13 +22,18 @@ export function AppScreen({
   contentContainerStyle,
   variant = "app",
   disableBottomPadding = false,
-  sidebar
+  sidebar,
+  fullBleed = false,
+  scrollEnabled = true
 }: AppScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
+  const scrollRef = useRef<ScrollView>(null);
   const hasDesktopSidebar = layout.isDesktop && Boolean(sidebar);
   const maxWidth =
-    variant === "landing"
+    fullBleed
+      ? undefined
+      : variant === "landing"
       ? layout.isWide
         ? 1280
         : layout.isDesktop
@@ -39,9 +46,17 @@ export function AppScreen({
           : layout.contentMaxWidth;
   const bottomPadding = disableBottomPadding
     ? theme.spacing.screenBottom
+    : fullBleed
+      ? 0
     : footer && !layout.isDesktop
       ? theme.spacing.screenBottom + 92
       : theme.spacing.screenBottom + 24;
+
+  useEffect(() => {
+    if (!scrollEnabled) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [scrollEnabled]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.semantic.background }]}>
@@ -49,21 +64,24 @@ export function AppScreen({
         {hasDesktopSidebar ? <View style={styles.sidebar}>{sidebar}</View> : null}
         <View style={styles.main}>
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={[
               {
-                paddingTop: theme.spacing.screenTop,
+                paddingTop: fullBleed ? 0 : theme.spacing.screenTop,
                 paddingBottom: bottomPadding
               }
             ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            scrollEnabled={scrollEnabled}
           >
             <View
               style={[
                 styles.content,
+                fullBleed && styles.fullBleedContent,
                 {
                   maxWidth,
-                  paddingHorizontal: layout.screenPadding
+                  paddingHorizontal: fullBleed ? 0 : layout.screenPadding
                 },
                 contentContainerStyle
               ]}
@@ -98,6 +116,11 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
     gap: 18
+  },
+  fullBleedContent: {
+    maxWidth: "100%",
+    alignSelf: "stretch",
+    gap: 0
   },
   footer: {
     position: "absolute",

@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from app.agents import BuyerAgent, EvaluationAgent, RudeClassifierAgent, TopicClassifierAgent
 from app.graph import create_graph
 from app.models import GraphDependencies
-from app.settings import AgentsConfig, LLMSettings
+from app.settings import LLMSettings, get_agents_config
 from app.store import InMemorySessionStore
 
 SESSION_STORE = InMemorySessionStore()
@@ -32,7 +32,8 @@ def build_chat_model(
     )
 
 
-def build_graph(agents_config: AgentsConfig):
+def build_graph():
+    agents_config = get_agents_config()
     deps = GraphDependencies(
         session_store=SESSION_STORE,
         rude_classifier=RudeClassifierAgent(build_chat_model(agents_config.check_rude_llm_settings)),
@@ -42,6 +43,7 @@ def build_graph(agents_config: AgentsConfig):
     return create_graph(deps)
 
 
-def build_evaluation_agent(agents_config: AgentsConfig) -> EvaluationAgent:
+def build_evaluation_agent() -> EvaluationAgent:
+    agents_config = get_agents_config()
     llm = build_chat_model(agents_config.evaluation_agent_llm_settings)
     return EvaluationAgent(llm)

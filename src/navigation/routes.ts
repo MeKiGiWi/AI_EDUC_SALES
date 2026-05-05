@@ -4,10 +4,8 @@ export type RootStackParamList = {
   Landing: undefined;
   StudentHome: undefined;
   Simulator: { scenarioId?: string; materialId?: string } | undefined;
-  ManagerDashboard: undefined;
-  HrDashboard: undefined;
-  Admin: undefined;
   Reports: { highlightReportId?: string } | undefined;
+  ReportViewer: { reportId: string };
 };
 
 export type RouteName = keyof RootStackParamList;
@@ -26,48 +24,38 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
   },
   StudentHome: {
     route: "StudentHome",
-    title: "Кабинет ученика",
-    description: "Практика, модули и персональный трек"
+    title: "Главная",
+    description: "Центральное рабочее пространство с аналитикой и результатами последних тренировок."
   },
   Simulator: {
     route: "Simulator",
     title: "Тренажер",
-    description: "Выбери модуль, затем сценарий и проведи практику диалога с разбором по компетенциям."
-  },
-  ManagerDashboard: {
-    route: "ManagerDashboard",
-    title: "Кабинет руководителя",
-    description: "Команда, риски и coaching actions"
-  },
-  HrDashboard: {
-    route: "HrDashboard",
-    title: "Кабинет HR / L&D",
-    description: "Компетенции, adoption и треки развития"
-  },
-  Admin: {
-    route: "Admin",
-    title: "Администрирование",
-    description: "Роли, правила доступа и регламенты"
+    description: "Практикуйте навыки продаж в реалистичных сценариях."
   },
   Reports: {
     route: "Reports",
     title: "Отчеты",
-    description: "Выгрузки, правила отправки и рабочая аналитика"
+    description: "Здесь сохраняются результаты ваших сценариев."
+  },
+  ReportViewer: {
+    route: "ReportViewer",
+    title: "Просмотр отчета",
+    description: "Откройте результат сценария и продолжите работу из отчета."
   }
 };
 
 export const roleHomeRoute: Record<UserRole, RouteName> = {
   student: "StudentHome",
-  manager: "ManagerDashboard",
-  hr: "HrDashboard",
-  admin: "Admin"
+  manager: "StudentHome",
+  hr: "StudentHome",
+  admin: "StudentHome"
 };
 
 export const tabsByRole: Record<UserRole, RouteName[]> = {
   student: ["StudentHome", "Simulator", "Reports"],
-  manager: ["ManagerDashboard", "Simulator", "Reports"],
-  hr: ["HrDashboard", "Reports"],
-  admin: ["Admin", "Reports"]
+  manager: ["StudentHome", "Simulator", "Reports"],
+  hr: ["StudentHome", "Simulator", "Reports"],
+  admin: ["StudentHome", "Simulator", "Reports"]
 };
 
 export const roleLabels: Record<UserRole, string> = {
@@ -80,6 +68,10 @@ export const roleLabels: Record<UserRole, string> = {
 export function isRouteAllowedForRole(route: RouteName, role: UserRole) {
   if (route === "Landing") {
     return true;
+  }
+
+  if (route === "ReportViewer") {
+    return tabsByRole[role].includes("Reports");
   }
 
   return tabsByRole[role].includes(route);

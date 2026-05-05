@@ -92,10 +92,10 @@ export const salesAcademyMock: SalesAcademyMock = {
   ],
   scenarios: [
     {
-      id: "price-objection",
-      title: "Возражение на цену",
+      id: "baseline",
+      title: "Кондиционеры для бизнеса",
       description:
-        "Клиент считает цену высокой и сомневается в решении. Научитесь грамотно обосновывать стоимость и работать с возражением.",
+        "Клиент выбирает кондиционер для бизнеса и сравнивает предложения. Отработайте выявление потребностей, аргументацию ценности и следующий шаг к сделке.",
       duration: "8–10 мин",
       level: "Средний",
       progressLabel: "68%",
@@ -104,73 +104,10 @@ export const salesAcademyMock: SalesAcademyMock = {
       segment: "B2B",
       icon: "🏷",
       accent: "mint"
-    },
-    {
-      id: "competitor-comparison",
-      title: "Сравнение с конкурентом",
-      description: "Клиент сравнивает ваше решение с предложением конкурента.",
-      duration: "7–9 мин",
-      level: "Средний",
-      progressLabel: "42%",
-      progressValue: 42,
-      status: "inProgress",
-      segment: "B2B",
-      icon: "👥",
-      accent: "info"
-    },
-    {
-      id: "timeline-negotiation",
-      title: "Переговоры о сроках",
-      description: "Клиент просит сдвинуть сроки или ускорить внедрение.",
-      duration: "6–8 мин",
-      level: "Средний",
-      progressLabel: "25%",
-      progressValue: 25,
-      status: "inProgress",
-      segment: "B2B",
-      icon: "▦",
-      accent: "violet"
-    },
-    {
-      id: "cold-call",
-      title: "Холодный звонок",
-      description: "Первый контакт с потенциальным клиентом по телефону.",
-      duration: "5–7 мин",
-      level: "Легкий",
-      progressLabel: "Новое",
-      status: "new",
-      segment: "B2B",
-      icon: "⌁",
-      accent: "warning"
-    },
-    {
-      id: "upsell",
-      title: "Апсейл текущему клиенту",
-      description: "Предложите дополнительное решение или расширение.",
-      duration: "6–9 мин",
-      level: "Средний",
-      progressLabel: "18%",
-      progressValue: 18,
-      status: "inProgress",
-      segment: "B2B",
-      icon: "↗",
-      accent: "violet"
-    },
-    {
-      id: "customer-return",
-      title: "Возврат клиента",
-      description: "Клиент ушел и может вернуться. Верните интерес к продукту.",
-      duration: "7–10 мин",
-      level: "Сложный",
-      progressLabel: "Новое",
-      status: "new",
-      segment: "B2B",
-      icon: "↩",
-      accent: "peach"
     }
   ],
   activeDialogue: {
-    selectedScenarioId: "price-objection",
+    selectedScenarioId: "baseline",
     managerReplyCount: 6,
     replyTarget: 10,
     status: "Диалог активен",

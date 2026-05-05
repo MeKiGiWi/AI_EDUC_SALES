@@ -207,7 +207,6 @@ export function SimulatorScreen({
             <View style={styles.heroPills}>
               <InfoPill label={featuredScenario.duration} />
               <InfoPill label={`Уровень: ${featuredScenario.level}`} />
-              <ProgressInfoPill label="Прогресс" value={featuredScenario.progressValue ?? 0} />
             </View>
           </View>
 
@@ -820,9 +819,7 @@ function ScenarioTile({
               {scenario.progressLabel}
             </Text>
           </View>
-        ) : (
-          <ProgressInfoPill label="" value={scenario.progressValue ?? 0} compact wide />
-        )}
+        ) : null}
         <View style={styles.scenarioActionRow}>
           <InfoPill label={scenario.duration} compact />
           <InfoPill label={scenario.level} compact />
@@ -871,50 +868,6 @@ function InfoPill({ label, compact }: { label: string; compact?: boolean }) {
       ]}
     >
       <Text style={[styles.infoPillText, { color: theme.semantic.textPrimary }]}>{label}</Text>
-    </View>
-  );
-}
-
-function ProgressInfoPill({
-  label,
-  value,
-  compact,
-  wide
-}: {
-  label: string;
-  value: number;
-  compact?: boolean;
-  wide?: boolean;
-}) {
-  const theme = useTheme();
-
-  return (
-    <View
-      style={[
-        styles.progressPill,
-        compact && styles.progressPillCompact,
-        wide && styles.progressPillWide,
-        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
-      ]}
-    >
-      {label ? (
-        <Text style={[styles.progressPillLabel, { color: theme.semantic.actionPrimary }]}>
-          {label}
-        </Text>
-      ) : null}
-      <View
-        style={[styles.progressPillTrack, { backgroundColor: theme.semantic.borderSubtle }]}
-      >
-        <View
-          style={[
-            styles.progressPillFill,
-            { backgroundColor: theme.semantic.actionPrimary, width: `${value}%` }
-          ]}
-        />
-      </View>
-      <Text style={[styles.progressPillValue, { color: theme.semantic.textPrimary }]}>
-        {value}%
-      </Text>
     </View>
   );
 }
@@ -1084,42 +1037,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600"
   },
-  progressPill: {
-    minHeight: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12
-  },
-  progressPillCompact: {
-    minHeight: 38,
-    paddingHorizontal: 10,
-    gap: 8
-  },
-  progressPillWide: {
-    alignSelf: "stretch",
-    justifyContent: "space-between"
-  },
-  progressPillLabel: {
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  progressPillTrack: {
-    width: 92,
-    height: 6,
-    borderRadius: 999,
-    overflow: "hidden"
-  },
-  progressPillFill: {
-    height: "100%",
-    borderRadius: 999
-  },
-  progressPillValue: {
-    fontSize: 14,
-    fontWeight: "700"
-  },
   heroIllustrationWrap: {
     minWidth: 360,
     alignItems: "center",
@@ -1209,7 +1126,11 @@ const styles = StyleSheet.create({
   cardGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 18
+    gap: 18,
+    width: "100%",
+    maxWidth: 1128,
+    alignSelf: "center",
+    alignItems: "flex-start"
   },
   scenarioTile: {
     width: "32.2%",
@@ -1217,9 +1138,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     padding: 16,
-    gap: 16,
-    flexGrow: 1,
-    minHeight: 248,
+    gap: 14,
+    flexGrow: 0,
+    minHeight: 196,
     justifyContent: "space-between"
   },
   scenarioTileTop: {
@@ -1240,7 +1161,7 @@ const styles = StyleSheet.create({
   scenarioText: {
     flex: 1,
     gap: 8,
-    minHeight: 104
+    minHeight: 74
   },
   scenarioTitle: {
     fontSize: 18,

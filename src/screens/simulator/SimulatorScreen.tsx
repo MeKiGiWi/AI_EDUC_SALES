@@ -374,9 +374,21 @@ function DialogueView({
   }
 
   async function handleSendMessage() {
-    const wasSent = await onSendMessage(draftMessage);
-    if (wasSent) {
-      setDraftMessage("");
+    const messageToSend = draftMessage;
+    const trimmedMessage = messageToSend.trim();
+
+    if (!trimmedMessage) {
+      const wasSent = await onSendMessage(messageToSend);
+      if (wasSent) {
+        setDraftMessage("");
+      }
+      return;
+    }
+
+    setDraftMessage("");
+    const wasSent = await onSendMessage(messageToSend);
+    if (!wasSent) {
+      setDraftMessage(messageToSend);
     }
   }
 

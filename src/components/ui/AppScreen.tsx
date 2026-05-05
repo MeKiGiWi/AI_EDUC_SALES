@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useRef } from "react";
 import { ScrollView, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -28,6 +28,7 @@ export function AppScreen({
 }: AppScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
+  const scrollRef = useRef<ScrollView>(null);
   const hasDesktopSidebar = layout.isDesktop && Boolean(sidebar);
   const maxWidth =
     fullBleed
@@ -51,12 +52,19 @@ export function AppScreen({
       ? theme.spacing.screenBottom + 92
       : theme.spacing.screenBottom + 24;
 
+  useEffect(() => {
+    if (!scrollEnabled) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [scrollEnabled]);
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.semantic.background }]}>
       <View style={[styles.wrapper, hasDesktopSidebar && styles.desktopWrapper]}>
         {hasDesktopSidebar ? <View style={styles.sidebar}>{sidebar}</View> : null}
         <View style={styles.main}>
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={[
               {
                 paddingTop: fullBleed ? 0 : theme.spacing.screenTop,

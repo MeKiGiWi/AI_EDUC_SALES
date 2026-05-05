@@ -328,6 +328,14 @@ function DialogueView({
     setDraftMessage("");
   }, [activeSession?.sessionId]);
 
+  useEffect(() => {
+    scrollToBottom(false);
+  }, [activeSession?.sessionId]);
+
+  useEffect(() => {
+    scrollToBottom(true);
+  }, [messages.length, typingVisible]);
+
   function scrollToBottom(animated: boolean) {
     messageScrollRef.current?.scrollToEnd({ animated });
   }
@@ -541,6 +549,11 @@ function DialogueView({
               </View>
             ) : null}
           </ScrollView>
+
+          <View
+            pointerEvents="none"
+            style={[styles.inputFooterBackdrop, { backgroundColor: theme.semantic.card }]}
+          />
 
           <View
             testID="simulator-chat-input-row"
@@ -1258,7 +1271,8 @@ const styles = StyleSheet.create({
   dialogueLayoutDesktop: {
     flex: 1,
     minHeight: 0,
-    alignItems: "stretch"
+    alignItems: "stretch",
+    paddingBottom: 24
   },
   dialogueLayoutStack: {
     flexDirection: "column"
@@ -1271,7 +1285,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minHeight: 0,
     height: "100%",
-    flexDirection: "column"
+    flexDirection: "column",
+    marginBottom: 18
   },
   chatTopBar: {
     minHeight: 52,
@@ -1357,11 +1372,13 @@ const styles = StyleSheet.create({
   },
   messageList: {
     flex: 1,
-    minHeight: 0
+    minHeight: 0,
+    marginBottom: 100
   },
   messageListContent: {
     paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: 124,
     gap: 10
   },
   messageBubble: {
@@ -1408,21 +1425,37 @@ const styles = StyleSheet.create({
   typingText: {
     fontSize: 14
   },
+  inputFooterBackdrop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 98,
+    zIndex: 3
+  },
   inputWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderTopWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 12
+    paddingHorizontal: 2,
+    paddingTop: 8,
+    paddingBottom: 10,
+    minHeight: 74,
+    zIndex: 4,
+    elevation: 4
   },
   inputRow: {
-    minHeight: 48,
+    minHeight: 50,
     borderRadius: 18,
     borderWidth: 1,
     paddingLeft: 14,
     paddingRight: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10
+    gap: 10,
+    overflow: "hidden"
   },
   chatInput: {
     flex: 1,

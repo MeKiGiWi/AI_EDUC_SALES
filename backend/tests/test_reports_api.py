@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from sqlalchemy import create_engine, text
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 
@@ -144,3 +145,42 @@ async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     assert fetched_payload["scenarioTitle"] == "Baseline сценарий"
     assert fetched_payload["sourceLabel"] == "simulator"
     assert fetched_payload["sessionId"] == "session-123"
+
+
+@pytest.mark.asyncio
+async def test_initialize_database_upgrades_legacy_reports_schema(monkeypatch, tmp_path: Path) -> None:
+    database_path = tmp_path / "reports-legacy.db"
+    engine = create_engine(f"sqlite:///{database_path}", future=True)
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE reports (
+                    id VARCHAR(36) PRIMARY KEY,
+                    role VARCHAR(24),
+                    title VARCHAR(300),
+                    scenario_title VARCHAR(300),
+                    report_type VARCHAR(48),
+                    summary TEXT,
+                    default_format VARCHAR(16),
+                    owner_label VARCHAR(100),
+                    available_formats JSON,
+                    preview_sections JSON,
+                    evaluation_payload JSON,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+                """
+            )
+        )
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+    reset_database_state()
+    initialize_database()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        listed = await client.get("/api/v1/reports", params={"role": "student"})
+
+    assert listed.status_code == status.HTTP_200_OK
+    assert listed.json() == {"items": []}

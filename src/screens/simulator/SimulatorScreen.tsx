@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,6 +47,14 @@ type SimulatorInfoSheetState =
       lines: string[];
     }
   | null;
+
+type WebTextInputKeyEvent = {
+  preventDefault?: () => void;
+  nativeEvent: {
+    key: string;
+    shiftKey?: boolean;
+  };
+};
 
 export function SimulatorScreen({
   data,
@@ -126,6 +135,7 @@ export function SimulatorScreen({
         selectedScenario={selectedScenario}
         activeSession={activeSession}
         onBackToCatalog={onBackToCatalog}
+        onRestartScenario={onStartScenario}
         onSendMessage={onSendMessage}
         onFinishScenario={onFinishScenario}
       />
@@ -304,6 +314,7 @@ function DialogueView({
   selectedScenario,
   activeSession,
   onBackToCatalog,
+  onRestartScenario,
   onSendMessage,
   onFinishScenario
 }: {
@@ -311,6 +322,7 @@ function DialogueView({
   selectedScenario: ScenarioCardItem;
   activeSession: ActiveDialogueSession | null;
   onBackToCatalog: () => void;
+  onRestartScenario: (scenarioId: string) => void;
   onSendMessage: (text: string) => Promise<boolean>;
   onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
 }) {
@@ -329,6 +341,7 @@ function DialogueView({
       : `${Math.min(managerReplyCount, dialogue.replyTarget)} / ${dialogue.replyTarget}`;
   const isSending = activeSession?.isSending ?? false;
   const isFinishing = activeSession?.isFinishing ?? false;
+  const canFinishScenario = managerReplyCount >= dialogue.replyTarget && !isFinishing;
   const isSessionActive = activeSession?.status === "active";
   const typingVisible = isSending;
   const typingDotsOpacity = useRef(new Animated.Value(0.35)).current;
@@ -389,6 +402,20 @@ function DialogueView({
     if (!wasSent) {
       setDraftMessage(messageToSend);
     }
+  }
+
+  function handleInputKeyPress(event: unknown) {
+    if (Platform.OS !== "web") {
+      return;
+    }
+
+    const webEvent = event as WebTextInputKeyEvent;
+    if (webEvent.nativeEvent.key !== "Enter" || webEvent.nativeEvent.shiftKey) {
+      return;
+    }
+
+    webEvent.preventDefault?.();
+    void handleSendMessage();
   }
 
   return (
@@ -519,11 +546,38 @@ function DialogueView({
 
           {errorText ? (
             <View style={styles.errorNoticeWrap}>
-              <ChatStateNotice
-                kind="error"
-                text={errorText}
-                testID="simulator-chat-error"
-              />
+              <View style={styles.errorNoticeRow}>
+                <View style={styles.errorNoticeCard}>
+                  <ChatStateNotice
+                    kind="error"
+                    text={errorText}
+                    testID="simulator-chat-error"
+                  />
+                </View>
+                {activeSession?.status === "finished" ? (
+                  <Pressable
+                    testID="simulator-restart-button"
+                    accessibilityLabel="Запустить сценарий заново"
+                    onPress={() => onRestartScenario(selectedScenario.id)}
+                    style={[
+                      styles.restartScenarioButton,
+                      {
+                        backgroundColor: theme.semantic.card,
+                        borderColor: theme.semantic.border
+                      }
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.restartScenarioButtonText,
+                        { color: theme.semantic.actionPrimary }
+                      ]}
+                    >
+                      ↻
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
           ) : null}
 
@@ -623,6 +677,7 @@ function DialogueView({
                 style={[styles.chatInput, chatInputWebReset, { color: theme.semantic.textPrimary }]}
                 value={draftMessage}
                 onChangeText={setDraftMessage}
+                onKeyPress={handleInputKeyPress}
                 onSubmitEditing={() => {
                   void handleSendMessage();
                 }}
@@ -686,30 +741,47 @@ function DialogueView({
             </Text>
             <InsightTextBlock label="Контекст" text={dialogue.context} />
             <InsightTextBlock label="Цель" text={dialogue.goal} />
-            <InsightTextBlock label="Возражение" text={`«${dialogue.objection}»`} />
+            <InsightTextBlock label="История общения" text="Первый контакт с этим клиентом" />
           </View>
 
           <Pressable
             testID="simulator-finish-button"
-            onPress={() =>
+            onPress={() => {
+              if (!canFinishScenario) {
+                return;
+              }
               onFinishScenario({
                 scenarioId: selectedScenario.id,
                 scenarioTitle: selectedScenario.title
-              })
-            }
-            disabled={isFinishing}
+              });
+            }}
+            disabled={!canFinishScenario}
             style={[
               styles.finishButton,
               {
-                backgroundColor: theme.semantic.actionPrimary,
-                opacity: isFinishing ? 0.72 : 1
+                backgroundColor: canFinishScenario
+                  ? theme.semantic.actionPrimary
+                  : theme.semantic.card,
+                borderColor: canFinishScenario ? "transparent" : theme.semantic.border,
+                borderWidth: canFinishScenario ? 0 : 1,
+                opacity: 1
               }
             ]}
           >
-            <Text style={styles.finishButtonText}>
+            <Text
+              style={[
+                styles.finishButtonText,
+                { color: canFinishScenario ? "#FFFFFF" : theme.semantic.textMuted }
+              ]}
+            >
               {isFinishing ? "Сохраняем отчет..." : "Завершить и получить отчет"}
             </Text>
           </Pressable>
+          {!canFinishScenario ? (
+            <Text style={[styles.finishHintText, { color: theme.semantic.textMuted }]}>
+              Нужно 10 реплик для отчета ({managerReplyCount} / {dialogue.replyTarget})
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -1347,6 +1419,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 8
   },
+  errorNoticeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  errorNoticeCard: {
+    flex: 1
+  },
+  restartScenarioButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0
+  },
+  restartScenarioButtonText: {
+    fontSize: 20,
+    lineHeight: 20,
+    fontWeight: "700"
+  },
   messageList: {
     flex: 1,
     minHeight: 0,
@@ -1463,7 +1557,7 @@ const styles = StyleSheet.create({
   },
   insightColumn: {
     flex: 1,
-    gap: 14,
+    gap: 4,
     alignSelf: "stretch",
     minHeight: 0,
     justifyContent: "flex-start",
@@ -1473,7 +1567,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     padding: 14,
-    gap: 12
+    gap: 12,
+    marginBottom: 10
   },
   insightTitle: {
     fontSize: 16,
@@ -1501,8 +1596,14 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   finishButtonText: {
-    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800"
+  },
+  finishHintText: {
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: "center",
+    marginTop: -1,
+    marginBottom: 8
   }
 });

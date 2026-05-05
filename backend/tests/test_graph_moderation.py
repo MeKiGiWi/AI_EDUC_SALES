@@ -103,7 +103,8 @@ async def test_rude_message_flow(deps):
     assert deps.rude_classifier.called
     assert not deps.topic_classifier.called
     assert not deps.buyer_agent.called
-    assert state["customer_message"] == "КЛИЕНТ УШЕЛ"
+    assert "кажется, наш разговор ушёл от темы" in state["customer_message"].lower()
+    assert state["status"] == "finished"
 
 @pytest.mark.asyncio
 async def test_offtopic_flow_limit(deps):

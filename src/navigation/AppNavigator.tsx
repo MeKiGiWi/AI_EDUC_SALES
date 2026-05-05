@@ -495,7 +495,6 @@ export function AppNavigator() {
         <ReportViewerScreen
           report={selectedReport}
           onBack={() => openReports()}
-          onContinueChat={continueChatFromReport}
         />
       ) : null}
     </AppScreen>

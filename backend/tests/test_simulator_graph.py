@@ -5,7 +5,12 @@ from langchain_core.runnables import RunnableLambda
 from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
 from app.graph import create_graph
 from app.models import GraphDependencies
-from app.prompts import BASELINE_OPENING_MESSAGE, BUYER_SCENARIO_CONTEXT_PROMPT, BUYER_SYSTEM_PROMPT
+from app.prompts import (
+    BASELINE_OPENING_MESSAGE,
+    BUYER_SCENARIO_CONTEXT_PROMPT,
+    BUYER_SYSTEM_PROMPT,
+    RUDE_REFUSAL_MESSAGE,
+)
 from app.scenario_repository import get_scenario_info
 from app.store import InMemorySessionStore
 
@@ -26,19 +31,19 @@ def build_graph_with_reply(
 
 
 @pytest.mark.asyncio
-async def test_graph_keeps_dialogue_active_when_user_is_rude() -> None:
+async def test_graph_finishes_dialogue_when_user_is_rude() -> None:
     graph = build_graph_with_reply("Не должно вызваться", rude_json='{"rude":"yes","confidence":0.95}')
     started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
     result = await graph.ainvoke(
         {"action": "reply_to_sales", "session_id": started["session_id"], "sales_message": "Иди ты нахер"}
     )
 
-    assert result["status"] == "active"
+    assert result["status"] == "finished"
     assert isinstance(result["session"].messages[0], SystemMessage)
     assert result["session"].messages[0].content == BUYER_SYSTEM_PROMPT
     assert result["dialog_route"] == "stop_after_rudeness"
     assert isinstance(result["session"].messages[-1], AIMessage)
-    assert result["session"].messages[-1].content == "КЛИЕНТ УШЕЛ"
+    assert result["session"].messages[-1].content == RUDE_REFUSAL_MESSAGE
 
 
 @pytest.mark.asyncio

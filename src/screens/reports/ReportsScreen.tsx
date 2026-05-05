@@ -208,7 +208,6 @@ export function ReportsScreen({
                 onDownload={(item, format) => {
                   void handleExport(item, format);
                 }}
-                onContinueChat={(item) => onContinueChat(item.scenarioId ?? undefined)}
               />
             </View>
           ))}

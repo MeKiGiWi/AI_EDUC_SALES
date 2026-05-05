@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextStyle
+} from "react-native";
 
 import { ChatStateNotice } from "../../components/chat/ChatStateNotice";
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
@@ -25,6 +34,10 @@ interface SimulatorScreenProps {
 }
 
 const trainerFilters = ["Все", "Новые"] as const;
+const chatInputWebReset = {
+  outlineStyle: "none",
+  scrollbarWidth: "none"
+} as unknown as TextStyle;
 
 type SimulatorInfoSheetState =
   | {
@@ -306,7 +319,6 @@ function DialogueView({
   const layout = useResponsiveLayout();
   const dialogue = data.activeDialogue;
   const [draftMessage, setDraftMessage] = useState("");
-  const [quickActionsVisible, setQuickActionsVisible] = useState(false);
   const messageScrollRef = useRef<ScrollView | null>(null);
 
   const messages = activeSession?.messages ?? [];
@@ -320,9 +332,10 @@ function DialogueView({
   const isFinishing = activeSession?.isFinishing ?? false;
   const isSessionActive = activeSession?.status === "active";
   const typingVisible = isSending;
+  const typingDotsOpacity = useRef(new Animated.Value(0.35)).current;
   const errorText = activeSession?.errorText ?? null;
-  const dialogueHeight = Math.max(Math.min(theme.viewport.height - 12, 724), 680);
-  const dialogueBodyHeight = Math.max(Math.min(theme.viewport.height - 128, 620), 540);
+  const dialogueHeight = Math.max(theme.viewport.height - 18, 700);
+  const dialogueBodyHeight = Math.max(theme.viewport.height - 96, 580);
 
   useEffect(() => {
     setDraftMessage("");
@@ -336,6 +349,26 @@ function DialogueView({
     scrollToBottom(true);
   }, [messages.length, typingVisible]);
 
+  useEffect(() => {
+    if (!typingVisible) {
+      typingDotsOpacity.stopAnimation();
+      typingDotsOpacity.setValue(0.35);
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(typingDotsOpacity, { toValue: 1, duration: 420, useNativeDriver: true }),
+        Animated.timing(typingDotsOpacity, {
+          toValue: 0.35,
+          duration: 420,
+          useNativeDriver: true
+        })
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [typingVisible, typingDotsOpacity]);
+
   function scrollToBottom(animated: boolean) {
     messageScrollRef.current?.scrollToEnd({ animated });
   }
@@ -347,16 +380,11 @@ function DialogueView({
     }
   }
 
-  function handlePickQuickAction(action: string) {
-    setDraftMessage(action);
-    setQuickActionsVisible(false);
-  }
-
   return (
     <View
       style={[
         styles.screen,
-        layout.isDesktop && { height: dialogueHeight, gap: 10, justifyContent: "space-between" }
+        layout.isDesktop && { height: dialogueHeight, gap: 10 }
       ]}
     >
       <View style={[styles.dialogueHeader, !layout.isDesktop && styles.headerStack]}>
@@ -389,7 +417,7 @@ function DialogueView({
           styles.dialogueLayout,
           !layout.isDesktop && styles.dialogueLayoutStack,
           layout.isDesktop && styles.dialogueLayoutDesktop,
-          layout.isDesktop && { height: dialogueBodyHeight }
+          layout.isDesktop && { flex: 1, height: dialogueBodyHeight }
         ]}
       >
         <View
@@ -539,12 +567,17 @@ function DialogueView({
                     }
                   ]}
                 >
-                  <Text style={[styles.typingDotsText, { color: theme.semantic.textMuted }]}>
-                    •••
-                  </Text>
+                  <Animated.Text
+                    style={[
+                      styles.typingDotsText,
+                      { color: theme.semantic.textMuted, opacity: typingDotsOpacity }
+                    ]}
+                  >
+                    ...
+                  </Animated.Text>
                 </View>
                 <Text style={[styles.typingText, { color: theme.semantic.textMuted }]}>
-                  {dialogue.typingLabel}
+                  Печатает
                 </Text>
               </View>
             ) : null}
@@ -576,24 +609,19 @@ function DialogueView({
                 accessibilityLabel="Поле ввода сообщения в тренажере"
                 placeholder="Напишите сообщение..."
                 placeholderTextColor={theme.semantic.textMuted}
-                style={[styles.chatInput, { color: theme.semantic.textPrimary }]}
+                style={[styles.chatInput, chatInputWebReset, { color: theme.semantic.textPrimary }]}
                 value={draftMessage}
                 onChangeText={setDraftMessage}
                 onSubmitEditing={() => {
                   void handleSendMessage();
                 }}
+                multiline
+                textAlignVertical="center"
                 editable={!isSending && isSessionActive && !isFinishing}
+                scrollEnabled
+                numberOfLines={2}
                 maxLength={4000}
               />
-              <Pressable
-                accessibilityLabel="Открыть быстрые подсказки"
-                onPress={() => setQuickActionsVisible(true)}
-                style={styles.quickActionButton}
-              >
-                <Text style={[styles.inputAction, { color: theme.semantic.textSecondary }]}>
-                  ⚡
-                </Text>
-              </Pressable>
               <Pressable
                 testID="simulator-send-button"
                 accessibilityLabel="Отправить сообщение"
@@ -604,7 +632,14 @@ function DialogueView({
                 style={[
                   styles.sendButton,
                   {
-                    backgroundColor: theme.colors.primaryPale,
+                    backgroundColor:
+                      !draftMessage.trim() || isSending || !isSessionActive || isFinishing
+                        ? theme.semantic.backgroundWarm
+                        : theme.semantic.actionPrimary,
+                    borderColor:
+                      !draftMessage.trim() || isSending || !isSessionActive || isFinishing
+                        ? theme.semantic.border
+                        : "transparent",
                     opacity:
                       !draftMessage.trim() || isSending || !isSessionActive || isFinishing
                         ? 0.48
@@ -612,9 +647,17 @@ function DialogueView({
                   }
                 ]}
               >
-                <Text style={[styles.sendButtonText, { color: theme.semantic.actionPrimary }]}>
-                  ➤
-                </Text>
+                <View
+                  style={[
+                    styles.sendArrow,
+                    {
+                      borderColor:
+                        !draftMessage.trim() || isSending || !isSessionActive || isFinishing
+                          ? theme.semantic.textMuted
+                          : "#FFFFFF"
+                    }
+                  ]}
+                />
               </Pressable>
             </View>
           </View>
@@ -659,29 +702,6 @@ function DialogueView({
         </View>
       </View>
 
-      <AppBottomSheet
-        visible={quickActionsVisible}
-        title="Быстрые подсказки"
-        description="Выберите заготовку, чтобы подставить ее в поле ввода."
-        onClose={() => setQuickActionsVisible(false)}
-      >
-        <View style={styles.quickActionsList}>
-          {dialogue.quickActions.map((action) => (
-            <Pressable
-              key={action}
-              onPress={() => handlePickQuickAction(action)}
-              style={[
-                styles.quickActionSheetItem,
-                { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }
-              ]}
-            >
-              <Text style={[styles.quickActionSheetText, { color: theme.semantic.textPrimary }]}>
-                {action}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </AppBottomSheet>
     </View>
   );
 }
@@ -776,26 +796,34 @@ function ScenarioTile({
         </View>
       </View>
       <View style={styles.scenarioFooter}>
-        <InfoPill label={scenario.duration} compact />
-        <InfoPill label={scenario.level} compact />
         {scenario.status === "new" ? (
-          <View style={[styles.newBadge, { backgroundColor: "rgba(92,143,115,0.12)" }]}>
+          <View
+            style={[
+              styles.newBadge,
+              styles.scenarioStatusBadge,
+              { backgroundColor: "rgba(92,143,115,0.12)" }
+            ]}
+          >
             <Text style={[styles.newBadgeText, { color: theme.colors.info }]}>
               {scenario.progressLabel}
             </Text>
           </View>
         ) : (
-          <ProgressInfoPill label="" value={scenario.progressValue ?? 0} compact />
+          <ProgressInfoPill label="" value={scenario.progressValue ?? 0} compact wide />
         )}
-        <Pressable
-          onPress={onPlay}
-          style={[
-            styles.playButton,
-            { borderColor: theme.semantic.border, backgroundColor: theme.semantic.card }
-          ]}
-        >
-          <Text style={[styles.playButtonText, { color: theme.semantic.actionPrimary }]}>▶</Text>
-        </Pressable>
+        <View style={styles.scenarioActionRow}>
+          <InfoPill label={scenario.duration} compact />
+          <InfoPill label={scenario.level} compact />
+          <Pressable
+            onPress={onPlay}
+            style={[
+              styles.playButton,
+              { borderColor: theme.semantic.border, backgroundColor: theme.semantic.card }
+            ]}
+          >
+            <Text style={[styles.playButtonText, { color: theme.semantic.actionPrimary }]}>▶</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -838,11 +866,13 @@ function InfoPill({ label, compact }: { label: string; compact?: boolean }) {
 function ProgressInfoPill({
   label,
   value,
-  compact
+  compact,
+  wide
 }: {
   label: string;
   value: number;
   compact?: boolean;
+  wide?: boolean;
 }) {
   const theme = useTheme();
 
@@ -851,6 +881,7 @@ function ProgressInfoPill({
       style={[
         styles.progressPill,
         compact && styles.progressPillCompact,
+        wide && styles.progressPillWide,
         { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
       ]}
     >
@@ -1055,6 +1086,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     gap: 8
   },
+  progressPillWide: {
+    alignSelf: "stretch",
+    justifyContent: "space-between"
+  },
   progressPillLabel: {
     fontSize: 14,
     fontWeight: "700"
@@ -1171,7 +1206,9 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 16,
     gap: 16,
-    flexGrow: 1
+    flexGrow: 1,
+    minHeight: 248,
+    justifyContent: "space-between"
   },
   scenarioTileTop: {
     flexDirection: "row",
@@ -1190,7 +1227,8 @@ const styles = StyleSheet.create({
   },
   scenarioText: {
     flex: 1,
-    gap: 8
+    gap: 8,
+    minHeight: 104
   },
   scenarioTitle: {
     fontSize: 18,
@@ -1202,10 +1240,13 @@ const styles = StyleSheet.create({
     lineHeight: 22
   },
   scenarioFooter: {
+    gap: 10,
+    marginTop: "auto"
+  },
+  scenarioActionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap"
+    gap: 8
   },
   playButton: {
     marginLeft: "auto",
@@ -1226,6 +1267,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center"
+  },
+  scenarioStatusBadge: {
+    alignSelf: "stretch"
   },
   newBadgeText: {
     fontSize: 14,
@@ -1272,7 +1316,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
     alignItems: "stretch",
-    paddingBottom: 24
+    paddingBottom: 10
   },
   dialogueLayoutStack: {
     flexDirection: "column"
@@ -1286,7 +1330,7 @@ const styles = StyleSheet.create({
     minHeight: 0,
     height: "100%",
     flexDirection: "column",
-    marginBottom: 18
+    marginBottom: 0
   },
   chatTopBar: {
     minHeight: 52,
@@ -1373,12 +1417,12 @@ const styles = StyleSheet.create({
   messageList: {
     flex: 1,
     minHeight: 0,
-    marginBottom: 100
+    marginBottom: 78
   },
   messageListContent: {
     paddingHorizontal: 18,
     paddingTop: 8,
-    paddingBottom: 124,
+    paddingBottom: 96,
     gap: 10
   },
   messageBubble: {
@@ -1430,7 +1474,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 98,
+    height: 74,
     zIndex: 3
   },
   inputWrap: {
@@ -1438,11 +1482,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderTopWidth: 1,
-    paddingHorizontal: 2,
-    paddingTop: 8,
-    paddingBottom: 10,
-    minHeight: 74,
+    borderTopWidth: 0,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 8,
+    minHeight: 72,
     zIndex: 4,
     elevation: 4
   },
@@ -1450,44 +1494,46 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: 18,
     borderWidth: 1,
-    paddingLeft: 14,
-    paddingRight: 8,
+    paddingLeft: 16,
+    paddingRight: 6,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     overflow: "hidden"
   },
   chatInput: {
     flex: 1,
     fontSize: 14,
-    paddingVertical: 0
-  },
-  quickActionButton: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  inputAction: {
-    fontSize: 18
+    lineHeight: 20,
+    minHeight: 36,
+    maxHeight: 52,
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingRight: 2
   },
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    flexShrink: 0
   },
-  sendButtonText: {
-    fontSize: 18,
-    fontWeight: "700"
+  sendArrow: {
+    width: 13,
+    height: 13,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderRadius: 1,
+    transform: [{ rotate: "45deg" }, { translateX: -2 }]
   },
   insightColumn: {
     flex: 1,
     gap: 14,
     alignSelf: "stretch",
     minHeight: 0,
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     height: "100%"
   },
   insightCard: {
@@ -1513,6 +1559,7 @@ const styles = StyleSheet.create({
     lineHeight: 22
   },
   finishButton: {
+    marginTop: 0,
     minHeight: 46,
     borderRadius: 18,
     alignItems: "center",
@@ -1524,19 +1571,5 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800"
-  },
-  quickActionsList: {
-    gap: 10
-  },
-  quickActionSheetItem: {
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12
-  },
-  quickActionSheetText: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: "600"
   }
 });

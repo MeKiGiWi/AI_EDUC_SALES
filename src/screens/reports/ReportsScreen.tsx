@@ -182,12 +182,17 @@ export function ReportsScreen({
       </View>
 
       {sortedReports.length === 0 ? (
-        <EmptyState
-          title="Пока нет отчетов"
-          description="Сформируйте первый отчет из чата."
-          actionLabel="Перейти в чат"
-          onAction={() => onContinueChat(undefined)}
-        />
+        <AppCard tone="mint" style={styles.emptyCompactCard}>
+          <Text style={[styles.emptyCompactTitle, { color: theme.semantic.textPrimary }]}>
+            Пока нет отчетов
+          </Text>
+          <Text style={[styles.emptyCompactDescription, { color: theme.semantic.textSecondary }]}>
+            Сформируйте первый отчет из чата.
+          </Text>
+          <View style={styles.emptyCompactAction}>
+            <AppButton label="Перейти в чат" onPress={() => onContinueChat(undefined)} tone="primary" />
+          </View>
+        </AppCard>
       ) : filteredReports.length === 0 ? (
         <EmptyState
           title="В этом фильтре пусто"
@@ -277,6 +282,24 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 15,
     lineHeight: 22
+  },
+  emptyCompactCard: {
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    gap: 12
+  },
+  emptyCompactTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "800"
+  },
+  emptyCompactDescription: {
+    fontSize: 14,
+    lineHeight: 20
+  },
+  emptyCompactAction: {
+    marginTop: 2,
+    alignSelf: "flex-start"
   },
   meta: {
     fontSize: 13,

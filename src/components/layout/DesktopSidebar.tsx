@@ -102,7 +102,7 @@ export function DesktopSidebar({
           >
             <View style={styles.statusLabelRow}>
               <View style={[styles.statusDot, { backgroundColor: theme.semantic.success }]} />
-              <Text style={[styles.statusText, { color: theme.semantic.textPrimary }]}>На лендинге</Text>
+              <Text style={[styles.statusText, { color: theme.semantic.textPrimary }]}>На лендинг</Text>
             </View>
             <Text style={[styles.statusArrow, { color: theme.semantic.textSecondary }]}>›</Text>
           </Pressable>

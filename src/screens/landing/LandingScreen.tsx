@@ -1086,6 +1086,7 @@ export function LandingScreen({
                             style={[
                                 styles.sectionStack,
                                 isMobile && styles.metricSectionMobile,
+                                isMobile && styles.metricSectionMobileOffset,
                             ]}
                         >
                             <View style={styles.sectionHeading}>
@@ -3171,6 +3172,9 @@ const styles = StyleSheet.create({
     },
     metricSectionMobile: {
         paddingTop: 40,
+    },
+    metricSectionMobileOffset: {
+        paddingTop: 48,
     },
     sectionHeading: {
         gap: 10,

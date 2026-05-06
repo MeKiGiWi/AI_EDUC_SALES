@@ -450,6 +450,8 @@ export function AppNavigator() {
           title={currentRouteConfig.title}
           subtitle={currentRouteConfig.description}
           user={workspaceData.user}
+          actionLabel={routeState.name === "StudentHome" ? "На лендинг" : undefined}
+          onActionPress={routeState.name === "StudentHome" ? () => navigate("Landing") : undefined}
         />
       ) : null}
 

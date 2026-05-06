@@ -26,6 +26,8 @@ type HomeInfoSheetState =
     }
   | null;
 
+type HistoryExportSheetState = ReportCard | null;
+
 export function StudentHomeScreen({
   data,
   reports,
@@ -37,8 +39,10 @@ export function StudentHomeScreen({
   const [activeFilter, setActiveFilter] = useState<(typeof filterLabels)[number]>("Все");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [infoSheet, setInfoSheet] = useState<HomeInfoSheetState>(null);
+  const [historyExportSheet, setHistoryExportSheet] = useState<HistoryExportSheetState>(null);
 
   const isCompact = !layout.isDesktop;
+  const isMobile = layout.isMobile;
   const latestReport = reports[0];
   const filteredHistory = useMemo(() => {
     if (activeFilter === "Все") {
@@ -94,6 +98,10 @@ export function StudentHomeScreen({
     });
   }
 
+  function openHistoryExportSheet(report: ReportCard) {
+    setHistoryExportSheet(report);
+  }
+
   return (
     <View style={styles.screen}>
       <View style={[styles.headerRow, isCompact && styles.headerColumn]}>
@@ -119,6 +127,7 @@ export function StudentHomeScreen({
         <View
           style={[
             styles.reportCard,
+            !layout.isWide && styles.reportCardStacked,
             {
               backgroundColor: theme.semantic.card,
               borderColor: theme.semantic.border,
@@ -163,24 +172,50 @@ export function StudentHomeScreen({
                 </View>
               </View>
 
-              <View style={[styles.listColumns, isCompact && styles.listColumnsStack]}>
-                <View style={styles.feedbackColumn}>
-                  <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Сильные стороны</Text>
-                  {latestReportStrengths.map((item) => (
-                    <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
-                      ✓ {item}
-                    </Text>
-                  ))}
+              {isMobile ? (
+                <View style={styles.mobileFeedbackStack}>
+                  <View style={styles.feedbackColumnMobile}>
+                    <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Сильные стороны</Text>
+                    {latestReportStrengths.map((item) => (
+                      <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
+                        ✓ {item}
+                      </Text>
+                    ))}
+                  </View>
+                  <View
+                    style={[
+                      styles.growthColumnMobile,
+                      { borderTopColor: theme.semantic.border }
+                    ]}
+                  >
+                    <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
+                    {latestReportGrowthPoints.map((item) => (
+                      <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
+                        ⚠ {item}
+                      </Text>
+                    ))}
+                  </View>
                 </View>
-                <View style={styles.feedbackColumn}>
-                  <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
-                  {latestReportGrowthPoints.map((item) => (
-                    <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
-                      ⚠ {item}
-                    </Text>
-                  ))}
+              ) : (
+                <View style={[styles.listColumns, isCompact && styles.listColumnsStack]}>
+                  <View style={styles.feedbackColumn}>
+                    <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Сильные стороны</Text>
+                    {latestReportStrengths.map((item) => (
+                      <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
+                        ✓ {item}
+                      </Text>
+                    ))}
+                  </View>
+                  <View style={styles.feedbackColumn}>
+                    <Text style={[styles.listTitle, { color: theme.semantic.textPrimary }]}>Точки роста</Text>
+                    {latestReportGrowthPoints.map((item) => (
+                      <Text key={item} style={[styles.listItem, { color: theme.semantic.textSecondary }]}>
+                        ⚠ {item}
+                      </Text>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              )}
 
               <View style={styles.actionRow}>
                 <PrimaryActionButton label="Открыть" onPress={() => onOpenReport(latestReport.id)} />
@@ -201,6 +236,7 @@ export function StudentHomeScreen({
         <View
           style={[
             styles.recommendationsCard,
+            !layout.isWide && styles.recommendationsCardStacked,
             {
               backgroundColor: theme.semantic.card,
               borderColor: theme.semantic.border,
@@ -267,6 +303,7 @@ export function StudentHomeScreen({
       <View
         style={[
           styles.tableCard,
+          isMobile && styles.tableCardMobile,
           {
             backgroundColor: theme.semantic.card,
             borderColor: theme.semantic.border,
@@ -281,51 +318,93 @@ export function StudentHomeScreen({
         <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>История отчетов</Text>
         {filteredHistory.length > 0 ? (
           <>
-            <View style={styles.tableHeader}>
-              {[
-                { title: "Дата", style: styles.tableDateColumn },
-                { title: "Модуль", style: styles.tableModuleColumn },
-                { title: "Сценарий", style: styles.tableScenarioColumn },
-                { title: "Уровень", style: styles.tableLevelColumn },
-                { title: "Экспорт", style: styles.tableExportColumn }
-              ].map((column) => (
-                <View key={column.title} style={column.style}>
-                  <Text style={[styles.tableHeaderText, { color: theme.semantic.textMuted }]}>
-                    {column.title}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            {!isMobile ? (
+              <View style={styles.tableHeader}>
+                {[
+                  { title: "Дата", style: styles.tableDateColumn },
+                  { title: "Модуль", style: styles.tableModuleColumn },
+                  { title: "Сценарий", style: styles.tableScenarioColumn },
+                  { title: "Уровень", style: styles.tableLevelColumn },
+                  { title: "Экспорт", style: styles.tableExportColumn }
+                ].map((column) => (
+                  <View key={column.title} style={column.style}>
+                    <Text style={[styles.tableHeaderText, { color: theme.semantic.textMuted }]}>
+                      {column.title}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
 
             {filteredHistory.map((item) => (
-              <View key={item.id} style={[styles.tableRow, { borderTopColor: theme.semantic.borderSubtle }]}>
-                <View style={styles.tableDateColumn}>
-                  <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.updatedAt}</Text>
+              isMobile ? (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.mobileHistoryCard,
+                    { borderTopColor: theme.semantic.borderSubtle, borderColor: theme.semantic.borderSubtle }
+                  ]}
+                >
+                  <View style={styles.mobileHistoryTopRow}>
+                    <Text style={[styles.mobileHistoryDate, { color: theme.semantic.textSecondary }]}>
+                      {item.updatedAt}
+                    </Text>
+                    <View style={styles.mobileHistoryMetaRow}>
+                      <LevelBadge level={toHistoryLevel(item)} mobileDense />
+                      <SecondaryActionButton
+                        label="Скачать"
+                        compact
+                        mobileDense
+                        onPress={() => openHistoryExportSheet(item)}
+                      />
+                    </View>
+                  </View>
+
+                  <Pressable onPress={() => onOpenReport(item.id)} style={styles.mobileHistoryMain}>
+                    <Text style={[styles.mobileHistoryModule, { color: theme.semantic.actionPrimary }]}>
+                      {item.title}
+                    </Text>
+                    <Text style={[styles.mobileHistoryScenario, { color: theme.semantic.textSecondary }]}>
+                      {item.scenarioTitle}
+                    </Text>
+                  </Pressable>
                 </View>
-                <Pressable onPress={() => onOpenReport(item.id)} style={styles.tableModuleColumn}>
-                  <Text style={[styles.tableText, styles.tableStrong, { color: theme.semantic.actionPrimary }]}>
-                    {item.title}
-                  </Text>
-                </Pressable>
-                <View style={styles.tableScenarioColumn}>
-                  <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.scenarioTitle}</Text>
+              ) : (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.tableRow,
+                    { borderTopColor: theme.semantic.borderSubtle }
+                  ]}
+                >
+                  <View style={styles.tableDateColumn}>
+                    <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.updatedAt}</Text>
+                  </View>
+                  <Pressable onPress={() => onOpenReport(item.id)} style={styles.tableModuleColumn}>
+                    <Text style={[styles.tableText, styles.tableStrong, { color: theme.semantic.actionPrimary }]}>
+                      {item.title}
+                    </Text>
+                  </Pressable>
+                  <View style={styles.tableScenarioColumn}>
+                    <Text style={[styles.tableText, { color: theme.semantic.textSecondary }]}>{item.scenarioTitle}</Text>
+                  </View>
+                  <View style={styles.tableLevelColumn}>
+                    <LevelBadge level={toHistoryLevel(item)} />
+                  </View>
+                  <View style={[styles.tableExportColumn, styles.exportCell]}>
+                    <SecondaryActionButton
+                      label="PDF"
+                      compact
+                      onPress={() => { void handleExport(item, "pdf"); }}
+                    />
+                    <SecondaryActionButton
+                      label="CSV"
+                      compact
+                      onPress={() => { void handleExport(item, "csv"); }}
+                    />
+                  </View>
                 </View>
-                <View style={styles.tableLevelColumn}>
-                  <LevelBadge level={toHistoryLevel(item)} />
-                </View>
-                <View style={[styles.tableExportColumn, styles.exportCell]}>
-                  <SecondaryActionButton
-                    label="PDF"
-                    compact
-                    onPress={() => { void handleExport(item, "pdf"); }}
-                  />
-                  <SecondaryActionButton
-                    label="CSV"
-                    compact
-                    onPress={() => { void handleExport(item, "csv"); }}
-                  />
-                </View>
-              </View>
+              )
             ))}
 
             <View style={[styles.paginationRow, !layout.isDesktop && styles.paginationStack]}>
@@ -355,6 +434,40 @@ export function StudentHomeScreen({
             • {line}
           </Text>
         ))}
+      </AppBottomSheet>
+
+      <AppBottomSheet
+        visible={historyExportSheet !== null}
+        title="Скачать отчет"
+        description={historyExportSheet ? historyExportSheet.title : undefined}
+        onClose={() => setHistoryExportSheet(null)}
+      >
+        <View style={styles.exportSheetActions}>
+          <SecondaryActionButton
+            label="Скачать PDF"
+            wide
+            onPress={() => {
+              if (!historyExportSheet) {
+                return;
+              }
+
+              void handleExport(historyExportSheet, "pdf");
+              setHistoryExportSheet(null);
+            }}
+          />
+          <SecondaryActionButton
+            label="Скачать CSV"
+            wide
+            onPress={() => {
+              if (!historyExportSheet) {
+                return;
+              }
+
+              void handleExport(historyExportSheet, "csv");
+              setHistoryExportSheet(null);
+            }}
+          />
+        </View>
       </AppBottomSheet>
     </View>
   );
@@ -395,11 +508,13 @@ function PrimaryActionButton({ label, onPress }: { label: string; onPress?: () =
 function SecondaryActionButton({
   label,
   compact,
+  mobileDense,
   wide,
   onPress
 }: {
   label: string;
   compact?: boolean;
+  mobileDense?: boolean;
   wide?: boolean;
   onPress?: () => void;
 }) {
@@ -413,17 +528,32 @@ function SecondaryActionButton({
       style={[
         styles.secondaryButton,
         compact && styles.secondaryButtonCompact,
+        mobileDense && styles.secondaryButtonMobileDense,
         wide && styles.secondaryButtonWide,
         { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border },
         isDisabled && styles.buttonDisabled
       ]}
     >
-      <Text style={[styles.secondaryButtonText, { color: theme.semantic.textPrimary }]}>{label}</Text>
+      <Text
+        style={[
+          styles.secondaryButtonText,
+          mobileDense && styles.secondaryButtonTextMobileDense,
+          { color: theme.semantic.textPrimary }
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
-function LevelBadge({ level }: { level: "junior" | "middle" | "senior" }) {
+function LevelBadge({
+  level,
+  mobileDense = false
+}: {
+  level: "junior" | "middle" | "senior";
+  mobileDense?: boolean;
+}) {
   const theme = useTheme();
   const config =
     level === "senior"
@@ -433,8 +563,10 @@ function LevelBadge({ level }: { level: "junior" | "middle" | "senior" }) {
         : { label: "Junior", background: "rgba(200,92,74,0.12)", color: theme.semantic.danger };
 
   return (
-    <View style={[styles.statusBadge, { backgroundColor: config.background }]}>
-      <Text style={[styles.statusBadgeText, { color: config.color }]}>{config.label}</Text>
+    <View style={[styles.statusBadge, mobileDense && styles.statusBadgeMobileDense, { backgroundColor: config.background }]}>
+      <Text style={[styles.statusBadgeText, mobileDense && styles.statusBadgeTextMobileDense, { color: config.color }]}>
+        {config.label}
+      </Text>
     </View>
   );
 }
@@ -562,24 +694,41 @@ const styles = StyleSheet.create({
   contentSplit: {
     flexDirection: "row",
     gap: 18,
-    alignItems: "stretch"
+    alignItems: "flex-start"
   },
   contentSplitStack: {
-    flexDirection: "column"
+    flexDirection: "column",
+    alignItems: "stretch"
   },
   reportCard: {
-    flex: 1.75,
+    flex: 1.45,
+    minWidth: 0,
     borderWidth: 1,
     borderRadius: 30,
     padding: 22,
     gap: 20
+  },
+  reportCardStacked: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: "auto",
+    width: "100%"
   },
   recommendationsCard: {
     flex: 1,
+    minWidth: 320,
     borderWidth: 1,
     borderRadius: 30,
     padding: 22,
     gap: 20
+  },
+  recommendationsCardStacked: {
+    minWidth: 0,
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: "auto",
+    width: "100%",
+    alignSelf: "stretch"
   },
   rowBetween: {
     flexDirection: "row",
@@ -671,8 +820,22 @@ const styles = StyleSheet.create({
   listColumnsStack: {
     flexDirection: "column"
   },
+  mobileFeedbackStack: {
+    gap: 14,
+    marginTop: 5
+  },
   feedbackColumn: {
     flex: 1,
+    gap: 10
+  },
+  feedbackColumnMobile: {
+    width: "100%",
+    gap: 10
+  },
+  growthColumnMobile: {
+    paddingTop: 14,
+    borderTopWidth: 1,
+    width: "100%",
     gap: 10
   },
   listTitle: {
@@ -713,6 +876,10 @@ const styles = StyleSheet.create({
     minHeight: 32,
     paddingHorizontal: 12
   },
+  secondaryButtonMobileDense: {
+    minHeight: 30,
+    paddingHorizontal: 10
+  },
   secondaryButtonWide: {
     paddingHorizontal: 20
   },
@@ -722,6 +889,9 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 14,
     fontWeight: "700"
+  },
+  secondaryButtonTextMobileDense: {
+    fontSize: 12
   },
   recommendationList: {
     gap: 18
@@ -796,6 +966,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 10
   },
+  tableCardMobile: {
+    paddingHorizontal: 10
+  },
+  mobileHistoryCard: {
+    borderTopWidth: 1,
+    paddingVertical: 12,
+    gap: 10
+  },
+  mobileHistoryTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12
+  },
+  mobileHistoryDate: {
+    fontSize: 14,
+    lineHeight: 20
+  },
+  mobileHistoryMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  mobileHistoryMain: {
+    gap: 6
+  },
+  mobileHistoryModule: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "700"
+  },
+  mobileHistoryScenario: {
+    fontSize: 14,
+    lineHeight: 20
+  },
   tableHeader: {
     flexDirection: "row",
     paddingTop: 8,
@@ -827,6 +1032,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8
   },
+  tableRowMobile: {
+    alignItems: "flex-start",
+    gap: 6
+  },
   tableText: {
     fontSize: 14,
     lineHeight: 20
@@ -841,14 +1050,25 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     minWidth: 106
   },
+  statusBadgeMobileDense: {
+    minWidth: 58,
+    paddingHorizontal: 5,
+    paddingVertical: 4
+  },
   statusBadgeText: {
     fontSize: 12,
     fontWeight: "700"
+  },
+  statusBadgeTextMobileDense: {
+    fontSize: 10
   },
   exportCell: {
     flexDirection: "row",
     gap: 8,
     justifyContent: "flex-start"
+  },
+  exportSheetActions: {
+    gap: 12
   },
   paginationRow: {
     paddingTop: 10,

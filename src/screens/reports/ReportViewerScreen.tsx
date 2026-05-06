@@ -66,6 +66,7 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
       <View
         style={[
           styles.topBar,
+          !layout.isDesktop && styles.topBarMobile,
           {
             backgroundColor: theme.semantic.card,
             borderColor: theme.semantic.border,
@@ -73,7 +74,7 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
           }
         ]}
       >
-        <View style={styles.titleBlock}>
+        <View style={[styles.titleBlock, !layout.isDesktop && styles.titleBlockMobile]}>
           <AppButton label="Назад к отчетам" onPress={onBack} tone="ghost" />
           <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
           <View style={styles.metaRow}>
@@ -83,14 +84,35 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
             </Text>
           </View>
         </View>
-        <View style={styles.actionRow}>
+        <View style={[styles.actionRow, !layout.isDesktop && styles.actionRowMobile]}>
           {report.availableFormats.includes("pdf") ? (
-            <AppButton label="Скачать PDF" onPress={() => { void handleExport("pdf"); }} tone="secondary" />
+            <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
+              <AppButton
+                label="Скачать PDF"
+                onPress={() => { void handleExport("pdf"); }}
+                tone="secondary"
+                fullWidth={!layout.isDesktop}
+              />
+            </View>
           ) : null}
           {report.availableFormats.includes("csv") ? (
-            <AppButton label="Скачать CSV" onPress={() => { void handleExport("csv"); }} tone="secondary" />
+            <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
+              <AppButton
+                label="Скачать CSV"
+                onPress={() => { void handleExport("csv"); }}
+                tone="secondary"
+                fullWidth={!layout.isDesktop}
+              />
+            </View>
           ) : null}
-          <AppButton label="Скопировать" onPress={() => { void handleCopy(); }} tone="ghost" />
+          <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
+            <AppButton
+              label="Скопировать"
+              onPress={() => { void handleCopy(); }}
+              tone="ghost"
+              fullWidth={!layout.isDesktop}
+            />
+          </View>
         </View>
       </View>
 
@@ -184,10 +206,16 @@ const styles = StyleSheet.create({
     gap: 16,
     flexWrap: "wrap"
   },
+  topBarMobile: {
+    alignItems: "stretch"
+  },
   titleBlock: {
     flex: 1,
     minWidth: 260,
     gap: 10
+  },
+  titleBlockMobile: {
+    minWidth: 0
   },
   title: {
     fontSize: 26,
@@ -210,6 +238,14 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "flex-end",
     gap: 10
+  },
+  actionRowMobile: {
+    width: "100%",
+    flexDirection: "column",
+    justifyContent: "flex-start"
+  },
+  actionButtonMobile: {
+    width: "100%"
   },
   statusText: {
     fontSize: 14,

@@ -220,7 +220,12 @@ export function SimulatorScreen({
             </View>
           </View>
 
-          <View style={styles.heroIllustrationWrap}>
+          <View
+            style={[
+              styles.heroIllustrationWrap,
+              !layout.isWide && styles.heroIllustrationWrapMobile
+            ]}
+          >
             <View style={[styles.heroIllustration, { backgroundColor: theme.colors.primaryPale }]}>
               <View
                 style={[styles.chatBlobLarge, { backgroundColor: "rgba(255,255,255,0.85)" }]}
@@ -348,6 +353,7 @@ function DialogueView({
   const errorText = activeSession?.errorText ?? null;
   const dialogueHeight = Math.max(theme.viewport.height - 18, 700);
   const dialogueBodyHeight = Math.max(theme.viewport.height - 96, 580);
+  const mobileMessageListMaxHeight = Math.min(Math.max(theme.viewport.height * 0.42, 280), 420);
 
   useEffect(() => {
     setDraftMessage("");
@@ -422,6 +428,7 @@ function DialogueView({
     <View
       style={[
         styles.screen,
+        !layout.isDesktop && styles.screenMobileDialogue,
         layout.isDesktop && { height: dialogueHeight, gap: 10 }
       ]}
     >
@@ -462,6 +469,7 @@ function DialogueView({
           testID="simulator-chat-panel"
           style={[
             styles.chatPanel,
+            !layout.isDesktop && styles.chatPanelMobile,
             {
               backgroundColor: theme.semantic.card,
               borderColor: theme.semantic.border,
@@ -584,8 +592,14 @@ function DialogueView({
           <ScrollView
             ref={messageScrollRef}
             testID="simulator-message-list"
-            style={styles.messageList}
-            contentContainerStyle={styles.messageListContent}
+            style={[
+              styles.messageList,
+              !layout.isDesktop && { maxHeight: mobileMessageListMaxHeight, marginBottom: 0 }
+            ]}
+            contentContainerStyle={[
+              styles.messageListContent,
+              !layout.isDesktop && styles.messageListContentMobile
+            ]}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => scrollToBottom(true)}
             onLayout={() => scrollToBottom(false)}
@@ -648,15 +662,18 @@ function DialogueView({
             ) : null}
           </ScrollView>
 
-          <View
-            pointerEvents="none"
-            style={[styles.inputFooterBackdrop, { backgroundColor: theme.semantic.card }]}
-          />
+          {layout.isDesktop ? (
+            <View
+              pointerEvents="none"
+              style={[styles.inputFooterBackdrop, { backgroundColor: theme.semantic.card }]}
+            />
+          ) : null}
 
           <View
             testID="simulator-chat-input-row"
             style={[
               styles.inputWrap,
+              !layout.isDesktop && styles.inputWrapMobile,
               {
                 backgroundColor: theme.semantic.card,
                 borderTopColor: theme.semantic.borderSubtle
@@ -729,7 +746,7 @@ function DialogueView({
           </View>
         </View>
 
-        <View style={styles.insightColumn}>
+        <View style={[styles.insightColumn, !layout.isDesktop && styles.insightColumnMobile]}>
           <View
             style={[
               styles.insightCard,
@@ -988,6 +1005,9 @@ const styles = StyleSheet.create({
   screen: {
     gap: 18
   },
+  screenMobileDialogue: {
+    paddingBottom: 120
+  },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1115,6 +1135,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 14
   },
+  heroIllustrationWrapMobile: {
+    minWidth: 0,
+    width: "100%",
+    alignSelf: "center"
+  },
   heroIllustration: {
     width: 220,
     height: 150,
@@ -1160,7 +1185,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 28,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    alignSelf: "center"
   },
   heroCtaText: {
     color: "#FFFFFF",
@@ -1337,6 +1363,10 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     marginBottom: 0
   },
+  chatPanelMobile: {
+    height: "auto",
+    minHeight: 0
+  },
   chatTopBar: {
     minHeight: 52,
     paddingHorizontal: 18,
@@ -1452,6 +1482,9 @@ const styles = StyleSheet.create({
     paddingBottom: 96,
     gap: 10
   },
+  messageListContentMobile: {
+    paddingBottom: 18
+  },
   messageBubble: {
     maxWidth: "66%",
     borderWidth: 1,
@@ -1517,6 +1550,16 @@ const styles = StyleSheet.create({
     zIndex: 4,
     elevation: 4
   },
+  inputWrapMobile: {
+    position: "relative",
+    left: "auto",
+    right: "auto",
+    bottom: "auto",
+    paddingTop: 10,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    elevation: 0
+  },
   inputRow: {
     minHeight: 50,
     borderRadius: 18,
@@ -1562,6 +1605,11 @@ const styles = StyleSheet.create({
     minHeight: 0,
     justifyContent: "flex-start",
     height: "100%"
+  },
+  insightColumnMobile: {
+    height: "auto",
+    gap: 10,
+    paddingBottom: 24
   },
   insightCard: {
     borderWidth: 1,

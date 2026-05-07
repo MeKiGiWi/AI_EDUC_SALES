@@ -161,8 +161,7 @@ export function buildOptimisticManagerMessage(text: string): DialogueMessage {
 
 export function getVisibleManagerReplyLabel(messages: DialogueMessage[], target: number): string {
   const replyCount = countManagerReplies(messages);
-  const visibleCount = Math.min(replyCount, target);
-  return replyCount > target ? `${visibleCount}+/ ${target}`.replace(" ", "") : `${visibleCount} / ${target}`;
+  return `${replyCount} / ${target}`;
 }
 
 export const simulatorDialogueDefaults = {

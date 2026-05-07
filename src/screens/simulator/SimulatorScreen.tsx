@@ -335,10 +335,7 @@ function DialogueView({
   const messages = activeSession?.messages ?? [];
   const managerReplyCount = countManagerReplies(messages);
   const progress = calculateDialogueProgress(messages, dialogue.replyTarget);
-  const visibleReplyCountLabel =
-    managerReplyCount > dialogue.replyTarget
-      ? `${dialogue.replyTarget}+ / ${dialogue.replyTarget}`
-      : `${Math.min(managerReplyCount, dialogue.replyTarget)} / ${dialogue.replyTarget}`;
+  const visibleReplyCountLabel = `${managerReplyCount} / ${dialogue.replyTarget}`;
   const isSending = activeSession?.isSending ?? false;
   const isFinishing = activeSession?.isFinishing ?? false;
   const canFinishScenario = managerReplyCount >= dialogue.replyTarget && !isFinishing;
@@ -779,7 +776,7 @@ function DialogueView({
           </Pressable>
           {!canFinishScenario ? (
             <Text style={[styles.finishHintText, { color: theme.semantic.textMuted }]}>
-              Нужно 10 реплик для отчета ({managerReplyCount} / {dialogue.replyTarget})
+              Минимум {dialogue.replyTarget} реплик для отчета ({managerReplyCount} / {dialogue.replyTarget})
             </Text>
           ) : null}
         </View>

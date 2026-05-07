@@ -4,6 +4,7 @@ import {
   buildOptimisticManagerMessage,
   calculateDialogueProgress,
   countManagerReplies,
+  getVisibleManagerReplyLabel,
   mapApiMessageToDialogueMessage,
   mergeApiMessages
 } from "../src/services/simulatorDialogueService";
@@ -76,6 +77,17 @@ const overflowProgress = calculateDialogueProgress(
   10
 );
 assert(overflowProgress === 100, "progress must clamp to 100%");
+
+const messagesWith11ManagerReplies: DialogueMessage[] = new Array(11).fill(null).map((_, index) => ({
+  id: `manager-${index}`,
+  author: "manager",
+  text: `manager reply ${index + 1}`,
+  time: "12:30"
+}));
+assert(
+  getVisibleManagerReplyLabel(messagesWith11ManagerReplies, 10) === "11 / 10",
+  "visible manager reply label must show the real count above the minimum threshold"
+);
 
 const mockInitial = buildInitialMockDialogue({
   scenarioId: "cold-call",

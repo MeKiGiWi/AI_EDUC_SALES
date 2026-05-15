@@ -79,7 +79,7 @@ Production работает так:
 
 ### Host Nginx example
 
-Если на VPS используется системный `nginx`, он должен только проксировать трафик в frontend container:
+Если на VPS используется системный `nginx`, он должен только проксировать трафик в frontend container: 
 
 ```nginx
 server {

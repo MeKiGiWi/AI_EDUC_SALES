@@ -21,7 +21,7 @@ class LLMSettings(BaseSettings):
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_SITE_URL: str = "http://localhost:8081"
     OPENROUTER_APP_NAME: str = "AI Sales Academy"
-    LLM_MODEL: str = "qwen-turbo"
+    LLM_MODEL: str = "openai/gpt-oss-120b"
     LLM_TEMPERATURE: float = Field(default=0.2, ge=0.0, le=1.0)
     LLM_REASONING_EFFORT: Literal["minimal", "low", "medium", "high", "none"] | None = None
     MIN_MANAGER_TURNS: int = Field(default=10, ge=1, le=100)

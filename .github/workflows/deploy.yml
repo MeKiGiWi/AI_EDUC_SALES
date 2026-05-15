@@ -18,12 +18,18 @@ jobs:
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
           script: |
             set -e
+
+            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 
             cd /opt/ai-educ-sales
 
@@ -36,6 +42,7 @@ jobs:
               echo "Error: backend/.env is missing. Deploy stopped."
               exit 1
             fi
+
             if ! grep -q "LLM_API_KEY" backend/.env; then
               echo "Error: LLM_API_KEY not found in backend/.env. Deploy stopped."
               exit 1
@@ -43,8 +50,7 @@ jobs:
 
             echo "Deploying commit $(git rev-parse --short HEAD)"
 
-            docker compose config
-            docker compose build frontend backend
+            docker compose build --pull frontend backend
             docker compose up -d --remove-orphans
             docker compose ps
             
@@ -54,11 +60,13 @@ jobs:
                 echo "Services are healthy."
                 break
               fi
+
               if [ $i -eq 12 ]; then
                 echo "Timeout waiting for services. Gathering logs:"
                 docker compose ps
                 docker compose logs --tail=80 backend frontend
                 exit 1
               fi
+
               sleep 5
             done

@@ -234,6 +234,17 @@ export function AppNavigator() {
     const optimisticMessage = buildOptimisticManagerMessage(trimmedText);
     const sessionKey = session.sessionId;
 
+    if (isStopCommand(trimmedText)) {
+      updateSession((current) => ({
+        ...current,
+        messages: [...current.messages, optimisticMessage],
+        status: "finished",
+        errorText: "Диалог остановлен. Отчет можно сформировать после 10 ваших реплик.",
+        isSending: false
+      }));
+      return true;
+    }
+
     updateSession((current) => ({
       ...current,
       messages: [...current.messages, optimisticMessage],
@@ -319,10 +330,11 @@ export function AppNavigator() {
       return;
     }
 
-    if (countManagerReplies(session.messages) < 1) {
+    const requiredReplyCount = workspaceData?.activeDialogue.replyTarget ?? 10;
+    if (countManagerReplies(session.messages) < requiredReplyCount) {
       updateSession((current) => ({
         ...current,
-        errorText: "Напишите хотя бы одну реплику перед отчетом."
+        errorText: "Для корректной оценки нужно не менее 10 ваших реплик."
       }));
       return;
     }
@@ -415,7 +427,6 @@ export function AppNavigator() {
     !layout.isDesktop && routeState.name !== "Simulator" && routeState.name !== "Landing";
   const disableAppScroll =
     routeState.name === "Simulator" && trainerMode === "dialogue" && layout.isDesktop;
-
   if (!workspaceData) {
     return (
       <AppScreen variant="app">
@@ -428,11 +439,21 @@ export function AppNavigator() {
     return <LandingScreen roleOptions={roleWorkspaceOptions} onEnterRole={enterWorkspace} />;
   }
 
+  const activeSimulatorScenario =
+    workspaceData.scenarios.find((scenario) => scenario.id === activeScenarioId) ??
+    workspaceData.scenarios.find((scenario) => scenario.id === workspaceData.activeDialogue.selectedScenarioId);
+  const requiredSimulatorReplies = workspaceData.activeDialogue.replyTarget;
+  const canFinishSimulatorReport =
+    activeDialogueSession
+      ? countManagerReplies(activeDialogueSession.messages) >= requiredSimulatorReplies
+      : false;
+
   return (
     <AppScreen
       footer={footer ?? undefined}
       variant="app"
       scrollEnabled={!disableAppScroll}
+      disableBottomPadding={disableAppScroll}
       sidebar={
         layout.isDesktop ? (
           <DesktopSidebar
@@ -441,6 +462,20 @@ export function AppNavigator() {
             user={workspaceData.user}
             routes={visibleRoutes}
             onNavigate={navigate}
+            simulatorActions={
+              routeState.name === "Simulator" && trainerMode === "dialogue" && activeSimulatorScenario
+                ? {
+                    onChangeScenario: openTrainerCatalog,
+                    onFinishScenario: () =>
+                      finishScenarioAndOpenReport({
+                        scenarioId: activeSimulatorScenario.id,
+                        scenarioTitle: activeSimulatorScenario.title
+                      }),
+                    isFinishing: activeDialogueSession?.isFinishing ?? false,
+                    canFinish: canFinishSimulatorReport
+                  }
+                : undefined
+            }
           />
         ) : undefined
       }
@@ -496,11 +531,15 @@ export function AppNavigator() {
       {routeState.name === "ReportViewer" ? (
         <ReportViewerScreen
           report={selectedReport}
-          onBack={() => openReports()}
+          onBack={() => navigate("Simulator")}
         />
       ) : null}
     </AppScreen>
   );
+}
+
+function isStopCommand(text: string): boolean {
+  return text.trim().toLowerCase() === "стоп";
 }
 
 function visibleRoutesForRole(role: UserRole): RouteName[] {

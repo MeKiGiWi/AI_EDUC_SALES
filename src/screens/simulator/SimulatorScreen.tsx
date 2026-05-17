@@ -146,7 +146,7 @@ export function SimulatorScreen({
     <View style={styles.screen}>
       <View style={[styles.headerRow, !layout.isDesktop && styles.headerStack]}>
         <View style={styles.headerBlock}>
-          <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
+          <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>ИИ-Тренажер</Text>
           <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
             Практикуйте навыки продаж в реалистичных сценариях.
           </Text>
@@ -343,14 +343,22 @@ function DialogueView({
   const visibleReplyCountLabel = `${managerReplyCount} / ${dialogue.replyTarget}`;
   const isSending = activeSession?.isSending ?? false;
   const isFinishing = activeSession?.isFinishing ?? false;
-  const canFinishScenario = managerReplyCount >= dialogue.replyTarget && !isFinishing;
+  const hasEnoughRepliesForReport = managerReplyCount >= dialogue.replyTarget;
+  const canFinishScenario = hasEnoughRepliesForReport && !isFinishing;
   const isSessionActive = activeSession?.status === "active";
   const typingVisible = isSending;
   const typingDotsOpacity = useRef(new Animated.Value(0.35)).current;
   const errorText = activeSession?.errorText ?? null;
-  const dialogueHeight = Math.max(theme.viewport.height - 18, 700);
-  const dialogueBodyHeight = Math.max(theme.viewport.height - 96, 580);
+  const desktopTopOffset = 0;
+  const appBottomPadding = layout.isDesktop ? theme.spacing.screenBottom : theme.spacing.screenBottom + 24;
+  const desktopAvailableHeight =
+    theme.viewport.height - theme.spacing.screenTop - appBottomPadding - desktopTopOffset;
+  const dialogueHeight = layout.isDesktop
+    ? Math.max(desktopAvailableHeight, 380)
+    : Math.max(theme.viewport.height - theme.spacing.screenTop * 2, 520);
+  const dialogueBodyHeight = Math.max(dialogueHeight - 52, 328);
   const mobileMessageListMaxHeight = Math.min(Math.max(theme.viewport.height * 0.42, 280), 420);
+  const showScenarioIntro = managerReplyCount === 0;
 
   useEffect(() => {
     setDraftMessage("");
@@ -426,32 +434,34 @@ function DialogueView({
       style={[
         styles.screen,
         !layout.isDesktop && styles.screenMobileDialogue,
-        layout.isDesktop && { height: dialogueHeight, gap: 10 }
+        layout.isDesktop && { height: dialogueHeight, gap: 10, marginTop: desktopTopOffset }
       ]}
     >
       <View style={[styles.dialogueHeader, !layout.isDesktop && styles.headerStack]}>
-        <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>Тренажер</Text>
-        <View
-          style={[
-            styles.dialogueHeaderCenter,
-            !layout.isDesktop && styles.dialogueHeaderCenterStack
-          ]}
-        >
-          <Pressable
-            onPress={onBackToCatalog}
+        <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>ИИ-Тренажер</Text>
+        {!layout.isDesktop ? (
+          <View
             style={[
-              styles.changeScenarioButton,
-              { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+              styles.dialogueHeaderCenter,
+              styles.dialogueHeaderCenterStack
             ]}
           >
-            <Text style={[styles.changeScenarioIcon, { color: theme.semantic.textSecondary }]}>
-              ⇄
-            </Text>
-            <Text style={[styles.changeScenarioText, { color: theme.semantic.textPrimary }]}>
-              Сменить сценарий
-            </Text>
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={onBackToCatalog}
+              style={[
+                styles.changeScenarioButton,
+                { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+              ]}
+            >
+              <Text style={[styles.changeScenarioIcon, { color: theme.semantic.textSecondary }]}>
+                ⇄
+              </Text>
+              <Text style={[styles.changeScenarioText, { color: theme.semantic.textPrimary }]}>
+                Сменить сценарий
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View
@@ -591,13 +601,15 @@ function DialogueView({
             testID="simulator-message-list"
             style={[
               styles.messageList,
+              layout.isDesktop && styles.messageListDesktop,
               !layout.isDesktop && { maxHeight: mobileMessageListMaxHeight, marginBottom: 0 }
             ]}
             contentContainerStyle={[
               styles.messageListContent,
+              layout.isDesktop && styles.messageListContentDesktop,
               !layout.isDesktop && styles.messageListContentMobile
             ]}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator
             onContentSizeChange={() => scrollToBottom(true)}
             onLayout={() => scrollToBottom(false)}
           >
@@ -658,6 +670,34 @@ function DialogueView({
               </View>
             ) : null}
           </ScrollView>
+
+          {showScenarioIntro ? (
+            <View pointerEvents="none" style={styles.scenarioIntroOverlay}>
+              <View
+                testID="simulator-scenario-intro"
+                style={[
+                  styles.scenarioIntroCard,
+                  {
+                    backgroundColor: "rgba(238, 248, 241, 0.74)",
+                    borderColor: "rgba(216, 230, 221, 0.72)"
+                  }
+                ]}
+              >
+                <Text style={[styles.scenarioIntroTitle, { color: theme.semantic.textPrimary }]}>
+                  Контекст сценария
+                </Text>
+                <Text style={[styles.scenarioIntroLine, { color: theme.semantic.textPrimary }]}>
+                  <Text style={styles.scenarioIntroStrong}>Продукт:</Text> Промышленные кондиционеры
+                </Text>
+                <Text style={[styles.scenarioIntroLine, { color: theme.semantic.textPrimary }]}>
+                  <Text style={styles.scenarioIntroStrong}>Ситуация:</Text> Входящий запрос, первый контакт
+                </Text>
+                <Text style={[styles.scenarioIntroLine, { color: theme.semantic.textPrimary }]}>
+                  <Text style={styles.scenarioIntroStrong}>Цель:</Text> Договориться о следующем шаге
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           {layout.isDesktop ? (
             <View
@@ -743,7 +783,8 @@ function DialogueView({
           </View>
         </View>
 
-        <View style={[styles.insightColumn, !layout.isDesktop && styles.insightColumnMobile]}>
+        {!layout.isDesktop ? (
+        <View style={[styles.insightColumn, styles.insightColumnMobile]}>
           <View
             style={[
               styles.insightCard,
@@ -753,15 +794,15 @@ function DialogueView({
             <Text style={[styles.insightTitle, { color: theme.semantic.textPrimary }]}>
               Контекст сценария
             </Text>
-            <InsightTextBlock label="Контекст" text={dialogue.context} />
-            <InsightTextBlock label="Цель" text={dialogue.goal} />
-            <InsightTextBlock label="История общения" text="Первый контакт с этим клиентом" />
+            <InsightTextBlock label="Продукт" text="Промышленные кондиционеры" />
+            <InsightTextBlock label="Ситуация" text="Входящий запрос, первый контакт" />
+            <InsightTextBlock label="Цель" text="Договориться о следующем шаге" />
           </View>
 
           <Pressable
             testID="simulator-finish-button"
             onPress={() => {
-              if (!canFinishScenario) {
+              if (isFinishing) {
                 return;
               }
               onFinishScenario({
@@ -769,13 +810,11 @@ function DialogueView({
                 scenarioTitle: selectedScenario.title
               });
             }}
-            disabled={!canFinishScenario}
+            disabled={isFinishing}
             style={[
               styles.finishButton,
               {
-                backgroundColor: canFinishScenario
-                  ? theme.semantic.actionPrimary
-                  : theme.semantic.card,
+                backgroundColor: canFinishScenario ? theme.semantic.actionPrimary : theme.semantic.card,
                 borderColor: canFinishScenario ? "transparent" : theme.semantic.border,
                 borderWidth: canFinishScenario ? 0 : 1,
                 opacity: 1
@@ -785,18 +824,19 @@ function DialogueView({
             <Text
               style={[
                 styles.finishButtonText,
-                { color: canFinishScenario ? "#FFFFFF" : theme.semantic.textMuted }
+                { color: canFinishScenario ? "#FFFFFF" : theme.semantic.actionPrimary }
               ]}
             >
               {isFinishing ? "Сохраняем отчет..." : "Завершить и получить отчет"}
             </Text>
           </Pressable>
-          {!canFinishScenario ? (
+          {!hasEnoughRepliesForReport ? (
             <Text style={[styles.finishHintText, { color: theme.semantic.textMuted }]}>
               Минимум {dialogue.replyTarget} реплик для отчета ({managerReplyCount} / {dialogue.replyTarget})
             </Text>
           ) : null}
         </View>
+        ) : null}
       </View>
 
     </View>
@@ -1344,7 +1384,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
     alignItems: "stretch",
-    paddingBottom: 10
+    paddingBottom: 0
   },
   dialogueLayoutStack: {
     flexDirection: "column"
@@ -1473,14 +1513,59 @@ const styles = StyleSheet.create({
     minHeight: 0,
     marginBottom: 78
   },
+  messageListDesktop: {
+    marginTop: 0,
+    marginBottom: 0
+  },
   messageListContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
     paddingHorizontal: 18,
     paddingTop: 8,
     paddingBottom: 96,
     gap: 10
   },
+  messageListContentDesktop: {
+    paddingBottom: 88
+  },
+  scenarioIntroOverlay: {
+    position: "absolute",
+    left: 18,
+    right: 18,
+    top: 0,
+    bottom: 78,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2
+  },
   messageListContentMobile: {
     paddingBottom: 18
+  },
+  scenarioIntroCard: {
+    alignSelf: "center",
+    width: "64%",
+    maxWidth: 520,
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 9,
+    marginVertical: 18
+  },
+  scenarioIntroTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 2
+  },
+  scenarioIntroLine: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center"
+  },
+  scenarioIntroStrong: {
+    fontWeight: "800"
   },
   messageBubble: {
     maxWidth: "66%",

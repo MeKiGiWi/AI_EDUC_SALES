@@ -11,12 +11,18 @@ interface DesktopSidebarProps {
   user: AcademyUser;
   routes: RouteName[];
   onNavigate: (route: RouteName) => void;
+  simulatorActions?: {
+    onChangeScenario: () => void;
+    onFinishScenario: () => void;
+    isFinishing: boolean;
+    canFinish: boolean;
+  };
 }
 
 const routeLabels: Record<RouteName, string> = {
   Landing: "Лендинг",
   StudentHome: "Главная",
-  Simulator: "Тренажер",
+  Simulator: "ИИ-Тренажер",
   Reports: "Отчеты",
   ReportViewer: "Просмотр отчета"
 };
@@ -25,7 +31,8 @@ export function DesktopSidebar({
   activeRoute,
   user,
   routes,
-  onNavigate
+  onNavigate,
+  simulatorActions
 }: DesktopSidebarProps) {
   const theme = useTheme();
   const routeIcons: Partial<Record<RouteName, string>> = {
@@ -44,7 +51,12 @@ export function DesktopSidebar({
       ]}
     >
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.brandBlock}>
+        <View
+          style={[
+            styles.brandBlock,
+            { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+          ]}
+        >
           <View style={styles.brandRow}>
             <View
               style={[
@@ -58,9 +70,20 @@ export function DesktopSidebar({
               AI Sales Academy
             </Text>
           </View>
-          <Text style={[styles.brandSubtitle, { color: theme.semantic.textSecondary }]}>
-            Рабочее пространство роли
-          </Text>
+          <Pressable
+            onPress={() => onNavigate("Landing")}
+            style={[
+              styles.landingLink,
+              { backgroundColor: theme.semantic.backgroundWarm }
+            ]}
+          >
+            <Text style={[styles.landingLinkText, { color: theme.semantic.actionPrimary }]}>
+              На лендинг
+            </Text>
+            <Text style={[styles.landingLinkArrow, { color: theme.semantic.textSecondary }]}>
+              ›
+            </Text>
+          </Pressable>
         </View>
 
         <View
@@ -93,19 +116,6 @@ export function DesktopSidebar({
             </View>
           </View>
 
-          <Pressable
-            onPress={() => onNavigate("Landing")}
-            style={[
-              styles.statusRow,
-              { borderColor: theme.semantic.border, backgroundColor: theme.semantic.backgroundWarm }
-            ]}
-          >
-            <View style={styles.statusLabelRow}>
-              <View style={[styles.statusDot, { backgroundColor: theme.semantic.success }]} />
-              <Text style={[styles.statusText, { color: theme.semantic.textPrimary }]}>На лендинг</Text>
-            </View>
-            <Text style={[styles.statusArrow, { color: theme.semantic.textSecondary }]}>›</Text>
-          </Pressable>
         </View>
 
         <View style={styles.block}>
@@ -161,6 +171,46 @@ export function DesktopSidebar({
           ))}
         </View>
 
+        {activeRoute === "Simulator" && simulatorActions ? (
+          <View style={styles.sidebarActions}>
+            <Pressable
+              onPress={simulatorActions.onChangeScenario}
+              style={[
+                styles.secondaryAction,
+                { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+              ]}
+            >
+              <Text style={[styles.secondaryActionIcon, { color: theme.semantic.textSecondary }]}>⇄</Text>
+              <Text style={[styles.secondaryActionText, { color: theme.semantic.textPrimary }]}>
+                Сменить сценарий
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={simulatorActions.onFinishScenario}
+              disabled={simulatorActions.isFinishing}
+              style={[
+                styles.primaryAction,
+                {
+                  backgroundColor: simulatorActions.canFinish
+                    ? theme.semantic.actionPrimary
+                    : theme.semantic.card,
+                  borderColor: simulatorActions.canFinish ? "transparent" : theme.semantic.border,
+                  opacity: 1
+                }
+              ]}
+            >
+              <Text
+                style={[
+                  styles.primaryActionText,
+                  { color: simulatorActions.canFinish ? "#FFFFFF" : theme.semantic.actionPrimary }
+                ]}
+              >
+                {simulatorActions.isFinishing ? "Сохраняем..." : "Завершить и получить отчёт"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
       </ScrollView>
     </View>
   );
@@ -172,13 +222,17 @@ const styles = StyleSheet.create({
     borderRightWidth: 1
   },
   content: {
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 28,
-    gap: 20
+    flexGrow: 1,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 18,
+    gap: 14
   },
   brandBlock: {
-    gap: 6
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 14,
+    gap: 12
   },
   brandRow: {
     flexDirection: "row",
@@ -204,11 +258,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20
   },
+  landingLink: {
+    alignSelf: "flex-start",
+    minHeight: 30,
+    borderRadius: 10,
+    paddingLeft: 10,
+    paddingRight: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6
+  },
+  landingLinkText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700"
+  },
+  landingLinkArrow: {
+    fontSize: 16,
+    lineHeight: 16,
+    marginTop: -1
+  },
   userCard: {
     borderWidth: 1,
-    borderRadius: 24,
+    borderRadius: 22,
     padding: 14,
-    gap: 14
+    gap: 12
   },
   userHeader: {
     flexDirection: "row",
@@ -241,7 +315,13 @@ const styles = StyleSheet.create({
     lineHeight: 18
   },
   block: {
-    gap: 10
+    gap: 8
+  },
+  sidebarActions: {
+    marginTop: "auto",
+    gap: 10,
+    paddingTop: 8,
+    marginBottom: 18
   },
   blockLabel: {
     fontSize: 12,
@@ -249,38 +329,11 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1.1
   },
-  statusRow: {
-    minHeight: 44,
+  navItem: {
+    minHeight: 50,
     borderWidth: 1,
     borderRadius: 16,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between"
-  },
-  statusLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999
-  },
-  statusText: {
-    fontSize: 15,
-    fontWeight: "600"
-  },
-  statusArrow: {
-    fontSize: 24,
-    lineHeight: 24
-  },
-  navItem: {
-    minHeight: 56,
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     justifyContent: "center"
   },
   navInner: {
@@ -302,5 +355,37 @@ const styles = StyleSheet.create({
   navLabel: {
     fontSize: 16,
     fontWeight: "700"
+  },
+  secondaryAction: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  secondaryActionIcon: {
+    fontSize: 17,
+    lineHeight: 20
+  },
+  secondaryActionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700"
+  },
+  primaryAction: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  primaryActionText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "700",
+    textAlign: "center"
   }
 });

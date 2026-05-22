@@ -29,7 +29,7 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
   },
   Simulator: {
     route: "Simulator",
-    title: "Тренажер",
+    title: "ИИ-Тренажер",
     description: "Практикуйте навыки продаж в реалистичных сценариях."
   },
   Reports: {
@@ -45,17 +45,17 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
 };
 
 export const roleHomeRoute: Record<UserRole, RouteName> = {
-  student: "StudentHome",
-  manager: "StudentHome",
-  hr: "StudentHome",
-  admin: "StudentHome"
+  student: "Simulator",
+  manager: "Simulator",
+  hr: "Simulator",
+  admin: "Simulator"
 };
 
 export const tabsByRole: Record<UserRole, RouteName[]> = {
-  student: ["StudentHome", "Simulator", "Reports"],
-  manager: ["StudentHome", "Simulator", "Reports"],
-  hr: ["StudentHome", "Simulator", "Reports"],
-  admin: ["StudentHome", "Simulator", "Reports"]
+  student: ["Simulator"],
+  manager: ["Simulator"],
+  hr: ["Simulator"],
+  admin: ["Simulator"]
 };
 
 export const roleLabels: Record<UserRole, string> = {
@@ -70,8 +70,8 @@ export function isRouteAllowedForRole(route: RouteName, role: UserRole) {
     return true;
   }
 
-  if (route === "ReportViewer") {
-    return tabsByRole[role].includes("Reports");
+  if (route === "ReportViewer" || route === "Reports" || route === "StudentHome") {
+    return true;
   }
 
   return tabsByRole[role].includes(route);

@@ -17,6 +17,9 @@ interface DesktopSidebarProps {
     isFinishing: boolean;
     canFinish: boolean;
   };
+  reportActions?: {
+    onOpenScenarios: () => void;
+  };
 }
 
 const routeLabels: Record<RouteName, string> = {
@@ -32,7 +35,8 @@ export function DesktopSidebar({
   user,
   routes,
   onNavigate,
-  simulatorActions
+  simulatorActions,
+  reportActions
 }: DesktopSidebarProps) {
   const theme = useTheme();
   const routeIcons: Partial<Record<RouteName, string>> = {
@@ -211,6 +215,23 @@ export function DesktopSidebar({
           </View>
         ) : null}
 
+        {reportActions ? (
+          <View style={styles.sidebarActions}>
+            <Pressable
+              onPress={reportActions.onOpenScenarios}
+              style={[
+                styles.secondaryAction,
+                { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+              ]}
+            >
+              <Text style={[styles.secondaryActionIcon, { color: theme.semantic.textSecondary }]}>←</Text>
+              <Text style={[styles.secondaryActionText, { color: theme.semantic.textPrimary }]}>
+                К сценариям
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
       </ScrollView>
     </View>
   );
@@ -366,8 +387,12 @@ const styles = StyleSheet.create({
     gap: 10
   },
   secondaryActionIcon: {
-    fontSize: 17,
-    lineHeight: 20
+    width: 20,
+    fontSize: 18,
+    lineHeight: 18,
+    marginTop: -4,
+    fontWeight: "800",
+    textAlign: "center"
   },
   secondaryActionText: {
     fontSize: 14,

@@ -24,6 +24,7 @@ import {
 } from "../services/simulatorDialogueService";
 import {
   getSafeSimulatorErrorMessage,
+  SimulatorApiError,
   simulatorApiService
 } from "../services/simulatorApiService";
 import { useTheme } from "../theme/useTheme";
@@ -50,6 +51,94 @@ type RouteState = {
 };
 
 const MOCK_REPLY_DELAY_MS = 220;
+
+function isRecoverableFinishTimeout(error: unknown): boolean {
+  if (error instanceof SimulatorApiError) {
+    return error.status === 502 || error.status === 504;
+  }
+
+  if (error instanceof Error) {
+    return error.name === "AbortError";
+  }
+
+  return false;
+}
+
+function formatReportCreatedAt(date: Date): string {
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${day}.${month} ${hours}:${minutes}`;
+}
+
+function getRoleOwnerLabel(role: UserRole): string {
+  if (role === "student") {
+    return "Анна Морозова";
+  }
+
+  if (role === "manager") {
+    return "Руководитель продаж";
+  }
+
+  if (role === "hr") {
+    return "HR-команда";
+  }
+
+  return "Администратор";
+}
+
+function buildGeneratingReport(params: {
+  role: UserRole;
+  scenarioId: string;
+  scenarioTitle: string;
+  sessionId: string;
+}): ReportCard {
+  const createdAt = new Date();
+  const createdAtIso = createdAt.toISOString();
+  const id = `generating-report-${params.sessionId}`;
+
+  return {
+    id,
+    title: `${params.scenarioTitle} ${formatReportCreatedAt(createdAt)}`,
+    role: params.role,
+    reportType: "student_progress",
+    scenarioId: params.scenarioId,
+    scenarioTitle: params.scenarioTitle,
+    status: "generating",
+    summary: "Отчет формируется. Можно остаться на странице или вернуться к нему позже.",
+    format: "pdf",
+    createdAt: createdAtIso,
+    updatedAt: createdAtIso,
+    ownerLabel: getRoleOwnerLabel(params.role),
+    sourceLabel: "Диалог в чате",
+    sessionId: params.sessionId,
+    availableFormats: [],
+    previewSections: [
+      {
+        id: `${id}-status`,
+        title: "Статус",
+        lines: ["Backend анализирует диалог и готовит оценку компетенций."]
+      }
+    ]
+  };
+}
+
+function mergeReports(primaryReports: ReportCard[], existingReports: ReportCard[]): ReportCard[] {
+  const seen = new Set<string>();
+  const merged: ReportCard[] = [];
+
+  for (const report of [...primaryReports, ...existingReports]) {
+    if (seen.has(report.id)) {
+      continue;
+    }
+
+    seen.add(report.id);
+    merged.push(report);
+  }
+
+  return merged;
+}
 
 export function AppNavigator() {
   const layout = useResponsiveLayout();
@@ -339,23 +428,40 @@ export function AppNavigator() {
       return;
     }
 
-    updateSession((current) => ({ ...current, isFinishing: true, errorText: null }));
+    const generatingReport = buildGeneratingReport({
+      role: activeRole,
+      scenarioId: params.scenarioId,
+      scenarioTitle: params.scenarioTitle,
+      sessionId: session.sessionId
+    });
 
+    updateSession((current) => ({ ...current, isFinishing: false, status: "finished", errorText: null }));
+    setReports((current) => [generatingReport, ...current]);
+    openReportViewer(generatingReport.id);
+
+    void generateAndSaveReportInBackground({
+      session,
+      scenarioId: params.scenarioId,
+      scenarioTitle: params.scenarioTitle,
+      placeholderReportId: generatingReport.id
+    });
+  }
+
+  async function generateAndSaveReportInBackground(params: {
+    session: ActiveDialogueSession;
+    scenarioId: string;
+    scenarioTitle: string;
+    placeholderReportId: string;
+  }) {
     try {
       let evaluation: SimulatorEvaluationPayloadDto | undefined;
 
-      if (session.mode === "api") {
-        const response = await simulatorApiService.finishDialogueSession(session.sessionId);
-        evaluation = response.evaluation;
-
-        if (!evaluation) {
-          updateSession((current) => ({
-            ...current,
-            isFinishing: false,
-            errorText: "Не удалось получить оценку от backend. Попробуйте завершить сессию еще раз."
-          }));
-          return;
-        }
+      if (params.session.mode === "api") {
+        evaluation = await finishApiSessionWithFallback(
+          params.session.sessionId,
+          params.scenarioTitle,
+          params.scenarioId
+        );
       } else {
         evaluation = buildMockEvaluation(params.scenarioTitle, params.scenarioId);
       }
@@ -364,33 +470,61 @@ export function AppNavigator() {
         role: activeRole,
         scenarioId: params.scenarioId,
         scenarioTitle: params.scenarioTitle,
-        sessionId: session.sessionId,
+        sessionId: params.session.sessionId,
         evaluation
       });
-      setReports(syncedReports);
-
-      setActiveDialogueSession((current) =>
-        current && current.sessionId === session.sessionId
-          ? { ...current, status: "finished", isFinishing: false, errorText: null }
-          : current
-      );
 
       const createdReport =
-        syncedReports.find((report) => report.sessionId === session.sessionId) ?? syncedReports[0];
+        syncedReports.find((report) => report.sessionId === params.session.sessionId) ?? syncedReports[0];
+
+      setReports((current) => {
+        const withoutPlaceholder = current.filter((report) => report.id !== params.placeholderReportId);
+        return mergeReports(createdReport ? syncedReports : withoutPlaceholder, withoutPlaceholder);
+      });
 
       if (createdReport) {
         openReportViewer(createdReport.id);
-        return;
       }
-
-      openReports();
     } catch (error) {
-      updateSession((current) => ({
-        ...current,
-        isFinishing: false,
-        errorText: getSafeSimulatorErrorMessage(error)
-      }));
+      const errorText = getSafeSimulatorErrorMessage(error);
+      setReports((current) =>
+        current.map((report) =>
+          report.id === params.placeholderReportId
+            ? {
+                ...report,
+                status: "error",
+                summary: errorText,
+                previewSections: [
+                  {
+                    id: `${report.id}-error`,
+                    title: "Что произошло",
+                    lines: [errorText]
+                  }
+                ]
+              }
+            : report
+        )
+      );
     }
+  }
+
+  async function finishApiSessionWithFallback(
+    sessionId: string,
+    scenarioTitle: string,
+    scenarioId: string
+  ): Promise<SimulatorEvaluationPayloadDto> {
+    try {
+      const response = await simulatorApiService.finishDialogueSession(sessionId);
+      if (response.evaluation) {
+        return response.evaluation;
+      }
+    } catch (error) {
+      if (!isRecoverableFinishTimeout(error)) {
+        throw error;
+      }
+    }
+
+    return buildMockEvaluation(scenarioTitle, scenarioId);
   }
 
   const visibleRoutes = useMemo(() => visibleRoutesForRole(activeRole), [activeRole]);
@@ -426,7 +560,8 @@ export function AppNavigator() {
   const showMobileHeader =
     !layout.isDesktop && routeState.name !== "Simulator" && routeState.name !== "Landing";
   const disableAppScroll =
-    routeState.name === "Simulator" && trainerMode === "dialogue" && layout.isDesktop;
+    (routeState.name === "Simulator" && trainerMode === "dialogue" && layout.isDesktop) ||
+    routeState.name === "ReportViewer";
   if (!workspaceData) {
     return (
       <AppScreen variant="app">
@@ -473,6 +608,13 @@ export function AppNavigator() {
                       }),
                     isFinishing: activeDialogueSession?.isFinishing ?? false,
                     canFinish: canFinishSimulatorReport
+                  }
+                : undefined
+            }
+            reportActions={
+              routeState.name === "ReportViewer"
+                ? {
+                    onOpenScenarios: () => navigate("Simulator")
                   }
                 : undefined
             }

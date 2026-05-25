@@ -29,13 +29,15 @@ export function StatusPill({ label, tone = "neutral" }: StatusPillProps) {
 
 const styles = StyleSheet.create({
   pill: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 6
+    paddingVertical: 5,
+    justifyContent: "center"
   },
   label: {
     fontSize: 12,
+    lineHeight: 16,
     fontWeight: "700"
   }
 });

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ReportStatusBadge } from "../../components/reports/ReportStatusBadge";
 import { AppButton } from "../../components/ui/AppButton";
@@ -19,6 +19,10 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
   const theme = useTheme();
   const layout = useResponsiveLayout();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const screenHeight = Math.max(
+    theme.viewport.height - theme.spacing.screenTop - theme.spacing.screenBottom - 8,
+    layout.isDesktop ? 560 : 480
+  );
 
   if (!report) {
     return (
@@ -62,7 +66,7 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { height: screenHeight }]}>
       <View
         style={[
           styles.topBar,
@@ -75,43 +79,43 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
         ]}
       >
         <View style={[styles.titleBlock, !layout.isDesktop && styles.titleBlockMobile]}>
-          <AppButton label="Назад к отчетам" onPress={onBack} tone="ghost" />
-          <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
-          <View style={styles.metaRow}>
-            <ReportStatusBadge status={report.status} />
-            <Text style={[styles.meta, { color: theme.semantic.textMuted }]}>
-              {report.scenarioTitle ?? "Сценарий"} · {report.updatedAt}
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.actionRow, !layout.isDesktop && styles.actionRowMobile]}>
-          {report.availableFormats.includes("pdf") ? (
-            <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
-              <AppButton
-                label="Скачать PDF"
-                onPress={() => { void handleExport("pdf"); }}
-                tone="secondary"
-                fullWidth={!layout.isDesktop}
-              />
+          <View style={[styles.titleRow, !layout.isDesktop && styles.titleRowMobile]}>
+            <View style={styles.titleTextBlock}>
+              <View style={styles.titleInline}>
+                <Text style={[styles.title, { color: theme.semantic.textPrimary }]}>{report.title}</Text>
+                <ReportStatusBadge status={report.status} />
+              </View>
             </View>
-          ) : null}
-          {report.availableFormats.includes("csv") ? (
-            <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
-              <AppButton
-                label="Скачать CSV"
-                onPress={() => { void handleExport("csv"); }}
-                tone="secondary"
-                fullWidth={!layout.isDesktop}
-              />
+            <View style={[styles.actionRow, !layout.isDesktop && styles.actionRowMobile]}>
+              {report.availableFormats.includes("pdf") ? (
+                <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
+                  <AppButton
+                    label="Скачать PDF"
+                    onPress={() => { void handleExport("pdf"); }}
+                    tone="secondary"
+                    fullWidth={!layout.isDesktop}
+                  />
+                </View>
+              ) : null}
+              {report.availableFormats.includes("csv") ? (
+                <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
+                  <AppButton
+                    label="Скачать CSV"
+                    onPress={() => { void handleExport("csv"); }}
+                    tone="secondary"
+                    fullWidth={!layout.isDesktop}
+                  />
+                </View>
+              ) : null}
+              <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
+                <AppButton
+                  label="Скопировать"
+                  onPress={() => { void handleCopy(); }}
+                  tone="ghost"
+                  fullWidth={!layout.isDesktop}
+                />
+              </View>
             </View>
-          ) : null}
-          <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
-            <AppButton
-              label="Скопировать"
-              onPress={() => { void handleCopy(); }}
-              tone="ghost"
-              fullWidth={!layout.isDesktop}
-            />
           </View>
         </View>
       </View>
@@ -122,33 +126,38 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
         </AppCard>
       ) : null}
 
-      <View style={[styles.contentGrid, layout.isDesktop && styles.contentGridDesktop]}>
-        <View style={styles.reportContent}>
-          <AppCard style={styles.summaryCard}>
-            <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Краткое резюме</Text>
-            <Text style={[styles.summary, { color: theme.semantic.textSecondary }]}>{report.summary}</Text>
-          </AppCard>
-
-          {report.previewSections.map((section) => (
-            <AppCard key={section.id} style={styles.sectionCard}>
-              <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>{section.title}</Text>
-              <View style={styles.lines}>
-                {section.lines.map((line) => (
-                  <Text key={line} style={[styles.line, { color: theme.semantic.textPrimary }]}>
-                    • {line}
-                  </Text>
-                ))}
-              </View>
+      <View style={[styles.reportShell, layout.isDesktop && styles.reportShellDesktop]}>
+        <ScrollView
+          style={styles.reportScroll}
+          contentContainerStyle={styles.reportScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.reportContent}>
+            <AppCard style={styles.summaryCard}>
+              <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Краткое резюме</Text>
+              <Text style={[styles.summary, { color: theme.semantic.textSecondary }]}>{report.summary}</Text>
             </AppCard>
-          ))}
-        </View>
+
+            {report.previewSections.map((section) => (
+              <AppCard key={section.id} style={styles.sectionCard}>
+                <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>{section.title}</Text>
+                <View style={styles.lines}>
+                  {section.lines.map((line) => (
+                    <Text key={line} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+                      • {line}
+                    </Text>
+                  ))}
+                </View>
+              </AppCard>
+            ))}
+          </View>
+        </ScrollView>
 
         <AppCard tone="mint" style={[styles.metaPanel, !layout.isDesktop && styles.metaPanelMobile]}>
           <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Информация</Text>
           <InfoRow label="Сценарий" value={report.scenarioTitle ?? "Не указан"} />
-          <InfoRow label="Дата создания" value={report.createdAt ? formatDate(report.createdAt) : report.updatedAt} />
+          <InfoRow label="Дата создания" value={formatDate(report.createdAt || report.updatedAt)} />
           <InfoRow label="Источник" value={report.sourceLabel ?? "Чат"} />
-          <InfoRow label="Формат" value={report.format.toUpperCase()} />
         </AppCard>
       </View>
     </View>
@@ -195,38 +204,47 @@ function formatDate(value: string): string {
 
 const styles = StyleSheet.create({
   screen: {
-    gap: 16
+    gap: 16,
+    minHeight: 0
   },
   topBar: {
     borderWidth: 1,
     padding: 14,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 16,
-    flexWrap: "wrap"
+    gap: 12
   },
   topBarMobile: {
     alignItems: "stretch"
   },
   titleBlock: {
-    flex: 1,
-    minWidth: 260,
     gap: 10
   },
   titleBlockMobile: {
     minWidth: 0
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16
+  },
+  titleRowMobile: {
+    alignItems: "stretch",
+    flexDirection: "column"
+  },
+  titleTextBlock: {
+    flex: 1,
+    minWidth: 260
+  },
+  titleInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 12
+  },
   title: {
     fontSize: 26,
     lineHeight: 32,
     fontWeight: "800"
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 10
   },
   meta: {
     fontSize: 13,
@@ -237,6 +255,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-end",
+    alignItems: "center",
     gap: 10
   },
   actionRowMobile: {
@@ -252,12 +271,21 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "800"
   },
-  contentGrid: {
+  reportShell: {
+    flex: 1,
+    minHeight: 0,
     gap: 16
   },
-  contentGridDesktop: {
+  reportShellDesktop: {
     flexDirection: "row",
-    alignItems: "flex-start"
+    alignItems: "stretch"
+  },
+  reportScroll: {
+    flex: 1,
+    minHeight: 0
+  },
+  reportScrollContent: {
+    paddingBottom: 2
   },
   reportContent: {
     flex: 1,
@@ -287,7 +315,9 @@ const styles = StyleSheet.create({
     lineHeight: 23
   },
   metaPanel: {
-    width: 320
+    width: 320,
+    gap: 14,
+    alignSelf: "flex-start"
   },
   metaPanelMobile: {
     width: "100%"

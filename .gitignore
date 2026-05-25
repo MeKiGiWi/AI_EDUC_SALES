@@ -83,6 +83,7 @@ coverage/
 test-results/
 
 # Runtime
+backend/data/
 __pycache__/
 *.py[cod]
 *$py.class

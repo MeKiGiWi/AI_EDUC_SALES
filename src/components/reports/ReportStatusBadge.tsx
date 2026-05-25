@@ -9,7 +9,7 @@ interface ReportStatusBadgeProps {
 
 const statusLabel: Record<ReportStatus, string> = {
   draft: "Черновик",
-  generating: "Генерируется",
+  generating: "Формируется",
   ready: "Готов",
   error: "Ошибка"
 };

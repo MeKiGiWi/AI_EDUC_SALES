@@ -1,7 +1,75 @@
-import type { ExportFormat, ReportCard } from "../types/academy";
+import {
+  getDevelopmentCompetencies,
+  getStrengthCompetencies
+} from "./reportFlowCore";
+import type { ExportFormat, ReportCard, SimulatorEvaluationPayloadDto } from "../types/academy";
 import { themeTokens } from "../theme/tokens";
 
 const reportExportTheme = themeTokens;
+
+type CompetencyLevel = "Junior" | "Middle" | "Senior";
+
+const pdfLevelColors: Record<CompetencyLevel, { background: string; text: string }> = {
+  Junior: { background: "#FDF0D3", text: "#9A6A12" },
+  Middle: { background: "#DBE6F7", text: "#121A68" },
+  Senior: { background: "#E4F7D6", text: "#3F7A18" }
+};
+
+interface ExportTextSection {
+  title: string;
+  lines: string[];
+}
+
+/**
+ * Текстовые секции для выгрузки. При наличии structured-оценки строятся по ТЗ
+ * (без дублей), иначе — из previewSections (старые/засеянные отчёты).
+ */
+function buildStructuredSections(report: ReportCard): ExportTextSection[] {
+  const evaluation = report.evaluation;
+  if (!evaluation) {
+    return report.previewSections.map((section) => ({ title: section.title, lines: section.lines }));
+  }
+
+  const strengths = getStrengthCompetencies(evaluation);
+  const development = getDevelopmentCompetencies(evaluation);
+  const quotes = Array.from(
+    new Set(
+      evaluation.competencies
+        .flatMap((competency) => competency.quote)
+        .map((quote) => quote.trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 5);
+
+  const recommendationLines =
+    development.length > 0
+      ? development.flatMap((competency, index) => [
+          `Фокус ${index + 1}. ${competency.name} (сейчас ${competency.level}, общий — ${evaluation.overall_level}):`,
+          ...competency.recommendations.map((recommendation) => `— ${recommendation}`)
+        ])
+      : evaluation.overall_recommendations;
+
+  const sections: ExportTextSection[] = [
+    {
+      title: "Сильные стороны",
+      lines: strengths.map((competency) => `${competency.name}: ${competency.argument}`)
+    },
+    {
+      title: "Зоны развития",
+      lines:
+        development.length > 0
+          ? development.map((competency) => `${competency.name}: ${competency.argument}`)
+          : ["Явных зон ниже общего уровня нет — держите текущую планку."]
+    },
+    { title: "Рекомендации по развитию", lines: recommendationLines }
+  ];
+
+  if (quotes.length > 0) {
+    sections.push({ title: "Цитаты из диалога", lines: quotes.map((quote) => `«${quote}»`) });
+  }
+
+  return sections;
+}
 const browserFontStack = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const reportPageWidth = 1240;
 const reportPageHeight = 1754;
@@ -16,9 +84,16 @@ interface WrappedSectionLine {
   lines: string[];
 }
 
+interface CompetencyRow {
+  name: string;
+  level: CompetencyLevel;
+  argumentLines: string[];
+}
+
 interface RenderSectionCard {
   title: string;
   items: WrappedSectionLine[];
+  competencyRows?: CompetencyRow[];
   height: number;
 }
 
@@ -45,7 +120,20 @@ function buildCsv(report: ReportCard): string {
     ["", ""]
   ];
 
-  report.previewSections.forEach((section) => {
+  const evaluation = report.evaluation;
+  if (evaluation) {
+    rows.push(["Общий уровень", evaluation.overall_level]);
+    rows.push(["", evaluation.overall_comment]);
+    rows.push(["", ""]);
+    rows.push(["Компетенции", ""]);
+    rows.push(["Компетенция", "Уровень", "Комментарий"]);
+    evaluation.competencies.forEach((competency) => {
+      rows.push([competency.name, competency.level, competency.argument]);
+    });
+    rows.push(["", ""]);
+  }
+
+  buildStructuredSections(report).forEach((section) => {
     rows.push([section.title, ""]);
     section.lines.forEach((line) => {
       rows.push(["", line]);
@@ -192,7 +280,7 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
 
 function prepareSectionCard(
   ctx: CanvasRenderingContext2D,
-  section: ReportCard["previewSections"][number]
+  section: ExportTextSection
 ): RenderSectionCard {
   ctx.font = `600 20px ${browserFontStack}`;
 
@@ -211,6 +299,62 @@ function prepareSectionCard(
     items,
     height: 44 + 24 + contentHeight + 28
   };
+}
+
+function prepareCompetencyCard(
+  ctx: CanvasRenderingContext2D,
+  evaluation: SimulatorEvaluationPayloadDto
+): RenderSectionCard {
+  const competencyRows: CompetencyRow[] = evaluation.competencies.map((competency) => {
+    ctx.font = `500 18px ${browserFontStack}`;
+    return {
+      name: competency.name,
+      level: competency.level,
+      argumentLines: wrapText(ctx, competency.argument, reportCardWidth - 64)
+    };
+  });
+
+  const contentHeight = competencyRows.reduce((sum, row) => {
+    return sum + 32 + Math.max(row.argumentLines.length, 1) * 26 + 18;
+  }, 0);
+
+  return {
+    title: "Компетенции",
+    items: [],
+    competencyRows,
+    height: 44 + 24 + contentHeight + 28
+  };
+}
+
+function drawCompetencyRows(
+  ctx: CanvasRenderingContext2D,
+  rows: CompetencyRow[],
+  startY: number
+): void {
+  let currentY = startY;
+  rows.forEach((row) => {
+    ctx.fillStyle = reportExportTheme.semantic.textPrimary;
+    ctx.font = `700 20px ${browserFontStack}`;
+    ctx.fillText(row.name, reportPagePadding + 32, currentY);
+
+    const colors = pdfLevelColors[row.level];
+    ctx.font = `700 15px ${browserFontStack}`;
+    const badgeWidth = ctx.measureText(row.level).width + 26;
+    const badgeX = reportPagePadding + reportCardWidth - 24 - badgeWidth;
+    drawRoundedRect(ctx, badgeX, currentY - 19, badgeWidth, 28, 14, colors.background);
+    ctx.fillStyle = colors.text;
+    ctx.fillText(row.level, badgeX + 13, currentY);
+
+    currentY += 32;
+
+    ctx.fillStyle = reportExportTheme.semantic.textSecondary;
+    ctx.font = `500 18px ${browserFontStack}`;
+    row.argumentLines.forEach((line) => {
+      ctx.fillText(line, reportPagePadding + 32, currentY);
+      currentY += 26;
+    });
+    currentY += 18;
+  });
 }
 
 function drawPageBackground(ctx: CanvasRenderingContext2D): void {
@@ -287,9 +431,21 @@ function drawHeroCard(ctx: CanvasRenderingContext2D, report: ReportCard): number
   });
 
   const pillY = reportPagePadding + heroHeight - 72;
-  const pills = [report.ownerLabel, report.updatedAt];
   let pillX = reportPagePadding + 34;
   ctx.font = `700 16px ${browserFontStack}`;
+
+  if (report.evaluation) {
+    const level = report.evaluation.overall_level;
+    const colors = pdfLevelColors[level];
+    const label = `Общий уровень: ${level}`;
+    const pillWidth = ctx.measureText(label).width + 36;
+    drawRoundedRect(ctx, pillX, pillY, pillWidth, 36, 18, colors.background);
+    ctx.fillStyle = colors.text;
+    ctx.fillText(label, pillX + 18, pillY + 24);
+    pillX += pillWidth + 12;
+  }
+
+  const pills = [report.ownerLabel, report.updatedAt];
   pills.forEach((label) => {
     const pillWidth = ctx.measureText(label).width + 36;
     drawRoundedRect(
@@ -387,6 +543,11 @@ function drawSectionCard(
   ctx.font = `800 28px ${browserFontStack}`;
   ctx.fillText(card.title, reportPagePadding + 24, y + 70);
 
+  if (card.competencyRows) {
+    drawCompetencyRows(ctx, card.competencyRows, y + 110);
+    return;
+  }
+
   ctx.fillStyle = reportExportTheme.semantic.textSecondary;
   ctx.font = `600 20px ${browserFontStack}`;
   let currentY = y + 110;
@@ -439,8 +600,15 @@ function buildPdfCanvases(report: ReportCard): HTMLCanvasElement[] {
   let page = createPage();
   let currentY = drawHeroCard(page.ctx, report);
 
-  report.previewSections.forEach((section) => {
-    const card = prepareSectionCard(page.ctx, section);
+  const sections: RenderSectionCard[] = [];
+  if (report.evaluation) {
+    sections.push(prepareCompetencyCard(page.ctx, report.evaluation));
+  }
+  buildStructuredSections(report).forEach((section) => {
+    sections.push(prepareSectionCard(page.ctx, section));
+  });
+
+  sections.forEach((card) => {
     const maxY = reportPageHeight - reportPagePadding - reportPageFooterHeight;
 
     if (currentY + card.height > maxY) {

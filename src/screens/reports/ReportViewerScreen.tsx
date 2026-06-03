@@ -7,8 +7,31 @@ import { AppCard } from "../../components/ui/AppCard";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { downloadReportFile } from "../../services/reportExportService";
+import {
+  getDevelopmentCompetencies,
+  getStrengthCompetencies
+} from "../../services/reportFlowCore";
 import { useTheme } from "../../theme/useTheme";
 import type { ReportCard } from "../../types/academy";
+
+type CompetencyLevel = "Junior" | "Middle" | "Senior";
+
+const levelBadgeColors: Record<CompetencyLevel, { background: string; text: string }> = {
+  Junior: { background: "#FDF0D3", text: "#9A6A12" },
+  Middle: { background: "#DBE6F7", text: "#121A68" },
+  Senior: { background: "#E4F7D6", text: "#3F7A18" }
+};
+
+function LevelBadge({ level, compact = false }: { level: CompetencyLevel; compact?: boolean }) {
+  const colors = levelBadgeColors[level];
+  return (
+    <View style={[styles.levelBadge, compact && styles.levelBadgeCompact, { backgroundColor: colors.background }]}>
+      <Text style={[styles.levelBadgeText, compact && styles.levelBadgeTextCompact, { color: colors.text }]}>
+        {level}
+      </Text>
+    </View>
+  );
+}
 
 interface ReportViewerScreenProps {
   report?: ReportCard;
@@ -52,6 +75,159 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
     setStatusMessage("Отчет скопирован.");
   }
 
+  const isGenerating = report?.status === "generating";
+  const isError = report?.status === "error";
+  const evaluation = report?.evaluation;
+  const strengthCompetencies = evaluation ? getStrengthCompetencies(evaluation) : [];
+  const developmentCompetencies = evaluation ? getDevelopmentCompetencies(evaluation) : [];
+  const quoteLines = evaluation
+    ? Array.from(
+        new Set(
+          evaluation.competencies
+            .flatMap((competency) => competency.quote)
+            .map((quote) => quote.trim())
+            .filter(Boolean)
+        )
+      ).slice(0, 5)
+    : [];
+
+  const reportBody = isGenerating ? (
+    <View style={[styles.reportContent, !layout.isDesktop && styles.reportContentMobile]}>
+      <AppCard style={styles.statusCard}>
+        <Text style={[styles.statusTitle, { color: theme.semantic.textPrimary }]}>Отчёт формируется…</Text>
+        <Text style={[styles.statusBody, { color: theme.semantic.textSecondary }]}>
+          ИИ анализирует диалог и оценивает 5 компетенций. Это может занять до пары минут — можно остаться
+          на странице или вернуться к отчёту позже. Готовый отчёт появится здесь автоматически.
+        </Text>
+      </AppCard>
+    </View>
+  ) : isError ? (
+    <View style={[styles.reportContent, !layout.isDesktop && styles.reportContentMobile]}>
+      <AppCard style={styles.statusCard}>
+        <Text style={[styles.statusTitle, { color: theme.semantic.danger }]}>Отчёт не сформирован</Text>
+        <Text style={[styles.statusBody, { color: theme.semantic.textSecondary }]}>{report?.summary}</Text>
+      </AppCard>
+    </View>
+  ) : evaluation ? (
+    <View style={[styles.reportContent, !layout.isDesktop && styles.reportContentMobile]}>
+      <AppCard style={styles.summaryCard}>
+        <View style={styles.levelHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Общий уровень</Text>
+          <LevelBadge level={evaluation.overall_level} />
+        </View>
+        <Text style={[styles.summary, { color: theme.semantic.textSecondary }]}>
+          {evaluation.overall_comment}
+        </Text>
+      </AppCard>
+
+      <AppCard style={styles.sectionCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Компетенции</Text>
+        <View style={styles.competencyTable}>
+          {evaluation.competencies.map((competency) => (
+            <View key={competency.name} style={[styles.competencyRow, { borderColor: theme.semantic.border }]}>
+              <View style={styles.competencyHead}>
+                <Text style={[styles.competencyName, { color: theme.semantic.textPrimary }]}>
+                  {competency.name}
+                </Text>
+                <LevelBadge level={competency.level} compact />
+              </View>
+              <Text style={[styles.competencyArgument, { color: theme.semantic.textSecondary }]}>
+                {competency.argument}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </AppCard>
+
+      {strengthCompetencies.length > 0 ? (
+        <AppCard style={styles.sectionCard}>
+          <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Сильные стороны</Text>
+          <View style={styles.lines}>
+            {strengthCompetencies.map((competency) => (
+              <Text key={competency.name} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+                • {competency.name}: {competency.argument}
+              </Text>
+            ))}
+          </View>
+        </AppCard>
+      ) : null}
+
+      <AppCard style={styles.sectionCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Зоны развития</Text>
+        <View style={styles.lines}>
+          {developmentCompetencies.length > 0 ? (
+            developmentCompetencies.map((competency) => (
+              <Text key={competency.name} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+                • {competency.name}: {competency.argument}
+              </Text>
+            ))
+          ) : (
+            <Text style={[styles.line, { color: theme.semantic.textPrimary }]}>
+              Явных зон ниже общего уровня нет — держите текущую планку.
+            </Text>
+          )}
+        </View>
+      </AppCard>
+
+      <AppCard style={styles.sectionCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Рекомендации по развитию</Text>
+        <View style={styles.lines}>
+          {developmentCompetencies.length > 0
+            ? developmentCompetencies.map((competency, index) => (
+                <View key={competency.name} style={styles.focusBlock}>
+                  <Text style={[styles.focusHeader, { color: theme.semantic.textPrimary }]}>
+                    Фокус {index + 1}. {competency.name} (сейчас {competency.level}, общий — {evaluation.overall_level})
+                  </Text>
+                  {competency.recommendations.map((recommendation) => (
+                    <Text key={recommendation} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+                      — {recommendation}
+                    </Text>
+                  ))}
+                </View>
+              ))
+            : evaluation.overall_recommendations.map((recommendation) => (
+                <Text key={recommendation} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+                  • {recommendation}
+                </Text>
+              ))}
+        </View>
+      </AppCard>
+
+      {quoteLines.length > 0 ? (
+        <AppCard style={styles.sectionCard}>
+          <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Цитаты из диалога</Text>
+          <View style={styles.lines}>
+            {quoteLines.map((quote, index) => (
+              <Text key={`${quote}-${index}`} style={[styles.quoteLine, { color: theme.semantic.textSecondary }]}>
+                «{quote}»
+              </Text>
+            ))}
+          </View>
+        </AppCard>
+      ) : null}
+    </View>
+  ) : (
+    <View style={[styles.reportContent, !layout.isDesktop && styles.reportContentMobile]}>
+      <AppCard style={styles.summaryCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Итог диалога</Text>
+        <Text style={[styles.summary, { color: theme.semantic.textSecondary }]}>{report?.summary}</Text>
+      </AppCard>
+
+      {report?.previewSections.map((section) => (
+        <AppCard key={section.id} style={styles.sectionCard}>
+          <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>{section.title}</Text>
+          <View style={styles.lines}>
+            {section.lines.map((line) => (
+              <Text key={line} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+                • {line}
+              </Text>
+            ))}
+          </View>
+        </AppCard>
+      ))}
+    </View>
+  );
+
   async function handleExport(format: "pdf" | "csv") {
     if (!report) {
       return;
@@ -66,7 +242,7 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
   }
 
   return (
-    <View style={[styles.screen, { height: screenHeight }]}>
+    <View style={[styles.screen, layout.isDesktop && { height: screenHeight }]}>
       <View
         style={[
           styles.topBar,
@@ -107,14 +283,16 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
                   />
                 </View>
               ) : null}
-              <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
-                <AppButton
-                  label="Скопировать"
-                  onPress={() => { void handleCopy(); }}
-                  tone="ghost"
-                  fullWidth={!layout.isDesktop}
-                />
-              </View>
+              {!isGenerating && !isError ? (
+                <View style={!layout.isDesktop ? styles.actionButtonMobile : undefined}>
+                  <AppButton
+                    label="Скопировать"
+                    onPress={() => { void handleCopy(); }}
+                    tone="ghost"
+                    fullWidth={!layout.isDesktop}
+                  />
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -126,32 +304,18 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
         </AppCard>
       ) : null}
 
-      <View style={[styles.reportShell, layout.isDesktop && styles.reportShellDesktop]}>
-        <ScrollView
-          style={styles.reportScroll}
-          contentContainerStyle={styles.reportScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.reportContent}>
-            <AppCard style={styles.summaryCard}>
-              <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Краткое резюме</Text>
-              <Text style={[styles.summary, { color: theme.semantic.textSecondary }]}>{report.summary}</Text>
-            </AppCard>
-
-            {report.previewSections.map((section) => (
-              <AppCard key={section.id} style={styles.sectionCard}>
-                <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>{section.title}</Text>
-                <View style={styles.lines}>
-                  {section.lines.map((line) => (
-                    <Text key={line} style={[styles.line, { color: theme.semantic.textPrimary }]}>
-                      • {line}
-                    </Text>
-                  ))}
-                </View>
-              </AppCard>
-            ))}
-          </View>
-        </ScrollView>
+      <View style={[styles.reportShell, layout.isDesktop ? styles.reportShellDesktop : styles.reportShellMobile]}>
+        {layout.isDesktop ? (
+          <ScrollView
+            style={styles.reportScroll}
+            contentContainerStyle={styles.reportScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {reportBody}
+          </ScrollView>
+        ) : (
+          reportBody
+        )}
 
         <AppCard tone="mint" style={[styles.metaPanel, !layout.isDesktop && styles.metaPanelMobile]}>
           <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Информация</Text>
@@ -280,8 +444,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch"
   },
+  reportShellMobile: {
+    flex: 0,
+    minHeight: 0
+  },
   reportScroll: {
     flex: 1,
+    minHeight: 0
+  },
+  reportScrollMobile: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: "auto",
     minHeight: 0
   },
   reportScrollContent: {
@@ -292,8 +466,26 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 14
   },
+  reportContentMobile: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: "auto"
+  },
   summaryCard: {
     gap: 10
+  },
+  statusCard: {
+    gap: 12,
+    paddingVertical: 28
+  },
+  statusTitle: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "800"
+  },
+  statusBody: {
+    fontSize: 15,
+    lineHeight: 23
   },
   summary: {
     fontSize: 16,
@@ -313,6 +505,67 @@ const styles = StyleSheet.create({
   line: {
     fontSize: 15,
     lineHeight: 23
+  },
+  levelHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12
+  },
+  levelBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    alignSelf: "flex-start"
+  },
+  levelBadgeCompact: {
+    paddingVertical: 3,
+    paddingHorizontal: 10
+  },
+  levelBadgeText: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.3
+  },
+  levelBadgeTextCompact: {
+    fontSize: 12
+  },
+  competencyTable: {
+    gap: 0
+  },
+  competencyRow: {
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    gap: 6
+  },
+  competencyHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10
+  },
+  competencyName: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "700"
+  },
+  competencyArgument: {
+    fontSize: 14,
+    lineHeight: 21
+  },
+  focusBlock: {
+    gap: 6
+  },
+  focusHeader: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "800"
+  },
+  quoteLine: {
+    fontSize: 15,
+    lineHeight: 23,
+    fontStyle: "italic"
   },
   metaPanel: {
     width: 320,

@@ -147,6 +147,9 @@ export function getSafeSimulatorErrorMessage(error: unknown): string {
     if (error.name === "AbortError") {
       return "Превышено время ожидания ответа от сервера.";
     }
+    if (error.message) {
+      return error.message;
+    }
   }
   return "Не удалось выполнить действие. Проверьте подключение и попробуйте снова.";
 }
@@ -214,15 +217,14 @@ export const simulatorApiService = {
   },
 
   async finishDialogueSession(sessionId: string): Promise<SimulatorFinishResponseDto> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
-    try {
-      return await requestJson<SimulatorFinishResponseDto>(withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/finish`), {
-        method: "POST",
-        signal: controller.signal
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    // Отчёт строит LLM, это может занять много времени. Намеренно НЕ ставим
+    // клиентский таймаут: ждём ответ ровно столько, сколько нужно бэкенду.
+    // Лучше дождаться реальной оценки, чем оборвать и подставить заглушку.
+    return await requestJson<SimulatorFinishResponseDto>(
+      withDebugQuery(`/api/v1/simulator/sessions/${sessionId}/finish`),
+      {
+        method: "POST"
+      }
+    );
   }
 };

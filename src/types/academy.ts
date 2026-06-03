@@ -519,6 +519,7 @@ export interface ReportCard {
   sessionId: string | null;
   availableFormats: ExportFormat[];
   previewSections: ReportPreviewSection[];
+  evaluation?: SimulatorEvaluationPayloadDto;
 }
 
 export interface RoleWorkspaceOption {

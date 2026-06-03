@@ -349,6 +349,26 @@ function DialogueView({
   const dialogue = data.activeDialogue;
   const [draftMessage, setDraftMessage] = useState("");
   const messageScrollRef = useRef<ScrollView | null>(null);
+  const touchStartYRef = useRef(0);
+  const keyboardDismissedRef = useRef(false);
+
+  // Lock page scroll only while the mobile chat is open, so swipes dismiss the
+  // keyboard / scroll the message list instead of scrolling the whole page.
+  // Scoped to this view's lifetime — restored when leaving the chat.
+  useEffect(() => {
+    if (layout.isDesktop || Platform.OS !== "web" || typeof document === "undefined") {
+      return;
+    }
+    const body = document.body;
+    const prevOverflow = body.style.overflow;
+    const prevOverscroll = body.style.overscrollBehavior;
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+    return () => {
+      body.style.overflow = prevOverflow;
+      body.style.overscrollBehavior = prevOverscroll;
+    };
+  }, [layout.isDesktop]);
 
   const messages = activeSession?.messages ?? [];
   const managerReplyCount = countManagerReplies(messages);
@@ -433,6 +453,11 @@ function DialogueView({
       return;
     }
 
+    // On mobile the Enter key inserts a newline (send is via the button only).
+    if (!layout.isDesktop) {
+      return;
+    }
+
     const webEvent = event as WebTextInputKeyEvent;
     if (webEvent.nativeEvent.key !== "Enter" || webEvent.nativeEvent.shiftKey) {
       return;
@@ -440,6 +465,35 @@ function DialogueView({
 
     webEvent.preventDefault?.();
     void handleSendMessage();
+  }
+
+  function dismissKeyboard() {
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) {
+        active.blur();
+      }
+    }
+  }
+
+  function handleListTouchStart(event: { nativeEvent: { pageY?: number; touches?: Array<{ pageY: number }> } }) {
+    if (layout.isDesktop) {
+      return;
+    }
+    touchStartYRef.current = event.nativeEvent.touches?.[0]?.pageY ?? event.nativeEvent.pageY ?? 0;
+    keyboardDismissedRef.current = false;
+  }
+
+  function handleListTouchMove(event: { nativeEvent: { pageY?: number; touches?: Array<{ pageY: number }> } }) {
+    if (layout.isDesktop || keyboardDismissedRef.current) {
+      return;
+    }
+    const y = event.nativeEvent.touches?.[0]?.pageY ?? event.nativeEvent.pageY ?? 0;
+    // Only a deliberate downward drag dismisses the keyboard (swipe-to-dismiss).
+    if (y - touchStartYRef.current > 24) {
+      keyboardDismissedRef.current = true;
+      dismissKeyboard();
+    }
   }
 
   return (
@@ -450,32 +504,52 @@ function DialogueView({
         layout.isDesktop && { height: dialogueHeight, gap: 10, marginTop: desktopTopOffset }
       ]}
     >
-      <View style={[styles.dialogueHeader, !layout.isDesktop && styles.headerStack]}>
-        <Text style={[styles.pageTitle, { color: LP.textPrimary }]}>ИИ-Тренажер</Text>
-        {!layout.isDesktop ? (
-          <View
+      {layout.isDesktop ? (
+        <View style={styles.dialogueHeader}>
+          <Text style={[styles.pageTitle, { color: LP.textPrimary }]}>ИИ-Тренажер</Text>
+        </View>
+      ) : (
+        <View style={[styles.dialogueHeaderBarMobile, { backgroundColor: LP.card, borderBottomColor: LP.border }]}>
+          <Pressable
+            onPress={onBackToCatalog}
+            style={[styles.chatHeaderAction, { backgroundColor: LP.backgroundWarm, borderColor: LP.border }]}
+          >
+            <Text style={[styles.chatHeaderActionIcon, { color: LP.textSecondary }]}>⇄</Text>
+            <Text style={[styles.chatHeaderActionText, { color: LP.textPrimary }]}>Сценарии</Text>
+          </Pressable>
+          <Pressable
+            testID="simulator-finish-button"
+            onPress={() => {
+              if (isFinishing) {
+                return;
+              }
+              onFinishScenario({
+                scenarioId: selectedScenario.id,
+                scenarioTitle: selectedScenario.title
+              });
+            }}
+            disabled={isFinishing}
             style={[
-              styles.dialogueHeaderCenter,
-              styles.dialogueHeaderCenterStack
+              styles.chatHeaderFinish,
+              {
+                backgroundColor: canFinishScenario ? LP.actionPrimary : LP.card,
+                borderColor: canFinishScenario ? "transparent" : LP.border,
+                borderWidth: canFinishScenario ? 0 : 1,
+                opacity: canFinishScenario ? 1 : 0.55
+              }
             ]}
           >
-            <Pressable
-              onPress={onBackToCatalog}
+            <Text
               style={[
-                styles.changeScenarioButton,
-                { backgroundColor: LP.card, borderColor: LP.border }
+                styles.chatHeaderFinishText,
+                { color: canFinishScenario ? "#FFFFFF" : LP.actionPrimary }
               ]}
             >
-              <Text style={[styles.changeScenarioIcon, { color: LP.textSecondary }]}>
-                ⇄
-              </Text>
-              <Text style={[styles.changeScenarioText, { color: LP.textPrimary }]}>
-                Сменить сценарий
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
+              {isFinishing ? "Сохранение…" : "Завершить ✓"}
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       <View
         style={[
@@ -501,6 +575,33 @@ function DialogueView({
             }
           ]}
         >
+          {!layout.isDesktop ? (
+            <View style={[styles.chatTopBar, styles.chatTopBarMobile, { borderBottomColor: LP.borderSubtle }]}>
+              <View style={styles.chatTopRowMobile}>
+                <Text style={[styles.chatTopMeta, styles.chatTopMetaMobile, { color: LP.textSecondary }]}>
+                  Реплики:{" "}
+                  <Text style={[styles.chatTopMetaStrong, { color: LP.textPrimary }]}>
+                    {visibleReplyCountLabel}
+                  </Text>
+                </Text>
+                <View style={styles.chatStatusRow}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: activeSession?.status === "finished" ? LP.textMuted : LIME }
+                    ]}
+                  />
+                  <Text style={[styles.chatTopMeta, styles.chatTopMetaMobile, { color: LP.textSecondary }]}>
+                    {activeSession?.status === "finished" ? "Завершена" : "Активен"} ·{" "}
+                    {messages[messages.length - 1]?.time ?? dialogue.time}
+                  </Text>
+                </View>
+              </View>
+              <View style={[styles.chatProgressTrack, styles.chatProgressTrackMobile, { backgroundColor: LP.borderSubtle }]}>
+                <View style={[styles.chatProgressFill, { backgroundColor: LIME, width: `${progress}%` }]} />
+              </View>
+            </View>
+          ) : (
           <View style={[styles.chatTopBar, { borderBottomColor: LP.borderSubtle }]}>
             <View style={styles.chatTopLeft}>
               <Text style={[styles.chatTopMeta, { color: LP.textSecondary }]}>
@@ -545,6 +646,7 @@ function DialogueView({
               </Text>
             </View>
           </View>
+          )}
 
           <View style={styles.personaRow}>
             <View
@@ -613,7 +715,7 @@ function DialogueView({
             style={[
               styles.messageList,
               layout.isDesktop && styles.messageListDesktop,
-              !layout.isDesktop && { maxHeight: mobileMessageListMaxHeight, marginBottom: 0 }
+              !layout.isDesktop && { flex: 1, marginBottom: 0 }
             ]}
             contentContainerStyle={[
               styles.messageListContent,
@@ -621,6 +723,10 @@ function DialogueView({
               !layout.isDesktop && styles.messageListContentMobile
             ]}
             showsVerticalScrollIndicator
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            onTouchStart={!layout.isDesktop ? handleListTouchStart : undefined}
+            onTouchMove={!layout.isDesktop ? handleListTouchMove : undefined}
             onContentSizeChange={() => scrollToBottom(true)}
             onLayout={() => scrollToBottom(false)}
           >
@@ -716,6 +822,8 @@ function DialogueView({
 
           <View
             testID="simulator-chat-input-row"
+            onTouchStart={!layout.isDesktop ? handleListTouchStart : undefined}
+            onTouchMove={!layout.isDesktop ? handleListTouchMove : undefined}
             style={[
               styles.inputWrap,
               !layout.isDesktop && styles.inputWrapMobile,
@@ -736,13 +844,18 @@ function DialogueView({
                 accessibilityLabel="Поле ввода сообщения в тренажере"
                 placeholder="Напишите сообщение..."
                 placeholderTextColor={LP.textMuted}
-                style={[styles.chatInput, chatInputWebReset, { color: LP.textPrimary }]}
+                style={[styles.chatInput, !layout.isDesktop && styles.chatInputMobile, chatInputWebReset, { color: LP.textPrimary }]}
                 value={draftMessage}
                 onChangeText={setDraftMessage}
                 onKeyPress={handleInputKeyPress}
-                onSubmitEditing={() => {
-                  void handleSendMessage();
-                }}
+                onSubmitEditing={
+                  layout.isDesktop
+                    ? () => {
+                        void handleSendMessage();
+                      }
+                    : undefined
+                }
+                blurOnSubmit={false}
                 multiline
                 textAlignVertical="center"
                 editable={!isSending && isSessionActive && !isFinishing}
@@ -791,60 +904,6 @@ function DialogueView({
           </View>
         </View>
 
-        {!layout.isDesktop ? (
-        <View style={[styles.insightColumn, styles.insightColumnMobile]}>
-          <View
-            style={[
-              styles.insightCard,
-              { backgroundColor: LP.card, borderColor: LP.border }
-            ]}
-          >
-            <Text style={[styles.insightTitle, { color: LP.textPrimary }]}>
-              Контекст сценария
-            </Text>
-            <InsightTextBlock label="Продукт" text="Промышленные кондиционеры" />
-            <InsightTextBlock label="Ситуация" text="Входящий запрос, первый контакт" />
-            <InsightTextBlock label="Цель" text="Договориться о следующем шаге" />
-          </View>
-
-          <Pressable
-            testID="simulator-finish-button"
-            onPress={() => {
-              if (isFinishing) {
-                return;
-              }
-              onFinishScenario({
-                scenarioId: selectedScenario.id,
-                scenarioTitle: selectedScenario.title
-              });
-            }}
-            disabled={isFinishing}
-            style={[
-              styles.finishButton,
-              {
-                backgroundColor: canFinishScenario ? LP.actionPrimary : LP.card,
-                borderColor: canFinishScenario ? "transparent" : LP.border,
-                borderWidth: canFinishScenario ? 0 : 1,
-                opacity: 1
-              }
-            ]}
-          >
-            <Text
-              style={[
-                styles.finishButtonText,
-                { color: canFinishScenario ? "#FFFFFF" : LP.actionPrimary }
-              ]}
-            >
-              {isFinishing ? "Сохраняем отчет..." : "Завершить и получить отчет"}
-            </Text>
-          </Pressable>
-          {!hasEnoughRepliesForReport ? (
-            <Text style={[styles.finishHintText, { color: LP.textMuted }]}>
-              Минимум {dialogue.replyTarget} реплик для отчета ({managerReplyCount} / {dialogue.replyTarget})
-            </Text>
-          ) : null}
-        </View>
-        ) : null}
       </View>
 
     </View>
@@ -1027,7 +1086,46 @@ const styles = StyleSheet.create({
     gap: 18
   },
   screenMobileDialogue: {
-    paddingBottom: 120
+    flex: 1,
+    gap: 0,
+    paddingBottom: 0
+  },
+  dialogueHeaderBarMobile: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 10,
+    borderBottomWidth: 1
+  },
+  chatHeaderAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 40,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14
+  },
+  chatHeaderActionIcon: {
+    fontSize: 16
+  },
+  chatHeaderActionText: {
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  chatHeaderFinish: {
+    minHeight: 40,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18
+  },
+  chatHeaderFinishText: {
+    fontSize: 15,
+    fontWeight: "800"
   },
   headerRow: {
     flexDirection: "row",
@@ -1390,7 +1488,10 @@ const styles = StyleSheet.create({
     paddingBottom: 0
   },
   dialogueLayoutStack: {
-    flexDirection: "column"
+    flexDirection: "column",
+    flex: 1,
+    minHeight: 0,
+    gap: 0
   },
   chatPanel: {
     flex: 1.95,
@@ -1404,8 +1505,12 @@ const styles = StyleSheet.create({
     marginBottom: 0
   },
   chatPanelMobile: {
+    flex: 1,
     height: "auto",
-    minHeight: 0
+    minHeight: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    marginBottom: 0
   },
   chatTopBar: {
     minHeight: 52,
@@ -1427,6 +1532,29 @@ const styles = StyleSheet.create({
   },
   chatTopMetaStrong: {
     fontWeight: "700"
+  },
+  chatTopBarMobile: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 10
+  },
+  chatTopRowMobile: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10
+  },
+  chatTopMetaMobile: {
+    fontSize: 13,
+    lineHeight: 17
+  },
+  chatProgressTrackMobile: {
+    width: "100%"
+  },
+  changeScenarioButtonMobile: {
+    justifyContent: "center"
   },
   chatProgressTrack: {
     width: 168,
@@ -1640,8 +1768,9 @@ const styles = StyleSheet.create({
     left: "auto",
     right: "auto",
     bottom: "auto",
+    minHeight: 0,
     paddingTop: 10,
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderTopWidth: 1,
     elevation: 0
   },
@@ -1665,6 +1794,12 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
     paddingRight: 2
+  },
+  chatInputMobile: {
+    fontSize: 16,
+    lineHeight: 22,
+    minHeight: 24,
+    maxHeight: 110
   },
   sendButton: {
     width: 38,

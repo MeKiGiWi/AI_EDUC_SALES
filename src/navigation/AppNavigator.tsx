@@ -26,7 +26,6 @@ import {
 } from "../services/simulatorDialogueService";
 import {
   getSafeSimulatorErrorMessage,
-  SimulatorApiError,
   simulatorApiService
 } from "../services/simulatorApiService";
 import { useTheme } from "../theme/useTheme";
@@ -53,18 +52,6 @@ type RouteState = {
 };
 
 const MOCK_REPLY_DELAY_MS = 220;
-
-function isRecoverableFinishTimeout(error: unknown): boolean {
-  if (error instanceof SimulatorApiError) {
-    return error.status === 502 || error.status === 504;
-  }
-
-  if (error instanceof Error) {
-    return error.name === "AbortError";
-  }
-
-  return false;
-}
 
 function formatReportCreatedAt(date: Date): string {
   const day = `${date.getDate()}`.padStart(2, "0");
@@ -505,11 +492,7 @@ export function AppNavigator() {
       let evaluation: SimulatorEvaluationPayloadDto | undefined;
 
       if (params.session.mode === "api") {
-        evaluation = await finishApiSessionWithFallback(
-          params.session.sessionId,
-          params.scenarioTitle,
-          params.scenarioId
-        );
+        evaluation = await finishApiSession(params.session.sessionId);
       } else {
         evaluation = buildMockEvaluation(params.scenarioTitle, params.scenarioId);
       }
@@ -556,30 +539,26 @@ export function AppNavigator() {
     }
   }
 
-  async function finishApiSessionWithFallback(
-    sessionId: string,
-    scenarioTitle: string,
-    scenarioId: string
-  ): Promise<SimulatorEvaluationPayloadDto> {
-    try {
-      const response = await simulatorApiService.finishDialogueSession(sessionId);
-      if (response.evaluation) {
-        return response.evaluation;
-      }
-    } catch (error) {
-      if (!isRecoverableFinishTimeout(error)) {
-        throw error;
-      }
+  async function finishApiSession(sessionId: string): Promise<SimulatorEvaluationPayloadDto> {
+    // Никаких заглушек: дожидаемся реальной оценки от LLM. Если бэкенд завершил
+    // сессию, но оценки нет — это ошибка, а не повод подставить mock-отчёт.
+    const response = await simulatorApiService.finishDialogueSession(sessionId);
+    if (!response.evaluation) {
+      throw new Error(
+        "Бэкенд завершил сессию, но не вернул оценку диалога. Отчёт не сформирован."
+      );
     }
-
-    return buildMockEvaluation(scenarioTitle, scenarioId);
+    return response.evaluation;
   }
 
   const visibleRoutes = useMemo(() => visibleRoutesForRole(activeRole), [activeRole]);
   const navActiveRoute = routeState.name === "ReportViewer" ? "Reports" : routeState.name;
   const footer = useMemo(
     () =>
-      layout.isDesktop || routeState.name === "Landing" ? null : (
+      layout.isDesktop ||
+      routeState.name === "Landing" ||
+      routeState.name === "Simulator" ||
+      routeState.name === "ReportViewer" ? null : (
         <BottomTabs
           routes={visibleRoutes}
           activeRoute={navActiveRoute}
@@ -607,9 +586,11 @@ export function AppNavigator() {
   const isLanding = routeState.name === "Landing";
   const showMobileHeader =
     !layout.isDesktop && routeState.name !== "Simulator" && routeState.name !== "Landing";
+  const isMobileDialogue =
+    routeState.name === "Simulator" && trainerMode === "dialogue" && !layout.isDesktop;
   const disableAppScroll =
-    (routeState.name === "Simulator" && trainerMode === "dialogue" && layout.isDesktop) ||
-    routeState.name === "ReportViewer";
+    (routeState.name === "Simulator" && trainerMode === "dialogue") ||
+    (routeState.name === "ReportViewer" && layout.isDesktop);
   if (isLanding) {
     return <LandingScreen roleOptions={roleWorkspaceOptions} onOpenAudit={() => navigate("Audit")} />;
   }
@@ -641,6 +622,7 @@ export function AppNavigator() {
       variant="app"
       scrollEnabled={!disableAppScroll}
       disableBottomPadding={disableAppScroll}
+      fullBleed={isMobileDialogue}
       sidebar={
         layout.isDesktop ? (
           <DesktopSidebar
@@ -679,8 +661,20 @@ export function AppNavigator() {
           title={currentRouteConfig.title}
           subtitle={currentRouteConfig.description}
           user={workspaceData.user}
-          actionLabel={routeState.name === "StudentHome" ? "На лендинг" : undefined}
-          onActionPress={routeState.name === "StudentHome" ? () => navigate("Landing") : undefined}
+          actionLabel={
+            routeState.name === "StudentHome"
+              ? "На лендинг"
+              : routeState.name === "ReportViewer"
+                ? "К сценариям"
+                : undefined
+          }
+          onActionPress={
+            routeState.name === "StudentHome"
+              ? () => navigate("Landing")
+              : routeState.name === "ReportViewer"
+                ? () => navigate("Simulator")
+                : undefined
+          }
         />
       ) : null}
 

@@ -63,32 +63,37 @@ export function AppScreen({
       <View style={[styles.wrapper, hasDesktopSidebar && styles.desktopWrapper]}>
         {hasDesktopSidebar ? <View style={styles.sidebar}>{sidebar}</View> : null}
         <View style={styles.main}>
-          <ScrollView
-            ref={scrollRef}
-            contentContainerStyle={[
-              {
-                paddingTop: fullBleed ? 0 : theme.spacing.screenTop,
-                paddingBottom: bottomPadding
-              }
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={scrollEnabled}
-          >
-            <View
-              style={[
-                styles.content,
-                fullBleed && styles.fullBleedContent,
-                {
-                  maxWidth,
-                  paddingHorizontal: fullBleed ? 0 : layout.screenPadding
-                },
-                contentContainerStyle
-              ]}
-            >
+          {fullBleed ? (
+            <View style={[styles.content, styles.fullBleedContent, { maxWidth, paddingHorizontal: 0 }, contentContainerStyle]}>
               {children}
             </View>
-          </ScrollView>
+          ) : (
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={[
+                {
+                  paddingTop: theme.spacing.screenTop,
+                  paddingBottom: bottomPadding
+                }
+              ]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={scrollEnabled}
+            >
+              <View
+                style={[
+                  styles.content,
+                  {
+                    maxWidth,
+                    paddingHorizontal: layout.screenPadding
+                  },
+                  contentContainerStyle
+                ]}
+              >
+                {children}
+              </View>
+            </ScrollView>
+          )}
           {footer && !layout.isDesktop ? <View style={styles.footer}>{footer}</View> : null}
         </View>
       </View>
@@ -120,7 +125,14 @@ const styles = StyleSheet.create({
   fullBleedContent: {
     maxWidth: "100%",
     alignSelf: "stretch",
-    gap: 0
+    gap: 0,
+    flex: 1
+  },
+  fullBleedScroll: {
+    flex: 1
+  },
+  fullBleedScrollContent: {
+    flexGrow: 1
   },
   footer: {
     position: "absolute",

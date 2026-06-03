@@ -627,7 +627,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
   const isMobile = layout.width <= 760;
   const isTablet = layout.width <= 1100;
   const isNarrow = layout.width <= 600;
-  const cloudColumns = gridColumns(layout.width, 3, 2, 1);
+  const cloudColumns = 3;
   const compareColumns = gridColumns(layout.width, 4, 2, 1);
   const priceColumns = isNarrow ? 1 : isTablet ? 2 : 4;
   const dialogColumns = gridColumns(layout.width, 3, 2, 1);
@@ -635,7 +635,11 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
   const heroTitleFontSize = heroTitleSize(layout.width);
   const sectionTitleFontSize = sectionTitleSize(layout.width);
   const auditHeadingSize = auditTitleSize(layout.width);
-  const cloudDiamondSize = isNarrow ? 150 : 170;
+  const cloudGap = isMobile ? 10 : 16;
+  const cloudInnerPad = isMobile ? 16 : 24;
+  const cloudAvail = layout.width - 2 * (isMobile ? 18 : 24) - 2 * cloudInnerPad;
+  const cloudDiamondSize = Math.max(92, Math.min(170, Math.floor((cloudAvail - 2 * cloudGap) / 3)));
+  const cloudFontSize = cloudDiamondSize >= 150 ? 16 : cloudDiamondSize >= 120 ? 13 : 11;
   const sectionPadding = isMobile ? 66 : 86;
 
   const containerStyle = useMemo(
@@ -801,9 +805,9 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
             на выручку, конверсию и скорость выхода администратора на план.
           </Text>
           <View style={[styles.problemCloud, layout.width <= 900 && styles.oneColumn]}>
-            <View style={[styles.cloudGrid, webBackground("linear-gradient(180deg, #f7f8ff 0%, #f0f2ff 100%)", "#f0f2ff")]}>
+            <View style={[styles.cloudGrid, { padding: cloudInnerPad, gap: cloudGap }, layout.width <= 900 && styles.stackChild, webBackground("linear-gradient(180deg, #f7f8ff 0%, #f0f2ff 100%)", "#f0f2ff")]}>
               {cloudRows.map((row, rowIndex) => (
-                <View key={`cloud-row-${rowIndex}`} style={styles.cloudRow}>
+                <View key={`cloud-row-${rowIndex}`} style={[styles.cloudRow, { gap: cloudGap }]}>
                   {row.map((item) => {
                     const index = CLOUD_PROBLEMS.indexOf(item);
                     return (
@@ -812,7 +816,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                         onPress={() => setActiveProblem(index)}
                         style={({ pressed }) => [
                           styles.cloudDiamond,
-                          { width: cloudDiamondSize, height: cloudDiamondSize, borderRadius: isNarrow ? 26 : 28 },
+                          { width: cloudDiamondSize, height: cloudDiamondSize, borderRadius: isNarrow ? 24 : 28 },
                           activeProblem === index && styles.cloudDiamondActive,
                           pressed && styles.cloudDiamondPressed
                         ]}
@@ -820,7 +824,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                         <Text
                           style={[
                             styles.cloudDiamondText,
-                            { maxWidth: cloudDiamondSize * 0.7, fontSize: isNarrow ? 14 : 16 },
+                            { maxWidth: cloudDiamondSize * 0.92, fontSize: cloudFontSize, lineHeight: cloudFontSize + 2 },
                             activeProblem === index && styles.cloudDiamondTextActive
                           ]}
                         >
@@ -832,12 +836,12 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 </View>
               ))}
             </View>
-            <View style={[styles.cloudPanel, isMobile && styles.cloudPanelMobile]}>
+            <View style={[styles.cloudPanel, layout.width <= 900 && styles.cloudPanelMobile]}>
               <Text style={styles.cloudTitle}>{CLOUD_PROBLEMS[activeProblem].title}</Text>
               <Text style={styles.cloudText}>{CLOUD_PROBLEMS[activeProblem].text}</Text>
               <View style={styles.cloudPoints}>
                 {CLOUD_PROBLEMS[activeProblem].points.map((point) => (
-                  <Text key={point} style={styles.cloudPoint}>{point}</Text>
+                  <Text key={point} style={[styles.cloudPoint, layout.width <= 900 && styles.cloudPointMobile]}>{point}</Text>
                 ))}
               </View>
             </View>
@@ -883,19 +887,20 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 style={[
                   styles.compareCard,
                   card.featured && styles.compareCardMain,
+                  compareColumns === 1 && styles.stackChild,
                   compareColumns === 2 && styles.compareCardHalf,
                   compareColumns === 4 && (card.featured ? styles.compareCardFeaturedCol : styles.compareCardCol)
                 ]}
               >
-                <View style={styles.compareHeader}>
+                <View style={[styles.compareHeader, compareColumns === 1 && styles.mhAuto]}>
                   {card.featured ? <Text style={styles.recommend}>Рекомендуем</Text> : null}
-                  <Text style={[styles.compareName, card.featured && styles.lightText, card.featured && styles.compareNameFeatured]}>
+                  <Text style={[styles.compareName, compareColumns === 1 && styles.mhAuto, card.featured && styles.lightText, card.featured && styles.compareNameFeatured]}>
                     {card.name}
                   </Text>
-                  <View style={styles.comparePriceSlot}>
+                  <View style={[styles.comparePriceSlot, compareColumns === 1 && styles.mhAuto]}>
                     <View>
                       <Text style={[styles.comparePrice, card.featured && styles.lightText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{card.price}</Text>
-                      <Text style={[styles.comparePriceNote, card.featured && styles.lightText]} numberOfLines={2}>{card.priceNote}</Text>
+                      <Text style={[styles.comparePriceNote, compareColumns === 1 && styles.mhAuto, card.featured && styles.lightText]} numberOfLines={2}>{card.priceNote}</Text>
                     </View>
                     {card.extraPrice ? (
                       <View style={{ marginTop: 8 }}>
@@ -904,13 +909,13 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                       </View>
                     ) : null}
                   </View>
-                  <Text style={[styles.compareSub, card.featured && styles.compareSubMain, card.featured && styles.compareSubGreen]}>
+                  <Text style={[styles.compareSub, compareColumns === 1 && styles.mhAuto, card.featured && styles.compareSubMain, card.featured && styles.compareSubGreen]}>
                     {card.sub}
                   </Text>
                 </View>
                 <View style={styles.paramList}>
                   {card.params.map((param) => (
-                    <View key={param.label} style={[styles.param, card.featured && styles.paramMain]}>
+                    <View key={param.label} style={[styles.param, compareColumns === 1 && styles.mhAuto, card.featured && styles.paramMain]}>
                       <Text style={[styles.paramLabel, card.featured && styles.paramLabelMain]}>{param.label}</Text>
                       <Text
                         style={[
@@ -960,7 +965,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 key={title}
                 delay={index * 80}
                 distance={16}
-                style={[styles.compactCard, dialogColumns === 3 && styles.compactCardThird, dialogColumns === 2 && styles.compactCardHalf]}
+                style={[styles.compactCard, dialogColumns === 1 && styles.stackChild, dialogColumns === 1 && styles.mhAuto, dialogColumns === 3 && styles.compactCardThird, dialogColumns === 2 && styles.compactCardHalf]}
               >
                 <Text style={styles.compactTitle}>{title}</Text>
                 <Text style={styles.cardText}>{text}</Text>
@@ -980,9 +985,9 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 key={dialog.title}
                 delay={index * 90}
                 distance={18}
-                style={[styles.dialogCard, dialogColumns === 3 && styles.dialogCardThird, dialogColumns === 2 && styles.dialogCardHalf]}
+                style={[styles.dialogCard, dialogColumns === 1 && styles.stackChild, dialogColumns === 3 && styles.dialogCardThird, dialogColumns === 2 && styles.dialogCardHalf]}
               >
-                <Text style={styles.dialogTitle}>{dialog.title}</Text>
+                <Text style={[styles.dialogTitle, dialogColumns === 1 && styles.mhAuto]}>{dialog.title}</Text>
                 <View style={styles.phone}>
                   {dialog.messages.map(([role, text], index) => (
                     <Text key={`${role}-${index}`} style={[styles.bubble, role === "user" ? styles.userBubble : styles.aiBubble]}>
@@ -1015,7 +1020,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
           </Text>
           <View style={[styles.caseList, isTablet && styles.oneColumn]}>
             {CASES.map((item, index) => (
-              <Reveal key={item.id} delay={index * 80} distance={20} style={styles.caseCardWrap}>
+              <Reveal key={item.id} delay={index * 80} distance={20} style={[styles.caseCardWrap, isTablet && styles.stackChild]}>
                 <Pressable
                   onPress={() => openCase(item.file)}
                   style={(state) => [styles.caseCard2, (state as { hovered?: boolean }).hovered && styles.caseCard2Hover]}
@@ -1025,9 +1030,9 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                     <Text style={styles.caseTag}>{item.eyebrow}</Text>
                     <Text style={styles.caseRegion}>{item.region}</Text>
                   </View>
-                  <Text style={styles.caseSphere} numberOfLines={2}>{item.sphere}</Text>
-                  <Text style={styles.caseCardTitle} numberOfLines={3}>{item.title}</Text>
-                  <Text style={styles.caseCardSub} numberOfLines={4}>{item.summary}</Text>
+                  <Text style={[styles.caseSphere, isTablet && styles.mhAuto]} numberOfLines={2}>{item.sphere}</Text>
+                  <Text style={[styles.caseCardTitle, isTablet && styles.mhAuto]} numberOfLines={3}>{item.title}</Text>
+                  <Text style={[styles.caseCardSub, isTablet && styles.mhAuto]} numberOfLines={4}>{item.summary}</Text>
                   <View style={styles.caseMetrics}>
                     {item.metrics.map((m) => (
                       <View key={m[1]} style={styles.caseMetric}>
@@ -1080,13 +1085,14 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 style={[
                   styles.priceCard,
                   index === 3 && styles.priceCardFeatured,
+                  priceColumns === 1 && styles.stackChild,
                   priceColumns === 2 && styles.priceCardHalf,
                   priceColumns === 4 && styles.priceCardQuarter
                 ]}
               >
                 {index === 3 ? <Text style={styles.priceBadge}>Лучший сценарий</Text> : null}
                 <Text style={[styles.priceLabel, index === 3 && styles.priceLabelFeatured]}>{label}</Text>
-                <Text style={[styles.priceTitle, index === 3 && styles.priceTitleFeatured, index === 3 && styles.lightText]}>{title}</Text>
+                <Text style={[styles.priceTitle, priceColumns === 1 && styles.mhAuto, index === 3 && styles.priceTitleFeatured, index === 3 && styles.lightText]}>{title}</Text>
                 <Text style={[styles.priceMain, index === 3 && styles.lightText]}>{price}</Text>
                 <Text style={[styles.priceSub, index === 3 && styles.lightText]}>{sub}</Text>
                 <Text style={[styles.priceText, index === 3 && styles.lightText]}>{text}</Text>
@@ -1098,7 +1104,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
         <Section id="contact" register={register} containerStyle={containerStyle} sectionPadding={sectionPadding}>
           <View style={[styles.audit, webBackground(`linear-gradient(135deg, ${NAVY} 0%, #202c95 100%)`, NAVY)]}>
             <View style={[styles.auditGrid, isTablet && styles.oneColumn]}>
-              <View style={styles.auditCopy}>
+              <View style={[styles.auditCopy, isTablet && styles.stackChild]}>
                 <Eyebrow dark>Аудит потерь клиники</Eyebrow>
                 <Text
                   style={[
@@ -1119,6 +1125,14 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                   По итогам аудита вы поймете, на каком участке воронки теряется выручка, какие навыки администраторов
                   влияют на это сильнее всего и какие управленческие действия дадут самый быстрый эффект.
                 </Text>
+              </View>
+              <View style={[styles.auditFormCol, !isTablet && styles.auditFormColDesktop, isTablet && styles.stackChild]}>
+                <View style={styles.form}>
+                  <TextInput value={auditForm.name} onChangeText={(name) => setAuditForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.input} />
+                  <TextInput value={auditForm.clinic} onChangeText={(clinic) => setAuditForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.input} />
+                  <TextInput value={auditForm.contact} onChangeText={(contact) => setAuditForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.input} />
+                  <AnchorButton tone="lime" fullWidth onPress={onOpenAudit}>Пройти аудит</AnchorButton>
+                </View>
                 <View style={styles.auditList}>
                   {[
                     "Покажем, где именно падает конверсия и почему.",
@@ -1129,12 +1143,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                     <Text key={item} style={styles.auditBullet}>• {item}</Text>
                   ))}
                 </View>
-              </View>
-              <View style={styles.form}>
-                <TextInput value={auditForm.name} onChangeText={(name) => setAuditForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.input} />
-                <TextInput value={auditForm.clinic} onChangeText={(clinic) => setAuditForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.input} />
-                <TextInput value={auditForm.contact} onChangeText={(contact) => setAuditForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.input} />
-                <AnchorButton tone="lime" fullWidth onPress={onOpenAudit}>Пройти аудит</AnchorButton>
               </View>
             </View>
           </View>
@@ -1176,11 +1184,11 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 key={title}
                 delay={index * 90}
                 distance={18}
-                style={[styles.blogCard, blogColumns === 3 && styles.blogCardThird, blogColumns === 2 && styles.blogCardHalf]}
+                style={[styles.blogCard, blogColumns === 1 && styles.stackChild, blogColumns === 3 && styles.blogCardThird, blogColumns === 2 && styles.blogCardHalf]}
               >
                 <Text style={styles.blogMeta}>{meta}</Text>
-                <Text style={styles.blogTitle}>{title}</Text>
-                <Text style={styles.blogText}>{text}</Text>
+                <Text style={[styles.blogTitle, blogColumns === 1 && styles.mhAuto]}>{title}</Text>
+                <Text style={[styles.blogText, blogColumns === 1 && styles.mhAuto]}>{text}</Text>
                 <Pressable onPress={() => scrollTo(target as SectionId)}>
                   <Text style={styles.blogLink}>{link}</Text>
                 </Pressable>
@@ -1220,7 +1228,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
 
         <View style={styles.footer}>
           <View style={[containerStyle, styles.footerSignup, layout.width <= 900 && styles.oneColumn]}>
-            <View style={styles.footerSignupCopy}>
+            <View style={[styles.footerSignupCopy, layout.width <= 900 && styles.stackChild]}>
               <Text
                 style={[
                   styles.footerSignupTitle,
@@ -1231,10 +1239,10 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
               </Text>
               <Text style={styles.footerSignupText}>Получайте специальные предложения и новости от нас первыми</Text>
             </View>
-            <View style={styles.footerSignupForm}>
+            <View style={[styles.footerSignupForm, layout.width <= 900 && styles.stackChild]}>
               <View style={[styles.footerForm, isMobile && styles.oneColumn]}>
-                <TextInput value={email} onChangeText={setEmail} placeholder="Ваш e-mail" placeholderTextColor="rgba(255,255,255,.45)" style={styles.footerInput} />
-                <Pressable onPress={() => setSignupSubmitted(true)} style={styles.footerButton}>
+                <TextInput value={email} onChangeText={setEmail} placeholder="Ваш e-mail" placeholderTextColor="rgba(255,255,255,.45)" style={[styles.footerInput, isMobile && styles.stackChild]} />
+                <Pressable onPress={() => setSignupSubmitted(true)} style={[styles.footerButton, isMobile && styles.stackChild]}>
                   <Text style={styles.footerButtonText}>Подписаться</Text>
                 </Pressable>
               </View>
@@ -1258,7 +1266,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
               </Text>
             </View>
             <FooterCol title="Разделы" items={[["Облако проблем", "about"], ["Сравнение", "compare"], ["Тренажер", "trainer"], ["Стоимость", "pricing"], ["Блог", "blog"], ["Контакты", "contact"]]} onPress={scrollTo} />
-            <FooterCol title="Меню" items={[["О нас", "about"], ["Кейсы", "case"], ["FAQ", "faq"], ["Аудит", "contact"], ["Блог", "blog"]]} onPress={scrollTo} />
             <View>
               <Text style={styles.footerColTitle}>Контакты</Text>
               <Pressable onPress={() => openExternal("https://t.me/it_selma")}><Text style={styles.footerAccent}>Telegram: @it_selma</Text></Pressable>
@@ -1411,8 +1418,8 @@ const styles = StyleSheet.create({
   title: { color: NAVY, fontWeight: "900", textTransform: "uppercase", marginBottom: 16 },
   sub: { maxWidth: 840, color: MUTED, fontSize: 18, lineHeight: 27, marginBottom: 32 },
   problemCloud: { flexDirection: "row", gap: 28, alignItems: "stretch" },
-  cloudGrid: { flex: 1.15, borderWidth: 1, borderColor: LINE, borderRadius: 36, padding: 28, gap: 22 },
-  cloudRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 22, marginBottom: 22 },
+  cloudGrid: { flex: 1.15, borderWidth: 1, borderColor: LINE, borderRadius: 36, padding: 24, gap: 16 },
+  cloudRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 16 },
   cloudDiamond: {
     borderWidth: 1,
     borderColor: "#dfe2f7",
@@ -1424,12 +1431,15 @@ const styles = StyleSheet.create({
     ...shadow
   },
   cloudDiamondPressed: { transform: [{ rotate: "45deg" }, { translateY: -4 }, { scale: 0.98 }] },
+  stackChild: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0 },
+  mhAuto: { minHeight: 0 },
   cloudDiamondActive: { backgroundColor: NAVY, borderColor: NAVY },
   cloudDiamondText: { transform: [{ rotate: "-45deg" }], maxWidth: 112, textAlign: "center", color: NAVY, fontSize: 14, lineHeight: 16, fontWeight: "900" },
   cloudDiamondTextMobile: { maxWidth: 98, fontSize: 12, lineHeight: 14 },
   cloudDiamondTextActive: { color: "#fff" },
   cloudPanel: { flex: 0.85, minWidth: 280, backgroundColor: "#fff", borderWidth: 1, borderColor: LINE, borderRadius: 36, padding: 32, ...shadow },
-  cloudPanelMobile: { flex: 0, width: "100%", minWidth: 0, padding: 24 },
+  cloudPanelMobile: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0, padding: 22, backgroundColor: "#e8edfb", borderColor: "#c9d3f0" },
+  cloudPointMobile: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#e2e7f7" },
   cloudTitle: { color: NAVY, fontSize: 30, lineHeight: 30, fontWeight: "900", textTransform: "uppercase", marginBottom: 14 },
   cloudText: { color: MUTED, fontSize: 17, lineHeight: 26, marginBottom: 22 },
   cloudPoints: { gap: 14 },
@@ -1531,14 +1541,16 @@ const styles = StyleSheet.create({
   priceSub: { color: MUTED, fontSize: 20, fontWeight: "800", marginBottom: 16 },
   priceText: { color: MUTED, fontSize: 15, lineHeight: 23 },
   audit: { backgroundColor: "#202c95", borderRadius: 34, padding: 34, ...shadow },
-  auditGrid: { flexDirection: "row", gap: 28, alignItems: "stretch" },
+  auditGrid: { flexDirection: "row", gap: 28, alignItems: "flex-start" },
   auditCopy: { flex: 1.05, minWidth: 0 },
   auditTitle: { color: "#fff", fontSize: 52, lineHeight: 49, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0, marginBottom: 18 },
   auditTitleMobile: { fontSize: 40, lineHeight: 37, letterSpacing: 0 },
   auditText: { color: "rgba(255,255,255,.82)", fontSize: 18, lineHeight: 27, marginBottom: 14 },
-  auditList: { marginTop: 18, paddingLeft: 18 },
+  auditFormCol: { flex: 0.95, minWidth: 0, gap: 18 },
+  auditFormColDesktop: { marginTop: 50 },
+  auditList: { paddingLeft: 18 },
   auditBullet: { color: "rgba(255,255,255,.85)", fontSize: 17, lineHeight: 25, marginBottom: 10 },
-  form: { flex: 0.95, backgroundColor: "rgba(255,255,255,.09)", borderWidth: 1, borderColor: "rgba(255,255,255,.14)", borderRadius: 28, padding: 22, gap: 12 },
+  form: { backgroundColor: "rgba(255,255,255,.09)", borderWidth: 1, borderColor: "rgba(255,255,255,.14)", borderRadius: 28, padding: 22, gap: 12 },
   input: { width: "100%", minHeight: 56, borderRadius: 14, backgroundColor: "#fff", paddingHorizontal: 18, color: TEXT, fontSize: 16 },
   formResult: { color: LIME_2, fontWeight: "800", fontSize: 14, lineHeight: 20 },
   blogGrid: { flexDirection: "row", gap: 20 },

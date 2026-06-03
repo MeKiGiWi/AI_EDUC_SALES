@@ -905,7 +905,7 @@ const styles = StyleSheet.create({
   container: { width: "100%", maxWidth: 1260, alignSelf: "center" },
   narrow: { width: "100%", maxWidth: 760, alignSelf: "center" },
   narrowWide: { width: "100%", maxWidth: 820, alignSelf: "center" },
-  fullWidth: { width: "100%" },
+  fullWidth: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0 },
 
   // NAV
   nav: {

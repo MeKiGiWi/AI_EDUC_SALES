@@ -12,11 +12,44 @@ const roleOwnerLabels: Record<UserRole, string> = {
   admin: "Администратор"
 };
 
-const competencyLevelRank = {
+export const competencyLevelRank = {
   Junior: 1,
   Middle: 2,
   Senior: 3
 } as const;
+
+type EvaluationCompetency = SimulatorEvaluationPayloadDto["competencies"][number];
+
+/**
+ * Зоны развития = компетенции с уровнем ниже общего (на 1–2 ступени), как в ТЗ.
+ * Если таких нет — возвращаем пустой массив (явных зон ниже общего уровня нет).
+ */
+export function getDevelopmentCompetencies(
+  evaluation: SimulatorEvaluationPayloadDto
+): EvaluationCompetency[] {
+  const overallRank = competencyLevelRank[evaluation.overall_level];
+  return evaluation.competencies
+    .filter((competency) => competencyLevelRank[competency.level] < overallRank)
+    .sort((left, right) => competencyLevelRank[left.level] - competencyLevelRank[right.level])
+    .slice(0, 2);
+}
+
+/** Сильные стороны = компетенции на уровне общего или выше (до 3-х). */
+export function getStrengthCompetencies(
+  evaluation: SimulatorEvaluationPayloadDto
+): EvaluationCompetency[] {
+  const overallRank = competencyLevelRank[evaluation.overall_level];
+  const atOrAbove = evaluation.competencies.filter(
+    (competency) => competencyLevelRank[competency.level] >= overallRank
+  );
+  const pool =
+    atOrAbove.length > 0
+      ? atOrAbove
+      : [...evaluation.competencies].sort(
+          (left, right) => competencyLevelRank[right.level] - competencyLevelRank[left.level]
+        );
+  return pool.slice(0, 3);
+}
 
 function formatReportTimestamp(date: Date): string {
   const day = `${date.getDate()}`.padStart(2, "0");
@@ -33,6 +66,17 @@ function buildCompetencyLines(evaluation: SimulatorEvaluationPayloadDto): string
 }
 
 function buildRecommendationLines(evaluation: SimulatorEvaluationPayloadDto): string[] {
+  // Фокус по 1–2 отстающим компетенциям (как в шаблоне отчёта).
+  const focus = getDevelopmentCompetencies(evaluation);
+  if (focus.length > 0) {
+    return focus.flatMap((competency, index) => {
+      const header = `Фокус ${index + 1}. ${competency.name} (сейчас ${competency.level}, общий уровень — ${evaluation.overall_level}):`;
+      const steps = competency.recommendations.map((recommendation) => `— ${recommendation}`);
+      return [header, ...steps];
+    });
+  }
+
+  // Явных зон ниже общего уровня нет — даём общий вектор развития.
   if (evaluation.overall_recommendations.length > 0) {
     return evaluation.overall_recommendations;
   }
@@ -51,32 +95,18 @@ function buildQuoteLines(evaluation: SimulatorEvaluationPayloadDto): string[] {
     .map((quote) => `«${quote}»`);
 }
 
-function sortCompetenciesByLevel(
-  evaluation: SimulatorEvaluationPayloadDto,
-  order: "asc" | "desc"
-) {
-  const items = [...evaluation.competencies];
-  items.sort((left, right) => {
-    const leftRank = competencyLevelRank[left.level];
-    const rightRank = competencyLevelRank[right.level];
-    return order === "asc" ? leftRank - rightRank : rightRank - leftRank;
-  });
-  return items;
-}
-
 function buildStrengthLines(evaluation: SimulatorEvaluationPayloadDto): string[] {
-  const strongest = sortCompetenciesByLevel(evaluation, "desc").slice(0, 2);
-  return strongest.map((competency) => `${competency.name}: ${competency.argument}`);
+  return getStrengthCompetencies(evaluation).map(
+    (competency) => `${competency.name}: ${competency.argument}`
+  );
 }
 
 function buildDevelopmentLines(evaluation: SimulatorEvaluationPayloadDto): string[] {
-  const weakest = sortCompetenciesByLevel(evaluation, "asc").slice(0, 2);
-  return weakest.map((competency) => {
-    const nextStep = competency.recommendations[0];
-    return nextStep
-      ? `${competency.name}: ${nextStep}`
-      : `${competency.name}: ${competency.argument}`;
-  });
+  const development = getDevelopmentCompetencies(evaluation);
+  if (development.length === 0) {
+    return ["Явных зон ниже общего уровня нет — держите текущую планку."];
+  }
+  return development.map((competency) => `${competency.name}: ${competency.argument}`);
 }
 
 function buildDisplayName(scenarioTitle: string, date: Date): string {
@@ -107,6 +137,7 @@ export function savedReportToReportCard(saved: SavedSimulatorReport, role: UserR
     sourceLabel: saved.sourceLabel ?? "Диалог в чате",
     sessionId: saved.sessionId ?? null,
     availableFormats: ["pdf", "csv"],
+    evaluation,
     previewSections: [
       {
         id: `${saved.id}-resume`,

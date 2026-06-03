@@ -11,6 +11,17 @@ export default function App() {
       return;
     }
 
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (viewportMeta) {
+      const content = viewportMeta.getAttribute("content") ?? "";
+      if (!content.includes("interactive-widget")) {
+        viewportMeta.setAttribute(
+          "content",
+          "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+        );
+      }
+    }
+
     if (!document.querySelector('link[href*="fonts.googleapis.com/css2?family=Inter"]')) {
       const preconnectGoogle = document.createElement("link");
       preconnectGoogle.rel = "preconnect";
@@ -47,6 +58,8 @@ export default function App() {
     styleElement.id = styleId;
     styleElement.textContent = `
       [data-testid="simulator-message-list"] {
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
         scrollbar-color: rgba(80, 124, 91, 0.55) transparent;
       }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Platform } from "react-native";
 
 import { BottomTabs } from "../components/layout/BottomTabs";
 import { DesktopSidebar } from "../components/layout/DesktopSidebar";
@@ -8,6 +9,7 @@ import { AppScreen } from "../components/ui/AppScreen";
 import { roleWorkspaceOptions, simulatorEvaluationByScenarioId } from "../data/academyData";
 import { DEFAULT_BACKEND_DIFFICULTY } from "../data/simulatorMvpData";
 import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
+import { AuditScreen } from "../screens/audit/AuditScreen";
 import { LandingScreen } from "../screens/landing/LandingScreen";
 import { ReportsScreen } from "../screens/reports/ReportsScreen";
 import { ReportViewerScreen } from "../screens/reports/ReportViewerScreen";
@@ -192,6 +194,55 @@ export function AppNavigator() {
     };
   }, [activeRole]);
 
+  // Web URL <-> route sync for the three public pages.
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      return;
+    }
+
+    const pathToRoute: Record<string, RouteName> = {
+      "/landing": "Landing",
+      "/audit": "Audit",
+      "/simulator": "Simulator"
+    };
+
+    const applyFromPath = () => {
+      const next = pathToRoute[window.location.pathname];
+      if (next === "Audit") {
+        setRouteState({ name: "Audit" });
+      } else if (next === "Simulator") {
+        setRouteState({ name: "Simulator" });
+      } else {
+        setRouteState({ name: "Landing" });
+      }
+    };
+
+    if (!pathToRoute[window.location.pathname]) {
+      window.history.replaceState({}, "", "/landing");
+    }
+    applyFromPath();
+
+    window.addEventListener("popstate", applyFromPath);
+    return () => window.removeEventListener("popstate", applyFromPath);
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      return;
+    }
+
+    const routeToPath: Partial<Record<RouteName, string>> = {
+      Landing: "/landing",
+      Audit: "/audit",
+      Simulator: "/simulator"
+    };
+
+    const path = routeToPath[routeState.name];
+    if (path && window.location.pathname !== path) {
+      window.history.pushState({}, "", path);
+    }
+  }, [routeState.name]);
+
   function navigate<T extends RouteName>(route: T, params?: RootStackParamList[T]) {
     if (route === "Landing") {
       setRouteState({ name: "Landing" });
@@ -206,9 +257,6 @@ export function AppNavigator() {
     setRouteState({ name: route, params });
   }
 
-  function enterWorkspace(_role: UserRole) {
-    setRouteState({ name: roleHomeRoute[activeRole] });
-  }
 
   function updateSession(updater: (current: ActiveDialogueSession) => ActiveDialogueSession) {
     setActiveDialogueSession((current) => (current ? updater(current) : current));
@@ -562,16 +610,20 @@ export function AppNavigator() {
   const disableAppScroll =
     (routeState.name === "Simulator" && trainerMode === "dialogue" && layout.isDesktop) ||
     routeState.name === "ReportViewer";
+  if (isLanding) {
+    return <LandingScreen roleOptions={roleWorkspaceOptions} onOpenAudit={() => navigate("Audit")} />;
+  }
+
+  if (routeState.name === "Audit") {
+    return <AuditScreen onGoToSimulator={() => navigate("Simulator")} />;
+  }
+
   if (!workspaceData) {
     return (
       <AppScreen variant="app">
         <AppCard>Загрузка рабочего пространства...</AppCard>
       </AppScreen>
     );
-  }
-
-  if (isLanding) {
-    return <LandingScreen roleOptions={roleWorkspaceOptions} onEnterRole={enterWorkspace} />;
   }
 
   const activeSimulatorScenario =
@@ -650,6 +702,7 @@ export function AppNavigator() {
           activeSession={activeDialogueSession}
           mode={trainerMode}
           onBackToCatalog={openTrainerCatalog}
+          onBackToLanding={() => navigate("Landing")}
           onStartScenario={(scenarioId) => {
             void launchScenario(scenarioId);
           }}

@@ -2,6 +2,7 @@ import type { KnowledgeCategoryId, UserRole } from "../types/academy";
 
 export type RootStackParamList = {
   Landing: undefined;
+  Audit: undefined;
   StudentHome: undefined;
   Simulator: { scenarioId?: string; materialId?: string } | undefined;
   Reports: { highlightReportId?: string } | undefined;
@@ -21,6 +22,11 @@ export const routeConfig: Record<RouteName, RouteConfigItem> = {
     route: "Landing",
     title: "AI Sales Academy",
     description: "Лендинг и вход в рабочее пространство"
+  },
+  Audit: {
+    route: "Audit",
+    title: "Аудит потерь клиники",
+    description: "Быстрая оценка потерь по воронке клиники."
   },
   StudentHome: {
     route: "StudentHome",
@@ -66,7 +72,7 @@ export const roleLabels: Record<UserRole, string> = {
 };
 
 export function isRouteAllowedForRole(route: RouteName, role: UserRole) {
-  if (route === "Landing") {
+  if (route === "Landing" || route === "Audit") {
     return true;
   }
 

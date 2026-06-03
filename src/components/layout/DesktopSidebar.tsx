@@ -24,6 +24,7 @@ interface DesktopSidebarProps {
 
 const routeLabels: Record<RouteName, string> = {
   Landing: "Лендинг",
+  Audit: "Аудит",
   StudentHome: "Главная",
   Simulator: "ИИ-Тренажер",
   Reports: "Отчеты",
@@ -62,30 +63,20 @@ export function DesktopSidebar({
           ]}
         >
           <View style={styles.brandRow}>
-            <View
-              style={[
-                styles.brandIcon,
-                { backgroundColor: theme.semantic.actionSecondary }
-              ]}
-            >
-              <Text style={[styles.brandIconText, { color: theme.semantic.actionPrimary }]}>🎓</Text>
+            <View style={styles.brandMark}>
+              <View style={[styles.brandMarkStripe, styles.brandMarkStripeTop]} />
+              <View style={[styles.brandMarkStripe, styles.brandMarkStripeBottom]} />
             </View>
             <Text style={[styles.brandTitle, { color: theme.semantic.textPrimary }]}>
-              AI Sales Academy
+              цифровая{"\n"}методология
             </Text>
           </View>
           <Pressable
             onPress={() => onNavigate("Landing")}
-            style={[
-              styles.landingLink,
-              { backgroundColor: theme.semantic.backgroundWarm }
-            ]}
+            style={({ pressed }) => [styles.landingLink, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Text style={[styles.landingLinkText, { color: theme.semantic.actionPrimary }]}>
-              На лендинг
-            </Text>
-            <Text style={[styles.landingLinkArrow, { color: theme.semantic.textSecondary }]}>
-              ›
+            <Text style={[styles.landingLinkText, { color: theme.semantic.textMuted }]}>
+              Вернуться на лендинг
             </Text>
           </Pressable>
         </View>
@@ -108,10 +99,10 @@ export function DesktopSidebar({
             <View
               style={[
                 styles.avatar,
-                { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }
+                { backgroundColor: theme.semantic.textPrimary, borderColor: theme.semantic.textPrimary }
               ]}
             >
-              <Text style={[styles.avatarText, { color: theme.semantic.actionPrimary }]}>АМ</Text>
+              <Text style={[styles.avatarText, { color: "#FFFFFF" }]}>АМ</Text>
             </View>
             <View style={styles.userMetaBlock}>
               <Text style={[styles.userName, { color: theme.semantic.textPrimary }]}>{user.fullName}</Text>
@@ -132,39 +123,18 @@ export function DesktopSidebar({
                 styles.navItem,
                 {
                   backgroundColor:
-                    route === activeRoute ? theme.semantic.actionPrimary : theme.semantic.card,
-                  borderColor: theme.semantic.border
+                    route === activeRoute ? "#dbe6f7" : theme.semantic.card,
+                  borderColor:
+                    route === activeRoute ? "#c4d4ee" : theme.semantic.border
                 }
               ]}
             >
               <View style={styles.navInner}>
-                <View
-                  style={[
-                    styles.navIconTile,
-                    {
-                      backgroundColor:
-                        route === activeRoute ? "rgba(255,255,255,0.14)" : theme.semantic.backgroundWarm
-                    }
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.navIcon,
-                      {
-                        color:
-                          route === activeRoute ? "#FFFFFF" : theme.semantic.textSecondary
-                      }
-                    ]}
-                  >
-                    {routeIcons[route] ?? "•"}
-                  </Text>
-                </View>
                 <Text
                   style={[
                     styles.navLabel,
                     {
-                      color:
-                        route === activeRoute ? "#FFFFFF" : theme.semantic.textPrimary
+                      color: theme.semantic.textPrimary
                     }
                   ]}
                 >
@@ -195,20 +165,13 @@ export function DesktopSidebar({
               style={[
                 styles.primaryAction,
                 {
-                  backgroundColor: simulatorActions.canFinish
-                    ? theme.semantic.actionPrimary
-                    : theme.semantic.card,
-                  borderColor: simulatorActions.canFinish ? "transparent" : theme.semantic.border,
-                  opacity: 1
+                  backgroundColor: theme.semantic.actionPrimary,
+                  borderColor: "transparent",
+                  opacity: simulatorActions.canFinish ? 1 : 0.5
                 }
               ]}
             >
-              <Text
-                style={[
-                  styles.primaryActionText,
-                  { color: simulatorActions.canFinish ? "#FFFFFF" : theme.semantic.actionPrimary }
-                ]}
-              >
+              <Text style={[styles.primaryActionText, { color: "#FFFFFF" }]}>
                 {simulatorActions.isFinishing ? "Сохраняем..." : "Завершить и получить отчёт"}
               </Text>
             </Pressable>
@@ -260,20 +223,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12
   },
-  brandIcon: {
-    width: 32,
-    height: 32,
+  brandMark: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center"
+    backgroundColor: "#121A68",
+    position: "relative",
+    overflow: "hidden"
   },
-  brandIconText: {
-    fontSize: 16
+  brandMarkStripe: {
+    position: "absolute",
+    height: 9,
+    borderRadius: 20,
+    backgroundColor: "#9CF000",
+    transform: [{ rotate: "-35deg" }]
   },
+  brandMarkStripeTop: { width: 28, left: 6, top: 9 },
+  brandMarkStripeBottom: { width: 22, left: 10, top: 21 },
   brandTitle: {
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: "800"
+    fontSize: 14,
+    lineHeight: 14,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: -0.4
   },
   brandSubtitle: {
     fontSize: 14,
@@ -281,13 +253,10 @@ const styles = StyleSheet.create({
   },
   landingLink: {
     alignSelf: "flex-start",
-    minHeight: 30,
-    borderRadius: 10,
-    paddingLeft: 10,
-    paddingRight: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6
+    gap: 7,
+    paddingVertical: 2
   },
   landingLinkText: {
     fontSize: 13,
@@ -295,9 +264,9 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   landingLinkArrow: {
-    fontSize: 16,
+    fontSize: 14,
     lineHeight: 16,
-    marginTop: -1
+    fontWeight: "700"
   },
   userCard: {
     borderWidth: 1,

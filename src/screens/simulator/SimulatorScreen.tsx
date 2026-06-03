@@ -28,10 +28,51 @@ interface SimulatorScreenProps {
   mode: "catalog" | "dialogue";
   onStartScenario: (scenarioId: string) => void;
   onBackToCatalog: () => void;
+  onBackToLanding: () => void;
   onSendMessage: (text: string) => Promise<boolean>;
   onFinishScenario: (params: { scenarioId: string; scenarioTitle: string }) => void;
   startErrorText?: string | null;
   onDismissStartError?: () => void;
+}
+
+// Landing-style palette (mirrors LandingScreen). Maps the old theme color tokens
+// onto the landing look without touching layout/spacing/shadow logic.
+const NAVY = "#121a68";
+const LIME = "#9cf000";
+const LIME_2 = "#b8ff43";
+const TEXT = "#1f2559";
+const MUTED = "#60688d";
+const LINE = "#dfe3f2";
+const SOFT = "#f6f8ff";
+const SOFT_2 = "#eef2ff";
+const LIME_PILL = "#edf8ce";
+// Single unified blue tint (navy family) used for every soft-filled element.
+const TINT = "#dbe6f7";
+const TINT_BORDER = "#c4d4ee";
+const FONT_FAMILY = Platform.OS === "web" ? "Inter, system-ui, sans-serif" : undefined;
+
+const LP = {
+  textPrimary: NAVY,
+  textSecondary: MUTED,
+  textMuted: "#9aa3c9",
+  border: LINE,
+  borderSubtle: "#eef1fa",
+  card: "#ffffff",
+  backgroundWarm: SOFT,
+  actionPrimary: NAVY,
+  success: "#5bbf2e",
+  warning: "#c8951f",
+  info: NAVY,
+  primaryPale: LIME_PILL,
+  primarySoft: LIME_2,
+  surfaceMint: "#f4fbe0"
+};
+
+function webBg(gradient: string, fallback: string) {
+  if (Platform.OS === "web") {
+    return { backgroundColor: fallback, backgroundImage: gradient } as unknown as TextStyle;
+  }
+  return { backgroundColor: fallback };
 }
 
 const trainerFilters = ["Все", "Новые"] as const;
@@ -63,6 +104,7 @@ export function SimulatorScreen({
   mode,
   onStartScenario,
   onBackToCatalog,
+  onBackToLanding,
   onSendMessage,
   onFinishScenario,
   startErrorText = null,
@@ -146,18 +188,24 @@ export function SimulatorScreen({
     <View style={styles.screen}>
       <View style={[styles.headerRow, !layout.isDesktop && styles.headerStack]}>
         <View style={styles.headerBlock}>
-          <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>ИИ-Тренажер</Text>
-          <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
+          <Text style={[styles.pageTitle, { color: LP.textPrimary }]}>ИИ-Тренажер</Text>
+          <Text style={[styles.pageSubtitle, { color: LP.textSecondary }]}>
             Практикуйте навыки продаж в реалистичных сценариях.
           </Text>
-          <Text style={[styles.pageSubtitle, { color: theme.semantic.textSecondary }]}>
+          <Text style={[styles.pageSubtitle, { color: LP.textSecondary }]}>
             Выберите модуль и начните тренировку.
           </Text>
         </View>
-        <View style={styles.headerActions}>
-          <CircleActionButton label="◔" onPress={openProgressInfo} />
-          <CircleActionButton label="?" onPress={openTrainerHelp} />
-        </View>
+        {!layout.isDesktop ? (
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={onBackToLanding}
+              style={({ pressed }) => [styles.backToLanding, { borderColor: LP.border }, pressed && styles.pressed]}
+            >
+              <Text style={[styles.backToLandingText, { color: LP.textSecondary }]}>← На лендинг</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       {startErrorText ? (
@@ -173,7 +221,7 @@ export function SimulatorScreen({
         <View
           style={[
             styles.segmentedControl,
-            { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+            { backgroundColor: "rgba(18,26,104,0.05)", borderColor: "transparent" }
           ]}
         >
           <SegmentButton
@@ -189,34 +237,24 @@ export function SimulatorScreen({
         </View>
       </View>
 
-      <View
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: theme.semantic.card,
-            borderColor: theme.semantic.border,
-            shadowColor: theme.shadows.card.shadowColor,
-            shadowOpacity: theme.shadows.card.shadowOpacity,
-            shadowRadius: theme.shadows.card.shadowRadius,
-            shadowOffset: theme.shadows.card.shadowOffset,
-            elevation: theme.shadows.card.elevation
-          }
-        ]}
-      >
+      <View style={[styles.heroPanel, webBg("linear-gradient(135deg, #121a68 0%, #232f9c 100%)", NAVY)]}>
+        <View style={[styles.heroDecor, styles.heroDecorTop]} />
+        <View style={[styles.heroDecor, styles.heroDecorBottom]} />
         <View style={[styles.heroContent, !layout.isWide && styles.heroStack]}>
           <View style={styles.heroText}>
-            <Text style={[styles.heroEyebrow, { color: theme.semantic.textSecondary }]}>
-              Продолжить с места остановки
-            </Text>
-            <Text style={[styles.heroTitle, { color: theme.semantic.textPrimary }]}>
-              {featuredScenario.title}
-            </Text>
-            <Text style={[styles.heroDescription, { color: theme.semantic.textSecondary }]}>
-              {featuredScenario.description}
-            </Text>
+            <View style={styles.heroEyebrow}>
+              <View style={styles.heroEyebrowDot} />
+              <Text style={styles.heroEyebrowText}>Продолжить с места остановки</Text>
+            </View>
+            <Text style={styles.heroTitle}>{featuredScenario.title}</Text>
+            <Text style={styles.heroDescription}>{featuredScenario.description}</Text>
             <View style={styles.heroPills}>
-              <InfoPill label={featuredScenario.duration} />
-              <InfoPill label={`Уровень: ${featuredScenario.level}`} />
+              <View style={styles.heroMetaPill}>
+                <Text style={styles.heroMetaPillText}>{featuredScenario.duration}</Text>
+              </View>
+              <View style={styles.heroMetaPill}>
+                <Text style={styles.heroMetaPillText}>Уровень: {featuredScenario.level}</Text>
+              </View>
             </View>
           </View>
 
@@ -226,28 +264,9 @@ export function SimulatorScreen({
               !layout.isWide && styles.heroIllustrationWrapMobile
             ]}
           >
-            <View style={[styles.heroIllustration, { backgroundColor: theme.colors.primaryPale }]}>
-              <View
-                style={[styles.chatBlobLarge, { backgroundColor: "rgba(255,255,255,0.85)" }]}
-              />
-              <View
-                style={[styles.chatBlobSmall, { backgroundColor: "rgba(255,255,255,0.72)" }]}
-              />
-              <View
-                style={[
-                  styles.priceTag,
-                  {
-                    backgroundColor: theme.colors.primarySoft,
-                    borderColor: theme.semantic.actionPrimary
-                  }
-                ]}
-              >
-                <Text style={styles.priceTagText}>₽</Text>
-              </View>
-            </View>
             <Pressable
               onPress={() => onStartScenario(featuredScenario.id)}
-              style={[styles.heroCta, { backgroundColor: theme.semantic.actionPrimary }]}
+              style={({ pressed }) => [styles.heroCta, pressed && styles.pressed]}
             >
               <Text style={styles.heroCtaText}>Начать тренировку</Text>
             </Pressable>
@@ -264,21 +283,15 @@ export function SimulatorScreen({
               style={[
                 styles.filterPill,
                 {
-                  backgroundColor:
-                    activeFilter === label ? theme.colors.primaryPale : theme.semantic.card,
-                  borderColor: theme.semantic.border
+                  backgroundColor: activeFilter === label ? NAVY : LP.card,
+                  borderColor: activeFilter === label ? NAVY : LP.border
                 }
               ]}
             >
               <Text
                 style={[
                   styles.filterPillText,
-                  {
-                    color:
-                      activeFilter === label
-                        ? theme.semantic.actionPrimary
-                        : theme.semantic.textPrimary
-                  }
+                  { color: activeFilter === label ? "#ffffff" : LP.textPrimary }
                 ]}
               >
                 {label}
@@ -305,7 +318,7 @@ export function SimulatorScreen({
         onClose={() => setInfoSheet(null)}
       >
         {infoSheet?.lines.map((line) => (
-          <Text key={line} style={[styles.sheetLine, { color: theme.semantic.textPrimary }]}>
+          <Text key={line} style={[styles.sheetLine, { color: LP.textPrimary }]}>
             • {line}
           </Text>
         ))}
@@ -438,7 +451,7 @@ function DialogueView({
       ]}
     >
       <View style={[styles.dialogueHeader, !layout.isDesktop && styles.headerStack]}>
-        <Text style={[styles.pageTitle, { color: theme.semantic.textPrimary }]}>ИИ-Тренажер</Text>
+        <Text style={[styles.pageTitle, { color: LP.textPrimary }]}>ИИ-Тренажер</Text>
         {!layout.isDesktop ? (
           <View
             style={[
@@ -450,13 +463,13 @@ function DialogueView({
               onPress={onBackToCatalog}
               style={[
                 styles.changeScenarioButton,
-                { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+                { backgroundColor: LP.card, borderColor: LP.border }
               ]}
             >
-              <Text style={[styles.changeScenarioIcon, { color: theme.semantic.textSecondary }]}>
+              <Text style={[styles.changeScenarioIcon, { color: LP.textSecondary }]}>
                 ⇄
               </Text>
-              <Text style={[styles.changeScenarioText, { color: theme.semantic.textPrimary }]}>
+              <Text style={[styles.changeScenarioText, { color: LP.textPrimary }]}>
                 Сменить сценарий
               </Text>
             </Pressable>
@@ -478,8 +491,8 @@ function DialogueView({
             styles.chatPanel,
             !layout.isDesktop && styles.chatPanelMobile,
             {
-              backgroundColor: theme.semantic.card,
-              borderColor: theme.semantic.border,
+              backgroundColor: LP.card,
+              borderColor: LP.border,
               shadowColor: theme.shadows.card.shadowColor,
               shadowOpacity: theme.shadows.card.shadowOpacity,
               shadowRadius: theme.shadows.card.shadowRadius,
@@ -488,12 +501,12 @@ function DialogueView({
             }
           ]}
         >
-          <View style={[styles.chatTopBar, { borderBottomColor: theme.semantic.borderSubtle }]}>
+          <View style={[styles.chatTopBar, { borderBottomColor: LP.borderSubtle }]}>
             <View style={styles.chatTopLeft}>
-              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
+              <Text style={[styles.chatTopMeta, { color: LP.textSecondary }]}>
                 Реплики менеджера:{" "}
                 <Text
-                  style={[styles.chatTopMetaStrong, { color: theme.semantic.textPrimary }]}
+                  style={[styles.chatTopMetaStrong, { color: LP.textPrimary }]}
                 >
                   {visibleReplyCountLabel}
                 </Text>
@@ -501,13 +514,13 @@ function DialogueView({
               <View
                 style={[
                   styles.chatProgressTrack,
-                  { backgroundColor: theme.semantic.borderSubtle }
+                  { backgroundColor: LP.borderSubtle }
                 ]}
               >
                 <View
                   style={[
                     styles.chatProgressFill,
-                    { backgroundColor: theme.semantic.actionPrimary, width: `${progress}%` }
+                    { backgroundColor: LIME, width: `${progress}%` }
                   ]}
                 />
               </View>
@@ -519,18 +532,16 @@ function DialogueView({
                     styles.statusDot,
                     {
                       backgroundColor:
-                        activeSession?.status === "finished"
-                          ? theme.semantic.warning
-                          : theme.semantic.success
+                        activeSession?.status === "finished" ? LP.textMuted : LIME
                     }
                   ]}
                 />
-                <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
+                <Text style={[styles.chatTopMeta, { color: LP.textSecondary }]}>
                   {activeSession?.status === "finished" ? "Сессия завершена" : dialogue.status}
                 </Text>
               </View>
-              <Text style={[styles.chatTopMeta, { color: theme.semantic.textSecondary }]}>
-                ◔ {messages[messages.length - 1]?.time ?? dialogue.time}
+              <Text style={[styles.chatTopMeta, { color: LP.textSecondary }]}>
+                {messages[messages.length - 1]?.time ?? dialogue.time}
               </Text>
             </View>
           </View>
@@ -539,21 +550,21 @@ function DialogueView({
             <View
               style={[
                 styles.personaAvatar,
-                { backgroundColor: theme.colors.primaryPale, borderColor: theme.semantic.border }
+                { backgroundColor: NAVY, borderColor: NAVY }
               ]}
             >
-              <Text style={[styles.personaAvatarText, { color: theme.semantic.actionPrimary }]}>
+              <Text style={[styles.personaAvatarText, { color: "#ffffff" }]}>
                 РП
               </Text>
             </View>
             <View style={styles.personaText}>
-              <Text style={[styles.personaName, { color: theme.semantic.textPrimary }]}>
+              <Text style={[styles.personaName, { color: LP.textPrimary }]}>
                 {dialogue.persona.name}
               </Text>
-              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>
+              <Text style={[styles.personaMeta, { color: LP.textSecondary }]}>
                 Компания: {dialogue.persona.company}
               </Text>
-              <Text style={[styles.personaMeta, { color: theme.semantic.textSecondary }]}>
+              <Text style={[styles.personaMeta, { color: LP.textSecondary }]}>
                 Отдел: {dialogue.persona.department}
               </Text>
             </View>
@@ -577,15 +588,15 @@ function DialogueView({
                     style={[
                       styles.restartScenarioButton,
                       {
-                        backgroundColor: theme.semantic.card,
-                        borderColor: theme.semantic.border
+                        backgroundColor: LP.card,
+                        borderColor: LP.border
                       }
                     ]}
                   >
                     <Text
                       style={[
                         styles.restartScenarioButtonText,
-                        { color: theme.semantic.actionPrimary }
+                        { color: LP.actionPrimary }
                       ]}
                     >
                       ↻
@@ -627,18 +638,15 @@ function DialogueView({
                     ? styles.messageBubbleManager
                     : styles.messageBubbleCustomer,
                   {
-                    backgroundColor:
-                      message.author === "manager"
-                        ? theme.colors.surfaceMint
-                        : theme.semantic.card,
-                    borderColor: theme.semantic.border
+                    backgroundColor: message.author === "manager" ? TINT : "#ffffff",
+                    borderColor: message.author === "manager" ? TINT_BORDER : LINE
                   }
                 ]}
               >
-                <Text style={[styles.messageText, { color: theme.semantic.textPrimary }]}>
+                <Text style={[styles.messageText, { color: TEXT }]}>
                   {message.text}
                 </Text>
-                <Text style={[styles.messageTime, { color: theme.semantic.textMuted }]}>
+                <Text style={[styles.messageTime, { color: LP.textMuted }]}>
                   {message.time}
                 </Text>
               </View>
@@ -650,21 +658,21 @@ function DialogueView({
                   style={[
                     styles.typingDots,
                     {
-                      backgroundColor: theme.semantic.backgroundWarm,
-                      borderColor: theme.semantic.border
+                      backgroundColor: LP.backgroundWarm,
+                      borderColor: LP.border
                     }
                   ]}
                 >
                   <Animated.Text
                     style={[
                       styles.typingDotsText,
-                      { color: theme.semantic.textMuted, opacity: typingDotsOpacity }
+                      { color: LP.textMuted, opacity: typingDotsOpacity }
                     ]}
                   >
                     ...
                   </Animated.Text>
                 </View>
-                <Text style={[styles.typingText, { color: theme.semantic.textMuted }]}>
+                <Text style={[styles.typingText, { color: LP.textMuted }]}>
                   Печатает
                 </Text>
               </View>
@@ -683,16 +691,16 @@ function DialogueView({
                   }
                 ]}
               >
-                <Text style={[styles.scenarioIntroTitle, { color: theme.semantic.textPrimary }]}>
+                <Text style={[styles.scenarioIntroTitle, { color: LP.textPrimary }]}>
                   Контекст сценария
                 </Text>
-                <Text style={[styles.scenarioIntroLine, { color: theme.semantic.textPrimary }]}>
+                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
                   <Text style={styles.scenarioIntroStrong}>Продукт:</Text> Промышленные кондиционеры
                 </Text>
-                <Text style={[styles.scenarioIntroLine, { color: theme.semantic.textPrimary }]}>
+                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
                   <Text style={styles.scenarioIntroStrong}>Ситуация:</Text> Входящий запрос, первый контакт
                 </Text>
-                <Text style={[styles.scenarioIntroLine, { color: theme.semantic.textPrimary }]}>
+                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
                   <Text style={styles.scenarioIntroStrong}>Цель:</Text> Договориться о следующем шаге
                 </Text>
               </View>
@@ -702,7 +710,7 @@ function DialogueView({
           {layout.isDesktop ? (
             <View
               pointerEvents="none"
-              style={[styles.inputFooterBackdrop, { backgroundColor: theme.semantic.card }]}
+              style={[styles.inputFooterBackdrop, { backgroundColor: LP.card }]}
             />
           ) : null}
 
@@ -712,23 +720,23 @@ function DialogueView({
               styles.inputWrap,
               !layout.isDesktop && styles.inputWrapMobile,
               {
-                backgroundColor: theme.semantic.card,
-                borderTopColor: theme.semantic.borderSubtle
+                backgroundColor: LP.card,
+                borderTopColor: LP.borderSubtle
               }
             ]}
           >
             <View
               style={[
                 styles.inputRow,
-                { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+                { backgroundColor: LP.card, borderColor: LP.border }
               ]}
             >
               <TextInput
                 testID="simulator-chat-input"
                 accessibilityLabel="Поле ввода сообщения в тренажере"
                 placeholder="Напишите сообщение..."
-                placeholderTextColor={theme.semantic.textMuted}
-                style={[styles.chatInput, chatInputWebReset, { color: theme.semantic.textPrimary }]}
+                placeholderTextColor={LP.textMuted}
+                style={[styles.chatInput, chatInputWebReset, { color: LP.textPrimary }]}
                 value={draftMessage}
                 onChangeText={setDraftMessage}
                 onKeyPress={handleInputKeyPress}
@@ -754,11 +762,11 @@ function DialogueView({
                   {
                     backgroundColor:
                       !draftMessage.trim() || isSending || !isSessionActive || isFinishing
-                        ? theme.semantic.backgroundWarm
-                        : theme.semantic.actionPrimary,
+                        ? LP.backgroundWarm
+                        : LP.actionPrimary,
                     borderColor:
                       !draftMessage.trim() || isSending || !isSessionActive || isFinishing
-                        ? theme.semantic.border
+                        ? LP.border
                         : "transparent",
                     opacity:
                       !draftMessage.trim() || isSending || !isSessionActive || isFinishing
@@ -773,7 +781,7 @@ function DialogueView({
                     {
                       borderColor:
                         !draftMessage.trim() || isSending || !isSessionActive || isFinishing
-                          ? theme.semantic.textMuted
+                          ? LP.textMuted
                           : "#FFFFFF"
                     }
                   ]}
@@ -788,10 +796,10 @@ function DialogueView({
           <View
             style={[
               styles.insightCard,
-              { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+              { backgroundColor: LP.card, borderColor: LP.border }
             ]}
           >
-            <Text style={[styles.insightTitle, { color: theme.semantic.textPrimary }]}>
+            <Text style={[styles.insightTitle, { color: LP.textPrimary }]}>
               Контекст сценария
             </Text>
             <InsightTextBlock label="Продукт" text="Промышленные кондиционеры" />
@@ -814,8 +822,8 @@ function DialogueView({
             style={[
               styles.finishButton,
               {
-                backgroundColor: canFinishScenario ? theme.semantic.actionPrimary : theme.semantic.card,
-                borderColor: canFinishScenario ? "transparent" : theme.semantic.border,
+                backgroundColor: canFinishScenario ? LP.actionPrimary : LP.card,
+                borderColor: canFinishScenario ? "transparent" : LP.border,
                 borderWidth: canFinishScenario ? 0 : 1,
                 opacity: 1
               }
@@ -824,14 +832,14 @@ function DialogueView({
             <Text
               style={[
                 styles.finishButtonText,
-                { color: canFinishScenario ? "#FFFFFF" : theme.semantic.actionPrimary }
+                { color: canFinishScenario ? "#FFFFFF" : LP.actionPrimary }
               ]}
             >
               {isFinishing ? "Сохраняем отчет..." : "Завершить и получить отчет"}
             </Text>
           </Pressable>
           {!hasEnoughRepliesForReport ? (
-            <Text style={[styles.finishHintText, { color: theme.semantic.textMuted }]}>
+            <Text style={[styles.finishHintText, { color: LP.textMuted }]}>
               Минимум {dialogue.replyTarget} реплик для отчета ({managerReplyCount} / {dialogue.replyTarget})
             </Text>
           ) : null}
@@ -848,8 +856,8 @@ function InsightTextBlock({ label, text }: { label: string; text: string }) {
 
   return (
     <View style={styles.insightTextBlock}>
-      <Text style={[styles.insightLabel, { color: theme.semantic.textSecondary }]}>{label}</Text>
-      <Text style={[styles.insightText, { color: theme.semantic.textPrimary }]}>{text}</Text>
+      <Text style={[styles.insightLabel, { color: LP.textSecondary }]}>{label}</Text>
+      <Text style={[styles.insightText, { color: LP.textPrimary }]}>{text}</Text>
     </View>
   );
 }
@@ -870,16 +878,17 @@ function SegmentButton({
       onPress={onPress}
       style={[
         styles.segmentButton,
+        active && styles.segmentButtonActive,
         {
-          backgroundColor: active ? theme.semantic.card : "transparent",
-          borderColor: active ? theme.semantic.actionPrimary : "transparent"
+          backgroundColor: active ? "#ffffff" : "transparent",
+          borderColor: "transparent"
         }
       ]}
     >
       <Text
         style={[
           styles.segmentLabel,
-          { color: active ? theme.semantic.actionPrimary : theme.semantic.textPrimary }
+          { color: active ? NAVY : LP.textSecondary }
         ]}
       >
         {label}
@@ -902,8 +911,8 @@ function ScenarioTile({
       style={[
         styles.scenarioTile,
         {
-          backgroundColor: theme.semantic.card,
-          borderColor: theme.semantic.border,
+          backgroundColor: LP.card,
+          borderColor: LP.border,
           shadowColor: theme.shadows.soft.shadowColor,
           shadowOpacity: theme.shadows.soft.shadowOpacity,
           shadowRadius: theme.shadows.soft.shadowRadius,
@@ -924,10 +933,10 @@ function ScenarioTile({
           </Text>
         </View>
         <View style={styles.scenarioText}>
-          <Text style={[styles.scenarioTitle, { color: theme.semantic.textPrimary }]}>
+          <Text style={[styles.scenarioTitle, { color: LP.textPrimary }]}>
             {scenario.title}
           </Text>
-          <Text style={[styles.scenarioDescription, { color: theme.semantic.textSecondary }]}>
+          <Text style={[styles.scenarioDescription, { color: LP.textSecondary }]}>
             {scenario.description}
           </Text>
         </View>
@@ -938,10 +947,10 @@ function ScenarioTile({
             style={[
               styles.newBadge,
               styles.scenarioStatusBadge,
-              { backgroundColor: "rgba(92,143,115,0.12)" }
+              { backgroundColor: TINT }
             ]}
           >
-            <Text style={[styles.newBadgeText, { color: theme.colors.info }]}>
+            <Text style={[styles.newBadgeText, { color: NAVY }]}>
               {scenario.progressLabel}
             </Text>
           </View>
@@ -953,10 +962,10 @@ function ScenarioTile({
             onPress={onPlay}
             style={[
               styles.playButton,
-              { borderColor: theme.semantic.border, backgroundColor: theme.semantic.card }
+              { borderColor: LP.border, backgroundColor: LP.card }
             ]}
           >
-            <Text style={[styles.playButtonText, { color: theme.semantic.actionPrimary }]}>▶</Text>
+            <Text style={[styles.playButtonText, { color: LP.actionPrimary }]}>▶</Text>
           </Pressable>
         </View>
       </View>
@@ -972,10 +981,10 @@ function CircleActionButton({ label, onPress }: { label: string; onPress: () => 
       onPress={onPress}
       style={[
         styles.circleButton,
-        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+        { backgroundColor: LP.card, borderColor: LP.border }
       ]}
     >
-      <Text style={[styles.circleButtonText, { color: theme.semantic.textPrimary }]}>
+      <Text style={[styles.circleButtonText, { color: LP.textPrimary }]}>
         {label}
       </Text>
     </Pressable>
@@ -990,52 +999,27 @@ function InfoPill({ label, compact }: { label: string; compact?: boolean }) {
       style={[
         styles.infoPill,
         compact && styles.infoPillCompact,
-        { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
+        { backgroundColor: LP.card, borderColor: LP.border }
       ]}
     >
-      <Text style={[styles.infoPillText, { color: theme.semantic.textPrimary }]}>{label}</Text>
+      <Text style={[styles.infoPillText, { color: LP.textPrimary }]}>{label}</Text>
     </View>
   );
 }
 
+// Uniform, landing-cohesive icon tiles (navy on pale blue) regardless of legacy tone.
 function toneBackground(
-  theme: ReturnType<typeof useTheme>,
-  tone: "mint" | "warning" | "info" | "violet" | "peach"
+  _theme: ReturnType<typeof useTheme>,
+  _tone: "mint" | "warning" | "info" | "violet" | "peach"
 ) {
-  if (tone === "warning") {
-    return "rgba(213,162,77,0.16)";
-  }
-  if (tone === "info") {
-    return "rgba(92,143,115,0.14)";
-  }
-  if (tone === "violet") {
-    return "rgba(120, 120, 180, 0.14)";
-  }
-  if (tone === "peach") {
-    return "rgba(200,92,74,0.10)";
-  }
-
-  return theme.colors.primaryPale;
+  return SOFT_2;
 }
 
 function toneForeground(
-  theme: ReturnType<typeof useTheme>,
-  tone: "mint" | "warning" | "info" | "violet" | "peach"
+  _theme: ReturnType<typeof useTheme>,
+  _tone: "mint" | "warning" | "info" | "violet" | "peach"
 ) {
-  if (tone === "warning") {
-    return theme.semantic.warning;
-  }
-  if (tone === "info") {
-    return theme.colors.info;
-  }
-  if (tone === "violet") {
-    return "#7B61B9";
-  }
-  if (tone === "peach") {
-    return "#D97045";
-  }
-
-  return theme.semantic.actionPrimary;
+  return NAVY;
 }
 
 const styles = StyleSheet.create({
@@ -1057,9 +1041,11 @@ const styles = StyleSheet.create({
     gap: 2
   },
   pageTitle: {
-    fontSize: 30,
+    fontSize: 34,
     lineHeight: 36,
-    fontWeight: "800"
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: -1
   },
   pageSubtitle: {
     fontSize: 16,
@@ -1071,7 +1057,20 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 10
+  },
+  backToLanding: {
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  backToLandingText: {
+    fontSize: 13,
+    fontWeight: "700"
   },
   circleButton: {
     width: 40,
@@ -1106,20 +1105,42 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center"
   },
+  segmentButtonActive: {
+    shadowColor: NAVY,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2
+  },
   segmentLabel: {
-    fontSize: 16,
-    fontWeight: "700"
+    fontSize: 15,
+    fontWeight: "800"
   },
-  heroCard: {
-    borderWidth: 1,
-    borderRadius: 30,
-    padding: 18
+  pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
+  heroPanel: {
+    borderRadius: 28,
+    paddingVertical: 28,
+    paddingHorizontal: 30,
+    overflow: "hidden",
+    shadowColor: NAVY,
+    shadowOpacity: 0.16,
+    shadowRadius: 38,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 6
   },
+  heroDecor: {
+    position: "absolute",
+    backgroundColor: LIME,
+    transform: [{ rotate: "45deg" }]
+  },
+  heroDecorTop: { width: 168, height: 168, right: -82, top: -88, opacity: 0.85 },
+  heroDecorBottom: { width: 120, height: 120, left: -60, bottom: -60, opacity: 0.12 },
   heroContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 20
+    gap: 24,
+    zIndex: 1
   },
   heroStack: {
     flexDirection: "column",
@@ -1127,33 +1148,55 @@ const styles = StyleSheet.create({
   },
   heroText: {
     flex: 1,
-    gap: 10
+    gap: 14
   },
   heroEyebrow: {
-    fontSize: 16,
-    fontWeight: "700"
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,.12)"
   },
+  heroEyebrowDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: LIME },
+  heroEyebrowText: { color: "#fff", fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 },
   heroTitle: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: "800"
+    color: "#fff",
+    fontSize: 27,
+    lineHeight: 29,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: -0.5,
+    maxWidth: 560
   },
   heroDescription: {
+    color: "rgba(255,255,255,.78)",
     fontSize: 16,
     lineHeight: 24,
-    maxWidth: 700
+    maxWidth: 560
   },
   heroPills: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
-    marginTop: 4
+    gap: 10,
+    marginTop: 2
   },
+  heroMetaPill: {
+    backgroundColor: "rgba(255,255,255,.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,.16)",
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14
+  },
+  heroMetaPillText: { color: "rgba(255,255,255,.85)", fontSize: 13, fontWeight: "700" },
   infoPill: {
     minHeight: 42,
-    borderRadius: 14,
+    borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center"
@@ -1163,71 +1206,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12
   },
   infoPillText: {
-    fontSize: 14,
-    fontWeight: "600"
+    fontSize: 13,
+    fontWeight: "700"
   },
   heroIllustrationWrap: {
-    minWidth: 360,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 14
+    alignItems: "flex-end",
+    justifyContent: "center"
   },
   heroIllustrationWrapMobile: {
     minWidth: 0,
     width: "100%",
-    alignSelf: "center"
+    alignItems: "stretch"
   },
-  heroIllustration: {
-    width: 220,
-    height: 150,
-    borderRadius: 28,
+  heroCta: {
+    minHeight: 56,
+    borderRadius: 999,
+    paddingHorizontal: 30,
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center"
   },
-  chatBlobLarge: {
-    position: "absolute",
-    top: 22,
-    left: 42,
-    width: 86,
-    height: 78,
-    borderRadius: 22
-  },
-  chatBlobSmall: {
-    position: "absolute",
-    top: 76,
-    left: 70,
-    width: 72,
-    height: 56,
-    borderRadius: 18
-  },
-  priceTag: {
-    position: "absolute",
-    right: 40,
-    top: 36,
-    width: 58,
-    height: 92,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    transform: [{ rotate: "6deg" }]
-  },
-  priceTagText: {
-    color: "#FFFFFF",
-    fontSize: 38,
-    fontWeight: "800"
-  },
-  heroCta: {
-    minHeight: 58,
-    borderRadius: 18,
-    paddingHorizontal: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center"
-  },
   heroCtaText: {
-    color: "#FFFFFF",
-    fontSize: 18,
+    color: NAVY,
+    fontSize: 16,
     fontWeight: "800"
   },
   filtersRow: {
@@ -1300,8 +1301,10 @@ const styles = StyleSheet.create({
   },
   scenarioTitle: {
     fontSize: 18,
-    lineHeight: 24,
-    fontWeight: "800"
+    lineHeight: 22,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: -0.3
   },
   scenarioDescription: {
     fontSize: 15,

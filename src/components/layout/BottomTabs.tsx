@@ -13,6 +13,7 @@ interface BottomTabsProps {
 
 const tabLabels: Record<RouteName, string> = {
   Landing: "Старт",
+  Audit: "Аудит",
   StudentHome: "Личный кабинет",
   Simulator: "Чат",
   Reports: "Отчеты",

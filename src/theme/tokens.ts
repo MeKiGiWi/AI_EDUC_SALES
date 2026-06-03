@@ -1,28 +1,30 @@
+// Landing-aligned palette (navy + lime). Mirrors LandingScreen colors so the
+// app chrome (sidebar, tabs, header) and reports share the landing look.
 export const colors = {
-  canvas: "#F7FBF8",
-  canvasWarm: "#FCFEFC",
+  canvas: "#F6F8FF",
+  canvasWarm: "#FFFFFF",
   surface: "#FFFFFF",
-  surfaceMuted: "#F4FBF6",
-  surfaceMint: "#EEF8F1",
-  ink: "#102114",
-  inkSoft: "#18301E",
-  body: "#4E6556",
-  muted: "#6C8273",
-  faint: "#9FB2A5",
-  border: "#D8E6DD",
-  borderSoft: "#EAF3ED",
-  primary: "#2F8F5B",
-  primaryDeep: "#1E6E43",
-  primarySoft: "#78C69A",
-  primaryPale: "#D8F1E0",
-  accent: "#2FA36B",
-  mintGlow: "#BFE9D1",
-  success: "#2FA36B",
-  warning: "#D5A24D",
-  danger: "#C85C4A",
-  info: "#5C8F73",
-  overlay: "rgba(16, 33, 20, 0.18)",
-  overlayStrong: "rgba(16, 33, 20, 0.3)"
+  surfaceMuted: "#EEF2FF",
+  surfaceMint: "#EEF2FF",
+  ink: "#121A68",
+  inkSoft: "#1F2559",
+  body: "#60688D",
+  muted: "#8B93B8",
+  faint: "#9AA3C9",
+  border: "#DFE3F2",
+  borderSoft: "#EEF1FA",
+  primary: "#121A68",
+  primaryDeep: "#0D1450",
+  primarySoft: "#B8FF43",
+  primaryPale: "#DBE6F7",
+  accent: "#9CF000",
+  mintGlow: "#D6F5A8",
+  success: "#5BBF2E",
+  warning: "#C8951F",
+  danger: "#C84242",
+  info: "#121A68",
+  overlay: "rgba(18, 26, 104, 0.18)",
+  overlayStrong: "rgba(18, 26, 104, 0.3)"
 } as const;
 
 export const spacing = {
@@ -90,22 +92,22 @@ export const typography = {
 
 export const shadows = {
   soft: {
-    shadowColor: "#21422D",
+    shadowColor: "#121A68",
     shadowOpacity: 0.08,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
     elevation: 4
   },
   card: {
-    shadowColor: "#1A3625",
+    shadowColor: "#121A68",
     shadowOpacity: 0.12,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6
   },
   glow: {
-    shadowColor: "#2F8F5B",
-    shadowOpacity: 0.18,
+    shadowColor: "#121A68",
+    shadowOpacity: 0.16,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3

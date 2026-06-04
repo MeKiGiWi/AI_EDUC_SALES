@@ -1,6 +1,9 @@
+import asyncio
+import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.dialog_logger import append_dialog_log
@@ -182,12 +185,7 @@ async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> S
     )
 
 
-@router.post("/sessions/{session_id}/finish", response_model=SessionFinishResponseDto)
-async def close_session(session_id: str) -> SessionFinishResponseDto:
-    session = SESSION_STORE.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Сессия не найдена.")
-
+async def _build_finish_payload(session, session_id: str) -> SessionFinishResponseDto:
     agents_config = get_agents_config()
     graph = build_graph()
     initial_state = {"action": "close_session", "session_id": session_id}
@@ -207,19 +205,13 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
         dialogue=dialogue_text,
     )
 
-    try:
-        evaluation_agent = build_evaluation_agent()
-        raw_evaluation = await evaluation_agent.evaluate(
-            dialogue=dialogue_text,
-            manager_replies=manager_replies,
-            min_replies=get_settings().MIN_MANAGER_TURNS,
-        )
-        evaluation = normalize_evaluation_result(raw_evaluation)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Не удалось получить оценку от модели. {exc}",
-        ) from exc
+    evaluation_agent = build_evaluation_agent()
+    raw_evaluation = await evaluation_agent.evaluate(
+        dialogue=dialogue_text,
+        manager_replies=manager_replies,
+        min_replies=get_settings().MIN_MANAGER_TURNS,
+    )
+    evaluation = normalize_evaluation_result(raw_evaluation)
 
     created_at = session.completed_at or datetime.now(timezone.utc)
     report_v2 = adapt_legacy_evaluation_to_report_v2(
@@ -235,4 +227,35 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
         status=SessionStatus(result["status"]),
         evaluation=evaluation,
         report_v2=report_v2,
+    )
+
+
+@router.post("/sessions/{session_id}/finish")
+async def close_session(session_id: str) -> StreamingResponse:
+    session = SESSION_STORE.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Сессия не найдена.")
+
+    # Оценка у LLM занимает минуты. Чтобы мобильный браузер (iOS Safari) не оборвал
+    # «висящий» запрос по своему таймауту, шлём пробелы-сердцебиение раз в ~10с,
+    # держа соединение живым, а финальный JSON — в конце потока. Пробелы — валидный
+    # префикс JSON, поэтому формат ответа для фронта не меняется.
+    async def stream():
+        task = asyncio.create_task(_build_finish_payload(session, session_id))
+        while not task.done():
+            done, _ = await asyncio.wait({task}, timeout=10)
+            if not done:
+                yield b" "
+        try:
+            payload = task.result()
+            body = payload.model_dump(mode="json", by_alias=True)
+        except Exception as exc:  # noqa: BLE001 — не рвём поток, отдаём честный «нет оценки»
+            print(f"Finish evaluation failed for session {session_id}: {exc}")
+            body = {"session_id": session_id, "status": "finished", "evaluation": None, "report_v2": None}
+        yield json.dumps(body, ensure_ascii=False).encode("utf-8")
+
+    return StreamingResponse(
+        stream(),
+        media_type="application/json",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )

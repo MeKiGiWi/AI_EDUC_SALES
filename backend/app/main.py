@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 import json
 import os
@@ -10,6 +11,7 @@ from app.api import router as simulator_router
 from app.api_leads import router as leads_router
 from app.api_reports import router as reports_router
 from app.database import initialize_database
+from app.lead_cleanup import run_lead_cleanup_loop
 from app.render_mermaid_graph import render_graph_artifacts
 
 OPENAPI_PATH = Path(__file__).resolve().parents[1] / "openapi.json"
@@ -30,7 +32,13 @@ async def lifespan(application: FastAPI):
             write_openapi_contract(application)
         except Exception as e:
             print(f"Failed to write runtime artifacts: {e}")
-    yield
+
+    # Фоновая авто-очистка старых заявок (скользящее окно ~2 недели).
+    lead_cleanup_task = asyncio.create_task(run_lead_cleanup_loop())
+    try:
+        yield
+    finally:
+        lead_cleanup_task.cancel()
 
 
 def create_app() -> FastAPI:

@@ -50,6 +50,7 @@ def get_db_session() -> Generator[Session, None, None]:
 
 
 def initialize_database() -> None:
+    from app import lead_entities  # noqa: F401
     from app import report_entities  # noqa: F401
 
     engine = get_engine()

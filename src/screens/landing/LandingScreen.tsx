@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
+import { leadService } from "../../services/leadService";
 import type { RoleWorkspaceOption } from "../../types/academy";
 
 interface LandingScreenProps {
@@ -504,24 +505,28 @@ function AnchorButton({
   children,
   onPress,
   tone = "primary",
-  fullWidth = false
+  fullWidth = false,
+  disabled = false
 }: {
   children: ReactNode;
   onPress: () => void;
   tone?: "primary" | "lime" | "ghost";
   fullWidth?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.btn,
         tone === "primary" && styles.btnPrimary,
         tone === "lime" && styles.btnLime,
         tone === "ghost" && styles.btnGhost,
         fullWidth && styles.fullWidth,
-        pressed && styles.pressed
+        pressed && styles.pressed,
+        disabled && styles.btnDisabled
       ]}
     >
       <Text style={[styles.btnText, tone === "primary" ? styles.btnTextLight : styles.btnTextNavy]}>{children}</Text>
@@ -622,7 +627,43 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
   const [openFaq, setOpenFaq] = useState<Record<number, boolean>>({ 0: true });
   const [signupSubmitted, setSignupSubmitted] = useState(false);
   const [auditForm, setAuditForm] = useState({ name: "", clinic: "", contact: "" });
+  const [auditStatus, setAuditStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [auditError, setAuditError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
+
+  async function handleAuditSubmit() {
+    if (auditStatus === "sending") {
+      return;
+    }
+    const name = auditForm.name.trim();
+    const contact = auditForm.contact.trim();
+    if (!name || !contact) {
+      setAuditError("Укажите имя и контакт, чтобы мы могли связаться.");
+      setAuditStatus("error");
+      return;
+    }
+
+    setAuditStatus("sending");
+    setAuditError(null);
+    try {
+      await leadService.submitAuditLead({
+        name,
+        clinic: auditForm.clinic.trim() || null,
+        contact,
+        source: "landing_audit_form"
+      });
+      // Заявка сохранена — ведём пользователя в сам аудит.
+      setAuditStatus("idle");
+      onOpenAudit();
+    } catch (error) {
+      setAuditStatus("error");
+      setAuditError(
+        error instanceof Error
+          ? "Не удалось отправить заявку. Проверьте соединение и попробуйте ещё раз."
+          : "Не удалось отправить заявку."
+      );
+    }
+  }
 
   const isMobile = layout.width <= 760;
   const isTablet = layout.width <= 1100;
@@ -1131,7 +1172,12 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                   <TextInput value={auditForm.name} onChangeText={(name) => setAuditForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.input} />
                   <TextInput value={auditForm.clinic} onChangeText={(clinic) => setAuditForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.input} />
                   <TextInput value={auditForm.contact} onChangeText={(contact) => setAuditForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.input} />
-                  <AnchorButton tone="lime" fullWidth onPress={onOpenAudit}>Пройти аудит</AnchorButton>
+                  <AnchorButton tone="lime" fullWidth disabled={auditStatus === "sending"} onPress={handleAuditSubmit}>
+                    {auditStatus === "sending" ? "Отправляем…" : "Пройти аудит"}
+                  </AnchorButton>
+                  {auditStatus === "error" && auditError ? (
+                    <Text style={styles.auditFormError}>{auditError}</Text>
+                  ) : null}
                 </View>
                 <View style={styles.auditList}>
                   {[
@@ -1372,6 +1418,7 @@ const styles = StyleSheet.create({
   btnTextNavy: { color: NAVY },
   fullWidth: { width: "100%" },
   pressed: { opacity: 0.86, transform: [{ scale: 0.99 }] },
+  btnDisabled: { opacity: 0.6 },
   hero: { paddingTop: 82, paddingBottom: 56 },
   heroMobile: { paddingTop: 56, paddingBottom: 44 },
   heroGrid: { display: "flex", flexDirection: "row", gap: 34, alignItems: "center" },
@@ -1552,6 +1599,7 @@ const styles = StyleSheet.create({
   auditBullet: { color: "rgba(255,255,255,.85)", fontSize: 17, lineHeight: 25, marginBottom: 10 },
   form: { backgroundColor: "rgba(255,255,255,.09)", borderWidth: 1, borderColor: "rgba(255,255,255,.14)", borderRadius: 28, padding: 22, gap: 12 },
   input: { width: "100%", minHeight: 56, borderRadius: 14, backgroundColor: "#fff", paddingHorizontal: 18, color: TEXT, fontSize: 16 },
+  auditFormError: { color: "#ffb4b4", fontWeight: "700", fontSize: 14, lineHeight: 20 },
   formResult: { color: LIME_2, fontWeight: "800", fontSize: 14, lineHeight: 20 },
   blogGrid: { flexDirection: "row", gap: 20 },
   blogGridThree: { flexWrap: "nowrap" },

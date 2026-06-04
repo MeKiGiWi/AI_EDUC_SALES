@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import router as simulator_router
+from app.api_leads import router as leads_router
 from app.api_reports import router as reports_router
 from app.database import initialize_database
 from app.render_mermaid_graph import render_graph_artifacts
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
 
     application.include_router(simulator_router)
     application.include_router(reports_router)
+    application.include_router(leads_router)
     return application
 
 

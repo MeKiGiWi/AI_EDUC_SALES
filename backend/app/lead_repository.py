@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.lead_entities import AuditLeadRecord
@@ -30,3 +32,10 @@ class AuditLeadRepository:
 
     def get_by_id(self, lead_id: str) -> AuditLeadRecord | None:
         return self.session.get(AuditLeadRecord, lead_id)
+
+    def delete_older_than(self, cutoff: datetime) -> int:
+        result = self.session.execute(
+            delete(AuditLeadRecord).where(AuditLeadRecord.created_at < cutoff)
+        )
+        self.session.commit()
+        return result.rowcount or 0

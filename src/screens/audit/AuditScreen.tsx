@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -10,8 +10,12 @@ import {
   type TextStyle
 } from "react-native";
 
+import { leadService } from "../../services/leadService";
+import type { AuditLeadHandoff } from "../landing/LandingScreen";
+
 interface AuditScreenProps {
   onGoToSimulator: () => void;
+  lead?: AuditLeadHandoff | null;
 }
 
 type RoleKey = "ceo" | "doctor";
@@ -293,7 +297,7 @@ function getBandName(avg: number) {
   return "30 000+ ₽";
 }
 function fmt(n: number) {
-  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " ₽";
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " ₽";
 }
 
 function computeResult(role: RoleKey, answers: number[]): Result {
@@ -520,7 +524,7 @@ function computeResult(role: RoleKey, answers: number[]): Result {
   };
 }
 
-export function AuditScreen({ onGoToSimulator }: AuditScreenProps) {
+export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
   const { width } = useWindowDimensions();
   const isMobile = width <= 760;
   const isStacked = width <= 980;
@@ -531,6 +535,59 @@ export function AuditScreen({ onGoToSimulator }: AuditScreenProps) {
   const [idx, setIdx] = useState(0);
   const [needSelect, setNeedSelect] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+
+  // Заявку с лендинга записываем в БД не сразу, а когда аудит завершён (или брошен /
+  // не допройдён). Это держит «заявку на обсуждение» привязанной к итогу аудита.
+  const leadRef = useRef(lead);
+  leadRef.current = lead;
+  const submittedRef = useRef(false);
+  const progressRef = useRef<{ step: string; role: RoleKey | null; idx: number; answers: (number | null)[] }>({
+    step,
+    role,
+    idx,
+    answers
+  });
+  progressRef.current = { step, role, idx, answers };
+
+  function submitLead(auditStatus: string, payload: Record<string, unknown>) {
+    const ld = leadRef.current;
+    if (submittedRef.current || !ld) {
+      return;
+    }
+    submittedRef.current = true;
+    void leadService
+      .submitAuditLead({
+        name: ld.name,
+        clinic: ld.clinic ?? null,
+        contact: ld.contact,
+        source: "landing_audit",
+        payload: { audit_status: auditStatus, ...payload }
+      })
+      .catch(() => {
+        // Best-effort: не мешаем прохождению аудита, если сеть недоступна.
+      });
+  }
+
+  useEffect(() => {
+    if (step === "result" && result) {
+      submitLead("completed", {
+        role,
+        answers,
+        result: { loss_month: result.lossM, loss_year: result.lossY, risk: result.riskText, tag: result.tagClass }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, result]);
+
+  useEffect(() => {
+    return () => {
+      const p = progressRef.current;
+      if (p.step !== "result") {
+        submitLead("abandoned", { step: p.step, role: p.role, answered: p.idx, answers: p.answers });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function startAudit(r: RoleKey) {
     setRole(r);
@@ -571,14 +628,6 @@ export function AuditScreen({ onGoToSimulator }: AuditScreenProps) {
     } else {
       setStep("welcome");
     }
-  }
-
-  function restart() {
-    setRole(null);
-    setAnswers([]);
-    setIdx(0);
-    setResult(null);
-    setStep("welcome");
   }
 
   const navPad = { paddingHorizontal: isMobile ? 18 : 24 };
@@ -739,15 +788,14 @@ export function AuditScreen({ onGoToSimulator }: AuditScreenProps) {
               </View>
             </View>
 
-            <Text style={styles.secT}>Разбивка по блокам</Text>
             <View style={styles.blkGrid}>
-              <View style={styles.blk}>
+              <View style={[styles.blk, isMobile && styles.blkFullMobile]}>
                 <Text style={styles.blkN}>Потери на записи и плане лечения</Text>
-                <Text style={styles.blkV}>{result.bNew}</Text>
+                <Text style={styles.blkV} numberOfLines={1} adjustsFontSizeToFit>{result.bNew}</Text>
               </View>
-              <View style={styles.blk}>
+              <View style={[styles.blk, isMobile && styles.blkFullMobile]}>
                 <Text style={styles.blkN}>Потери на доходимости</Text>
-                <Text style={styles.blkV}>{result.bShow}</Text>
+                <Text style={styles.blkV} numberOfLines={1} adjustsFontSizeToFit>{result.bShow}</Text>
               </View>
               <View style={[styles.blk, styles.blkWide]}>
                 <Text style={styles.blkN}>Потери на повторных визитах (база 6 мес × чек повтора)</Text>
@@ -813,10 +861,6 @@ export function AuditScreen({ onGoToSimulator }: AuditScreenProps) {
                 </Pressable>
               </View>
             </View>
-
-            <Pressable onPress={restart} style={({ pressed }) => [styles.btn, styles.btnGhost, styles.restart, pressed && styles.pressed]}>
-              <Text style={[styles.btnText, styles.btnTextNavy]}>Пройти аудит заново</Text>
-            </Pressable>
           </View>
         </ScrollView>
       </View>
@@ -1012,6 +1056,7 @@ const styles = StyleSheet.create({
   blkGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 26 },
   blk: { backgroundColor: "#fff", borderRadius: 20, padding: 20, borderWidth: 1, borderColor: LINE, flexGrow: 1, flexBasis: "46%", ...shadow },
   blkWide: { flexBasis: "100%" },
+  blkFullMobile: { flexBasis: "100%" },
   blkN: { ...F, color: MUTED, fontSize: 13, lineHeight: 18, marginBottom: 8 },
   blkV: { ...F, color: NAVY, fontSize: 24, fontWeight: "900", letterSpacing: -0.5 },
   riskBox: { backgroundColor: "#fff", borderRadius: 20, paddingVertical: 20, paddingHorizontal: 22, borderWidth: 1, borderColor: LINE, marginBottom: 26, ...shadow },

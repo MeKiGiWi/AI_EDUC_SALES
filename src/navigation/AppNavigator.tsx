@@ -10,7 +10,7 @@ import { roleWorkspaceOptions, simulatorEvaluationByScenarioId } from "../data/a
 import { DEFAULT_BACKEND_DIFFICULTY } from "../data/simulatorMvpData";
 import { useResponsiveLayout } from "../hooks/useResponsiveLayout";
 import { AuditScreen } from "../screens/audit/AuditScreen";
-import { LandingScreen } from "../screens/landing/LandingScreen";
+import { LandingScreen, type AuditLeadHandoff } from "../screens/landing/LandingScreen";
 import { ReportsScreen } from "../screens/reports/ReportsScreen";
 import { ReportViewerScreen } from "../screens/reports/ReportViewerScreen";
 import { SimulatorScreen } from "../screens/simulator/SimulatorScreen";
@@ -138,6 +138,7 @@ export function AppNavigator() {
   const [activeScenarioId, setActiveScenarioId] = useState<string>("");
   const [trainerMode, setTrainerMode] = useState<"catalog" | "dialogue">("catalog");
   const [reports, setReports] = useState<ReportCard[]>([]);
+  const [pendingAuditLead, setPendingAuditLead] = useState<AuditLeadHandoff | null>(null);
   const [simulatorStartError, setSimulatorStartError] = useState<string | null>(null);
   const [activeDialogueSession, setActiveDialogueSession] = useState<ActiveDialogueSession | null>(
     null
@@ -592,11 +593,19 @@ export function AppNavigator() {
     (routeState.name === "Simulator" && trainerMode === "dialogue") ||
     (routeState.name === "ReportViewer" && layout.isDesktop);
   if (isLanding) {
-    return <LandingScreen roleOptions={roleWorkspaceOptions} onOpenAudit={() => navigate("Audit")} />;
+    return (
+      <LandingScreen
+        roleOptions={roleWorkspaceOptions}
+        onOpenAudit={(lead) => {
+          setPendingAuditLead(lead ?? null);
+          navigate("Audit");
+        }}
+      />
+    );
   }
 
   if (routeState.name === "Audit") {
-    return <AuditScreen onGoToSimulator={() => navigate("Simulator")} />;
+    return <AuditScreen lead={pendingAuditLead} onGoToSimulator={() => navigate("Simulator")} />;
   }
 
   if (!workspaceData) {

@@ -730,6 +730,32 @@ function DialogueView({
             onContentSizeChange={() => scrollToBottom(true)}
             onLayout={() => scrollToBottom(false)}
           >
+            {showScenarioIntro ? (
+              <View
+                testID="simulator-scenario-intro"
+                style={[
+                  styles.scenarioIntroCard,
+                  styles.scenarioIntroCardInline,
+                  {
+                    backgroundColor: "rgba(238, 248, 241, 0.74)",
+                    borderColor: "rgba(216, 230, 221, 0.72)"
+                  }
+                ]}
+              >
+                <Text style={[styles.scenarioIntroTitle, { color: LP.textPrimary }]}>
+                  Контекст сценария
+                </Text>
+                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
+                  <Text style={styles.scenarioIntroStrong}>Продукт:</Text> Промышленные кондиционеры
+                </Text>
+                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
+                  <Text style={styles.scenarioIntroStrong}>Ситуация:</Text> Входящий запрос, первый контакт
+                </Text>
+                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
+                  <Text style={styles.scenarioIntroStrong}>Цель:</Text> Договориться о следующем шаге
+                </Text>
+              </View>
+            ) : null}
             {messages.map((message) => (
               <View
                 key={message.id}
@@ -785,33 +811,6 @@ function DialogueView({
             ) : null}
           </ScrollView>
 
-          {showScenarioIntro ? (
-            <View pointerEvents="none" style={styles.scenarioIntroOverlay}>
-              <View
-                testID="simulator-scenario-intro"
-                style={[
-                  styles.scenarioIntroCard,
-                  {
-                    backgroundColor: "rgba(238, 248, 241, 0.74)",
-                    borderColor: "rgba(216, 230, 221, 0.72)"
-                  }
-                ]}
-              >
-                <Text style={[styles.scenarioIntroTitle, { color: LP.textPrimary }]}>
-                  Контекст сценария
-                </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Продукт:</Text> Промышленные кондиционеры
-                </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Ситуация:</Text> Входящий запрос, первый контакт
-                </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Цель:</Text> Договориться о следующем шаге
-                </Text>
-              </View>
-            </View>
-          ) : null}
 
           {layout.isDesktop ? (
             <View
@@ -1682,6 +1681,13 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     gap: 9,
     marginVertical: 18
+  },
+  scenarioIntroCardInline: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 520,
+    marginTop: 2,
+    marginBottom: 16
   },
   scenarioIntroTitle: {
     fontSize: 16,

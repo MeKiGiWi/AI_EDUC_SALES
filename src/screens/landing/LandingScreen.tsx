@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
+  Image,
   LayoutChangeEvent,
   Linking,
   Platform,
@@ -39,15 +40,16 @@ interface CloudProblem {
   points: string[];
 }
 
-interface CompareCard {
+interface PlanCard {
   name: string;
-  price: string;
-  priceNote: string;
-  extraPrice?: string;
-  extraNote?: string;
   sub: string;
+  price: string;
+  monthly: string;
+  desc: string;
+  includes: string[];
+  audience: string;
+  effect: string;
   featured?: boolean;
-  params: Array<{ label: string; value: string; tone?: "green" | "red" }>;
 }
 
 const NAV_LINKS: Array<{ id: SectionId; label: string }> = [
@@ -74,16 +76,13 @@ const HERO_FLOW = [
     "Система показывает, какие навыки усилились и где сотруднику нужна дополнительная практика"
   ],
   [
-    "Аналитика",
-    "Связываем качество навыков с бизнес-показателями клиники: конверсией, записью, доходимостью и выручкой"
+    "Система поддержки управленческих решений",
+    "Связываем поведение сотрудников с выручкой клиники"
   ]
 ];
 
 const STATS = [
-  ["+50%", "к росту выручки за счет корректной квалификации клиентов"],
-  ["+25%", "к текущей конверсии в пациента за счет изменения действий администраторов"],
-  ["+70%", "в точности прогноза выручки благодаря аналитике"],
-  ["1 мес.", "ориентир окупаемости после завершения внедрения"]
+  ["1 месяц", "с момента внедрения системы"]
 ];
 
 const CLOUD_PROBLEMS: CloudProblem[] = [
@@ -133,7 +132,7 @@ const CLOUD_PROBLEMS: CloudProblem[] = [
     ]
   },
   {
-    title: "Нет стандарта обработки клиентов",
+    title: "Нет стандарта работы с клиентами",
     text: "Каждый администратор разговаривает по-своему, из-за чего качество клиентского опыта и конверсия зависят от конкретной смены.",
     points: [
       "Сильные сотрудники вытягивают результат вручную",
@@ -143,65 +142,77 @@ const CLOUD_PROBLEMS: CloudProblem[] = [
   }
 ];
 
-const COMPARE_CARDS: CompareCard[] = [
+const PLANS: PlanCard[] = [
   {
-    name: "Комплексное решение: тренажер + аналитика",
-    price: "450\u00a0000\u00a0₽",
-    priceNote: "внедрение и настройка",
-    extraPrice: "80\u00a0000\u00a0₽",
-    extraNote: "в месяц поддержка",
-    sub: "Высокая цена входа оправдана тем, что вы получаете работающий контур изменений, а не отдельный кусок инфраструктуры.",
-    featured: true,
-    params: [
-      { label: "Цена входа", value: "Выше, чем у альтернатив", tone: "green" },
-      { label: "Сценарии под клинику", value: "Да, на базе анализа звонков и ваших задач", tone: "green" },
-      { label: "Регулярная практика", value: "Да, сотрудник тренируется постоянно", tone: "green" },
-      { label: "Оценка компетенций", value: "Да, после тренировки видно качество навыка", tone: "green" },
-      { label: "Связь с KPI и дашбордом", value: "Да, навыки привязаны к записи, доходимости и выручке", tone: "green" },
-      { label: "Итог для клиники", value: "Устойчивый навык и управляемый рост результата", tone: "green" }
-    ]
+    name: "Aithera — комплексное решение",
+    sub: "Анализ коммуникаций + отработка навыков + оценка компетенций + управленческий дашборд",
+    price: "550 000 ₽",
+    monthly: "80 000 ₽ / месяц",
+    desc: "Полный контур развития навыков администраторов и контроля качества коммуникаций.",
+    includes: [
+      "Анализ звонков и переписок с ИИ",
+      "Автоматическая оценка компетенций сотрудников",
+      "ИИ-тренажёр для регулярной практики",
+      "Индивидуальные рекомендации по развитию",
+      "Дашборд руководителя с динамикой показателей",
+      "Контроль качества записей и конверсии",
+      "База сценариев под специфику клиники",
+      "Регулярное обновление сценариев",
+      "Методологическое сопровождение"
+    ],
+    audience: "Сетей клиник и медицинских центров, которым важно системно повышать конверсию записи и качество сервиса.",
+    effect: "Максимальный контроль качества коммуникаций и непрерывное развитие команды.",
+    featured: true
   },
   {
-    name: "LMS + разработка курсов",
-    price: "от\u00a0200\u00a0000\u00a0₽",
-    priceNote: "в месяц · эксперты и методологи",
-    sub: "Платформа и контент сами по себе не меняют поведение в разговоре.",
-    params: [
-      { label: "Цена входа", value: "Средняя / высокая" },
-      { label: "Сценарии под клинику", value: "Можно сделать, но отдельно и долго" },
-      { label: "Регулярная практика", value: "Чаще нет живой отработки", tone: "red" },
-      { label: "Оценка компетенций", value: "Обычно оценивается прохождение, а не навык", tone: "red" },
-      { label: "Связь с KPI и дашбордом", value: "Нужна отдельная настройка", tone: "red" },
-      { label: "Итог для клиники", value: "Есть инфраструктура, но нет гарантии результата", tone: "red" }
-    ]
+    name: "Аналитика звонков",
+    sub: "ИИ-контроль качества коммуникаций",
+    price: "200 000 ₽",
+    monthly: "50 000 ₽ / месяц",
+    desc: "Получайте объективную оценку работы администраторов по индивидуальным критериям без ручного прослушивания звонков.",
+    includes: [
+      "Автоматизированный анализ звонков и чатов",
+      "Матрица критериев оценки",
+      "Оценка компетенций администраторов",
+      "Выявление точек потерь",
+      "Рекомендации по развитию сотрудников",
+      "Отчёт в реальном времени"
+    ],
+    audience: "Клиник, заинтересованных в повышении качества сервиса и контроле стандартов общения.",
+    effect: "Повышение конверсии в запись."
   },
   {
-    name: "Тренер",
-    price: "от\u00a0100\u00a0000\u00a0₽",
-    priceNote: "за запуск / сессию",
-    sub: "Ниже цена старта, но без системы закрепления результат быстро рассеивается.",
-    params: [
-      { label: "Цена входа", value: "Ниже" },
-      { label: "Сценарии под клинику", value: "Частично, вручную и на конкретную сессию" },
-      { label: "Регулярная практика", value: "Нет", tone: "red" },
-      { label: "Оценка компетенций", value: "Нет прозрачной системы", tone: "red" },
-      { label: "Связь с KPI и дашбордом", value: "Нет", tone: "red" },
-      { label: "Итог для клиники", value: "Краткосрочный эффект до 3 дней", tone: "red" }
-    ]
+    name: "ИИ-тренажёр",
+    sub: "Отработка навыков по компетенциям без участия тренера",
+    price: "300 000 ₽",
+    monthly: "80 000 ₽ / месяц",
+    desc: "Администраторы отрабатывают сценарии общения с пациентами.",
+    includes: [
+      "Симулятор диалогов с разными характерами пациентов",
+      "Сценарии под специфику клиники (до 100 сценариев)",
+      "Автоматизированная оценка компетенций на базе реальных диалогов",
+      "Персональные рекомендации после тренировок",
+      "Отчёты о прогрессе каждого сотрудника и команды"
+    ],
+    audience: "Клиник, заинтересованных в устойчивом росте и масштабировании лучших практик.",
+    effect: "Стабильный рост конверсии и LTV."
   },
   {
-    name: "Покупка онлайн-курсов",
-    price: "от\u00a050\u00a0000\u00a0₽",
-    priceNote: "за пакет / доступ",
-    sub: "Самая низкая цена, но почти нулевая управляемость результата.",
-    params: [
-      { label: "Цена входа", value: "Низкая" },
-      { label: "Сценарии под клинику", value: "Нет", tone: "red" },
-      { label: "Регулярная практика", value: "Нет", tone: "red" },
-      { label: "Оценка компетенций", value: "Нет", tone: "red" },
-      { label: "Связь с KPI и дашбордом", value: "Нет", tone: "red" },
-      { label: "Итог для клиники", value: "Низкая цена, но вы почти ничего не получаете", tone: "red" }
-    ]
+    name: "Дашборд руководителя",
+    sub: "Управление качеством сервиса по данным",
+    price: "250 000 ₽",
+    monthly: "50 000 ₽ / месяц",
+    desc: "Вся управленческая аналитика на одном листе, включая результаты роста компетенций сотрудников и их влияние на бизнес-показатели.",
+    includes: [
+      "Разработка и внедрение KPI администраторов",
+      "Изменения уровней навыков администраторов",
+      "Влияние каждого администратора на выручку",
+      "Конверсия в запись",
+      "Повторные визиты",
+      "Настройка дополнительных показателей из разных систем (по запросу)"
+    ],
+    audience: "Клиник, заинтересованных в применении фактических данных для принятия управленческих решений.",
+    effect: "Рост выручки за счёт изменения поведения сотрудников и аналитики."
   }
 ];
 
@@ -209,7 +220,7 @@ const COMPACT_CARDS = [
   ["Методология экспертов продаж", "Внутри системы соединены разные тренерские подходы, чтобы не сводить обучение к одной узкой модели поведения."],
   [
     "Сценарии под клинику",
-    "Отдельно настраиваем генерацию сценариев под вашу специализацию, этапы воронки, боли пациентов и типовые возражения."
+    "Настраиваем сценарии для отработки навыков на основании анализа коммуникаций с клиентом (звонки, чаты)"
   ],
   [
     "Связка с KPI",
@@ -228,13 +239,82 @@ const CHAT_DEMO: Array<{ role: "client" | "admin"; text: string; time: string }>
   { role: "client", text: "Когда вы так объясняете, становится спокойнее.", time: "19:59" }
 ];
 
+const ARTICLE = {
+  eyebrow: "Колонка эксперта · Июнь 2026",
+  title: "Почему клиника теряет выручку не в маркетинге, а в точке первого контакта",
+  author: "Зименкова Екатерина",
+  authorRole: "эксперт по обучению и развитию персонала, разработчик ИИ-решений для клиник",
+  lead:
+    "Клиники продолжают инвестировать в маркетинг, но точки роста всё чаще находятся внутри пациентского пути. В статье — почему выручка теряется на этапе первого контакта, как оценить стоимость потери доверия и какую роль играют современные ИИ-инструменты управления коммуникациями.",
+  sections: [
+    {
+      h: "Стоимость привлечения известна. Стоимость потери доверия — нет",
+      p: [
+        "В понедельник утром владелец клиники открывает отчёт по маркетингу и видит почти идеальную картину: стоимость лида снизилась, трафик вырос, заявки идут стабильно, подрядчик перевыполнил KPI. На уровне отчётности всё выглядит благополучно. Но через час операционный директор приносит другую картину: расписание врачей заполнено не полностью, администраторы жалуются на «некачественные обращения», а главный врач снова просит увеличить рекламный бюджет.",
+        "Сегодня большинство руководителей знают стоимость привлечения пациента до рубля: стоимость лида, стоимость записи, эффективность каналов, конверсию сайта, окупаемость подрядчиков. Но гораздо реже могут ответить на другой вопрос: сколько денег клиника теряет после того, как пациент уже обратился.",
+        "Парадокс современного медицинского бизнеса в том, что маркетинг стал измеримым, а доверие пациента по-прежнему остаётся слепой зоной управления. Конкуренция смещается от привлечения пациентов к управлению их маршрутом — и следующая управленческая революция в частной медицине будет связана не с рекламой и даже не с медицинскими технологиями, а с управлением доверием."
+      ]
+    },
+    {
+      h: "От воронки продаж — к пути пациента",
+      p: [
+        "Большинство клиник до сих пор мыслят категориями воронки: лид, запись, приём, лечение. Эта логика удобна для отчётов, но не отражает реального опыта пациента. Пациент живёт не внутри CRM — он живёт внутри собственной тревоги, неопределённости и ожиданий.",
+        "Для него существуют не этапы воронки, а вопросы: поймут ли меня, смогут ли помочь, безопасно ли это, не навязывают ли мне услуги, что будет дальше? Если на любом этапе возникает неопределённость, пациент начинает искать альтернативу. В результате клиника теряет выручку даже при растущем количестве обращений.",
+        "Первый звонок, первое сообщение в мессенджере, первое объяснение стоимости, первый ответ на тревожный вопрос — именно здесь начинается решение пациента. И если в этот момент коммуникация не создаёт доверие, маркетинговый бюджет работает не на рост, а на увеличение масштаба потерь."
+      ]
+    },
+    {
+      h: "Почему маркетинг перестаёт быть главным драйвером роста",
+      p: [
+        "Один из показательных проектов был реализован в клинике эстетической хирургии. Запрос выглядел стандартно: увеличить выручку. Но анализ показал, что ключевое ограничение — не в рекламе, а внутри операционной модели. Клиника работала в премиальном сегменте с высоким чеком, но продажи держались на личных контактах хирурга и случайных действиях администраторов; пациенты не всегда получали понятные ответы по стоимости, реабилитации и логике следующего шага.",
+        "После диагностики звонков и CRM стало ясно: команда не квалифицирует лидов, не сопровождает пациента по воронке и не ориентирована на рост выручки. Была пересобрана модель работы, внедрены стандарты деликатной продажи, ИИ-тренажёр и управленческий дашборд. Результат: конверсия из входящего звонка в консультацию выросла вдвое, выручка увеличилась на 30% за четыре месяца, LTV по повторным визитам вырос на 18%. Рекламный бюджет при этом не удваивался — изменилось качество управления пациентским путём."
+      ]
+    },
+    {
+      h: "Почему обучение больше не работает само по себе",
+      p: [
+        "Долгое время рынок пытался решать проблему через тренинги: написать скрипты, провести обучение, проверить знания. Но можно знать правильные формулировки и теряться в разговоре с тревожным пациентом, понимать стандарты сервиса и не уметь работать с возражениями, пройти обучение и не перенести его в реальную коммуникацию.",
+        "В одной из ортопедических клиник дорогостоящее оборудование простаивало: пациенты не понимали, чем метод отличается от привычного лечения, а администраторы старались быстрее перевести разговор на врача. После анализа звонков был внедрён ИИ-тренажёр с моделированием реальных диалогов, теоретический курс по процедурам и дашборды по конверсии и загрузке оборудования. Через четыре месяца конверсия записи на процедуры выросла на 20%, выручка — на 32%. Проблема была не в отсутствии информации, а в отсутствии управляемой системы формирования навыков."
+      ]
+    },
+    {
+      h: "Самый недооценённый актив клиники",
+      p: [
+        "Во многих клиниках до сих пор существует убеждение, что доверие формирует исключительно врач. Это уже не соответствует реальности. Пациент начинает принимать решение задолго до кабинета: первый звонок, первое сообщение, первый вопрос о стоимости, первое сомнение. Фактически администратор становится первым носителем бренда клиники.",
+        "Но именно эта функция часто остаётся наименее управляемой. От формулировок администратора зависит, будет ли пациент чувствовать спокойствие или давление; от умения задавать вопросы — попадёт ли человек к нужному специалисту; от способности объяснить маршрут — дойдёт ли пациент до консультации. Именно поэтому правильный человек на месте администратора стоит дороже любого скрипта, а единый управленческий дашборд — дороже любого совещания."
+      ]
+    },
+    {
+      h: "Новая управленческая модель",
+      p: [
+        "Клиникам нужен не очередной тренинг и не ещё один программный продукт, а цифровой управленческий помощник — система, которая объединяет коммуникации с пациентами, оценку компетенций сотрудников, обучение, ИИ-анализ звонков и сообщений, финансовые показатели и управленческую аналитику. По сути речь идёт о создании цифрового двойника пациентского пути.",
+        "Руководитель начинает видеть не только результат, но и механизм его возникновения: не просто падение конверсии, а конкретный разговор, в котором было потеряно доверие; не просто снижение выручки, а модель поведения сотрудника, которая к этому привела. Обучение перестаёт быть мероприятием и становится частью управленческой системы: сотрудник развивается по данным собственных коммуникаций, а руководитель видит не впечатления, а факты."
+      ]
+    },
+    {
+      h: "Когда ИИ становится инструментом управления",
+      p: [
+        "Рынок активно обсуждает ИИ в диагностике и лечении, но не менее важная революция происходит в сфере управления. ИИ впервые позволяет анализировать тысячи коммуникаций одновременно, выявлять закономерности, оценивать качество взаимодействия, формировать персональные программы развития и показывать влияние конкретных действий на финансовый результат.",
+        "Особенно ярко это проявилось в проекте нейрохирургической клиники: сильный продукт и безупречная репутация, но между первым обращением и операцией существовала «чёрная зона» — было непонятно, где теряются люди и какие страхи остаются не снятыми. Работа началась с диагностики CRM и звонков, затем коммуникацию переупаковали: сложный медицинский язык перевели на человеческий, а разговор стал строиться вокруг результата, безопасности и понятного маршрута. Система оценивала структуру диалога, реакцию на возражения, эмоциональный тон и ключевые упущения."
+      ]
+    },
+    {
+      h: "Возможно, ваша клиника теряет пациентов не там, где вы думаете",
+      p: [
+        "Прежде чем инвестировать в новые рекламные кампании, расширять штат или запускать очередной проект цифровизации, полезно ответить на один вопрос: вы точно знаете, где именно ваша клиника теряет пациентов и деньги сегодня?",
+        "Мы регулярно проводим диагностику пациентского пути для медицинских организаций и обнаруживаем точки потери выручки, которые не видны в стандартной отчётности. Пройти бесплатный аудит пациентского пути и диагностику коммуникаций можно по заявке на сайте."
+      ]
+    }
+  ]
+};
+
 const BLOG = [
   [
-    "Материал 01",
-    "Почему клиника теряет выручку, даже когда лиды уже пришли",
-    "Разбираем, как пациент теряется между первым звонком, записью, консультацией и следующим шагом — и что с этим делать.",
-    "Обсудить похожую ситуацию",
-    "contact"
+    "Колонка эксперта",
+    "Почему клиника теряет выручку не в маркетинге, а в точке первого контакта",
+    "Почему выручка теряется на этапе первого контакта, как оценить стоимость потери доверия и какую роль играют ИИ-инструменты управления коммуникациями.",
+    "Читать статью",
+    "__article__"
   ],
   [
     "Материал 02",
@@ -252,28 +332,47 @@ const BLOG = [
   ]
 ];
 
-const EXTRA_SERVICES = [
-  [
-    "Услуга 01",
-    "Аналитика звонков и точек потерь",
-    "Разбираем реальные звонки команды, находим, где теряется пациент, и собираем карту проблем под вашу клинику.",
-    "Обсудить аудит",
-    "contact"
-  ],
-  [
-    "Услуга 02",
-    "Внедрение ИИ-тренажёра под клинику",
-    "Настраиваем сценарии тренировок на базе ваших звонков, запускаем регулярную практику и оценку компетенций.",
-    "Посмотреть механику",
-    "trainer"
-  ],
-  [
-    "Услуга 03",
-    "Управленческие дашборды и сопровождение",
-    "Собираем панель по конверсии, доходимости и выручке и сопровождаем команду до устойчивого результата.",
-    "Обсудить внедрение",
-    "contact"
-  ]
+const EXTRA_SERVICES: Array<{ num: string; title: string; bullets: string[] }> = [
+  {
+    num: "01",
+    title: "Разработка и настройка бизнес-процессов и внедрение KPI",
+    bullets: [
+      "Сквозной путь клиента — от первого касания до обратной связи и анализа финансов",
+      "Оптимизация процессов и устранение потерь на каждом этапе",
+      "KPI для каждого сотрудника и подразделения",
+      "Система мотивации, влияющая на выручку и качество сервиса"
+    ]
+  },
+  {
+    num: "02",
+    title: "Разработка обучения",
+    bullets: [
+      "Система обучения под задачи клиники: онлайн-курсы, модули, сценарии",
+      "Подбор и привлечение экспертов для очного обучения",
+      "Передача практического опыта команде",
+      "Непрерывное развитие навыков и закрепление стандартов"
+    ]
+  },
+  {
+    num: "03",
+    title: "Оценка компетенций персонала и индивидуальные треки развития",
+    bullets: [
+      "Оценка компетенций сотрудников клиники",
+      "Выявление зон роста",
+      "Персональные планы развития для каждого",
+      "Отслеживание прогресса и обратная связь"
+    ]
+  },
+  {
+    num: "04",
+    title: "Настройка управленческой аналитики и отчётности",
+    bullets: [
+      "Дашборды и отчёты по ключевым метрикам клиники",
+      "Конверсия, средний чек, выполнение KPI",
+      "Финансовые показатели и качество сервиса",
+      "Решения на основе данных, а не интуиции"
+    ]
+  }
 ];
 
 interface CaseBlock {
@@ -557,6 +656,27 @@ const SOFT = "#f6f8ff";
 const SOFT_2 = "#eef2ff";
 const FONT_FAMILY = Platform.OS === "web" ? "Inter, system-ui, sans-serif" : undefined;
 
+// Иконки контактов — оригинальные SVG-пути (Telegram / телефон / конверт), navy на лайме.
+function svgIcon(path: string, color: string = NAVY): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${color}" d="${path}"/></svg>`;
+  const b64 = (globalThis as { btoa?: (s: string) => string }).btoa;
+  if (typeof b64 === "function") {
+    return "data:image/svg+xml;base64," + b64(svg);
+  }
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+const TG_PATH =
+  "M21.94 4.64a1 1 0 0 0-1.05-.16L3.36 11.3c-.86.34-.84 1.57.03 1.88l4.3 1.52 1.62 5.04c.25.78 1.25.97 1.77.33l2.3-2.84 4.38 3.2c.6.44 1.46.11 1.62-.62l2.94-13.5a1 1 0 0 0-.38-.99zM9.7 14.2l-.36 3.77-1.13-3.53 8.3-5.3-6.81 5.06z";
+const ICON_TELEGRAM = svgIcon(TG_PATH);
+const ICON_TELEGRAM_W = svgIcon(TG_PATH, "#ffffff");
+const ICON_PHONE = svgIcon(
+  "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+);
+const ICON_MAIL = svgIcon(
+  "M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+);
+
 const FAQ = [
   [
     "Обязательно ли анализировать звонки?",
@@ -682,7 +802,7 @@ function setSeoMetadata() {
     const style = document.createElement("style");
     style.id = "hero-title-wrap-fix";
     style.textContent =
-      "#heroTitle,#heroTitle *,#extraTitle,#extraTitle *{overflow-wrap:normal!important;word-break:keep-all!important;word-wrap:normal!important;hyphens:none!important}";
+      "#heroTitle,#heroTitle *,#extraTitle,#extraTitle *,[data-nowrapword],[data-nowrapword] *{overflow-wrap:normal!important;word-break:keep-all!important;word-wrap:normal!important;hyphens:none!important}";
     document.head.appendChild(style);
   }
 }
@@ -812,6 +932,8 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
   const [activeProblem, setActiveProblem] = useState(0);
   const [activeCase, setActiveCase] = useState<CaseItem | null>(null);
   const [discussOpen, setDiscussOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [articleOpen, setArticleOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<Record<number, boolean>>({ 0: true });
   const [auditForm, setAuditForm] = useState({ name: "", clinic: "", contact: "" });
   const [auditStatus, setAuditStatus] = useState<"idle" | "sending" | "error">("idle");
@@ -864,7 +986,10 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
   const cloudGap = Math.round(cloudDiamondSize * cloudGapFactor);
   const cloudRadius = Math.round(cloudDiamondSize * 0.26);
   const cloudRowOffset = Math.round(cloudDiamondSize * cloudOffsetFactor);
-  const cloudFontSize = cloudDiamondSize >= 175 ? 15 : cloudDiamondSize >= 140 ? 13 : cloudDiamondSize >= 110 ? 12 : 11;
+  // Шрифт масштабируется от размера ромба И длины текста: мало текста → крупнее,
+  // много текста → мельче, но ромб заполняется одинаково на любых ширинах.
+  const cloudFontFor = (title: string) =>
+    Math.max(10, Math.min(22, Math.round((cloudDiamondSize * 0.52) / Math.sqrt(title.length))));
   const sectionPadding = isMobile ? 66 : 86;
 
   const containerStyle = useMemo(
@@ -951,7 +1076,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                       })
                     ]}
                   >
-                    {"Решение для роста выручки\n"}
+                    {"AIthera — рост выручки\n"}
                     <Text style={styles.heroAccent}>{"премиальных клиник"}</Text>
                   </Text>
                   <Text style={[styles.heroText, isMobile && styles.heroTextMobile]}>
@@ -963,7 +1088,13 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                     <AnchorButton tone="lime" onPress={() => scrollTo("contact")}>
                       Пройти бесплатный аудит
                     </AnchorButton>
+                    <AnchorButton tone="ghost" onPress={() => setDemoOpen(true)}>
+                      Записаться на демо
+                    </AnchorButton>
                   </View>
+                  <Text style={styles.paybackCaption}>
+                    <Text style={styles.paybackCaptionStrong}>Окупаемость — {STATS[0][0]}</Text> {STATS[0][1]}
+                  </Text>
                 </View>
               </Reveal>
               <Reveal delay={120} distance={18} style={isTablet ? styles.heroPanelWrapStacked : styles.heroPanelWrap}>
@@ -985,7 +1116,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 >
                   <View style={[styles.decorSquare, styles.decorSquareTop]} />
                   <View style={[styles.decorSquare, styles.decorSquareBottom]} />
-                  <Text style={styles.heroBadge}>Как работает наш продукт</Text>
+                  <Text style={styles.heroBadge}>Как работает AITHERA</Text>
                   <View style={styles.heroFlow}>
                     {HERO_FLOW.map(([title, text], index) => (
                       <Reveal key={title} delay={220 + index * 90} distance={12}>
@@ -1002,19 +1133,10 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 </Animated.View>
               </Reveal>
             </View>
-            <View style={[styles.stats, isTablet && styles.statsTablet, isMobile && styles.oneColumn]}>
-              {STATS.map(([value, label], index) => (
-                <Reveal key={value} delay={360 + index * 80} distance={16} style={[styles.stat, isMobile && styles.statMobile]}>
-                  <Text style={[styles.statTop, isMobile && styles.statTopMobile]}>{value}</Text>
-                  <Text style={[styles.statBottom, isMobile && styles.statBottomMobile]}>{label}</Text>
-                </Reveal>
-              ))}
-            </View>
           </View>
         </View>
 
         <Section id="about" register={register} containerStyle={containerStyle} sectionPadding={sectionPadding}>
-          <Eyebrow>Точки потерь</Eyebrow>
           <Text
             style={[
               styles.title,
@@ -1026,10 +1148,10 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
           >
             Почему вы теряете деньги?
           </Text>
-          <Text style={styles.sub}>
+          <Text style={[styles.sub, styles.subWide]}>
             Типовые зоны потерь, которые мешают клинике конвертировать входящий поток в запись, консультацию и
             операцию. Нажмите на любой ромб — справа откроется пояснение, как именно эта проблема влияет на выручку,
-            конверсию и скорость выхода администратора на план.
+            конверсию и скорость выхода администратора на план
           </Text>
           <View style={[styles.problemCloud, layout.width <= 900 && styles.oneColumn]}>
             <View style={[styles.cloudGrid, { padding: cloudInnerPad, gap: cloudGap }, layout.width <= 900 && styles.stackChild, webBackground("linear-gradient(180deg, #f7f8ff 0%, #f0f2ff 100%)", "#f0f2ff")]}>
@@ -1040,6 +1162,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 >
                   {row.map((item) => {
                     const index = CLOUD_PROBLEMS.indexOf(item);
+                    const fSize = cloudFontFor(item.title);
                     return (
                       <Pressable
                         key={item.title}
@@ -1052,9 +1175,10 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                         ]}
                       >
                         <Text
+                          {...({ dataSet: { nowrapword: "1" } } as object)}
                           style={[
                             styles.cloudDiamondText,
-                            { maxWidth: cloudDiamondSize * 0.66, fontSize: cloudFontSize, lineHeight: cloudFontSize + 1 },
+                            { maxWidth: cloudDiamondSize * 0.78, fontSize: fSize, lineHeight: fSize + 1 },
                             activeProblem === index && styles.cloudDiamondTextActive
                           ]}
                         >
@@ -1079,7 +1203,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
         </Section>
 
         <Section id="trainer" register={register} containerStyle={containerStyle} sectionPadding={sectionPadding}>
-          <Eyebrow>Точечная прокачка навыков</Eyebrow>
           <Text
             style={[
               styles.title,
@@ -1110,7 +1233,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
         </Section>
 
         <Section id="case" register={register} containerStyle={containerStyle} sectionPadding={sectionPadding}>
-          <Eyebrow>Кейсы клиник</Eyebrow>
           <Text
             style={[
               styles.title,
@@ -1122,9 +1244,9 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
           >
             Результаты, которыми мы гордимся
           </Text>
-          <Text style={styles.sub}>
+          <Text style={[styles.sub, styles.subWide]}>
             Реальные внедрения в клиниках разного профиля. Нажмите на кейс, чтобы открыть подробный разбор с задачами,
-            логикой проекта и цифрами результата.
+            логикой проекта и результатами
           </Text>
           <View style={[styles.caseList, isTablet && styles.oneColumn]}>
             {CASES.map((item, index) => (
@@ -1163,7 +1285,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
           sectionPadding={sectionPadding}
           style={[styles.pricingSection, webBackground("linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%)", "#f6f9ff")]}
         >
-          <Eyebrow>Тарифы</Eyebrow>
           <Text
             style={[
               styles.title,
@@ -1183,59 +1304,63 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
               compareColumns === 4 && styles.compareGridFour
             ]}
           >
-            {COMPARE_CARDS.map((card, index) => (
-              <Reveal
-                key={card.name}
-                delay={index * 90}
-                distance={20}
-                style={[
-                  styles.compareCard,
-                  card.featured && styles.compareCardMain,
-                  compareColumns === 1 && styles.stackChild,
-                  compareColumns === 2 && styles.compareCardHalf,
-                  compareColumns === 4 && (card.featured ? styles.compareCardFeaturedCol : styles.compareCardCol)
-                ]}
-              >
-                <View style={[styles.compareHeader, compareColumns === 1 && styles.mhAuto]}>
-                  {card.featured ? <Text style={styles.recommend}>Рекомендуем</Text> : null}
-                  <Text style={[styles.compareName, compareColumns === 1 && styles.mhAuto, card.featured && styles.lightText, card.featured && styles.compareNameFeatured]}>
-                    {card.name}
-                  </Text>
-                  <View style={[styles.comparePriceSlot, compareColumns === 1 && styles.mhAuto]}>
-                    <View>
-                      <Text style={[styles.comparePrice, card.featured && styles.lightText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{card.price}</Text>
-                      <Text style={[styles.comparePriceNote, compareColumns === 1 && styles.mhAuto, card.featured && styles.lightText]} numberOfLines={2}>{card.priceNote}</Text>
+            {PLANS.map((card, index) => {
+              const dark = Boolean(card.featured);
+              return (
+                <Reveal
+                  key={card.name}
+                  delay={index * 90}
+                  distance={20}
+                  style={[
+                    styles.planCard,
+                    dark && styles.planCardMain,
+                    compareColumns === 1 && styles.stackChild,
+                    compareColumns === 2 && styles.compareCardHalf,
+                    compareColumns === 4 && (dark ? styles.compareCardFeaturedCol : styles.compareCardCol)
+                  ]}
+                >
+                  {dark ? (
+                    <View style={styles.planBadge}>
+                      <Text style={styles.planBadgeText}>Рекомендуем</Text>
                     </View>
-                    {card.extraPrice ? (
-                      <View style={{ marginTop: 8 }}>
-                        <Text style={[styles.comparePrice, styles.comparePriceSmall, styles.lightText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{card.extraPrice}</Text>
-                        <Text style={[styles.comparePriceNote, styles.lightText]} numberOfLines={2}>{card.extraNote}</Text>
-                      </View>
-                    ) : null}
+                  ) : compareColumns === 4 ? (
+                    <View style={styles.planBadgeSpacer} />
+                  ) : null}
+                  <Text {...({ dataSet: { nowrapword: "1" } } as object)} style={[styles.planName, compareColumns === 4 && styles.planNameGrid, dark && styles.lightText]}>{card.name}</Text>
+                  <Text style={[styles.planSub, compareColumns === 4 && styles.planSubGrid, dark && styles.planSubLight]}>{card.sub}</Text>
+
+                  <View style={[styles.planPriceBox, dark && styles.planPriceBoxDark]}>
+                    <Text style={[styles.planPrice, dark && styles.planPriceGreen]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{card.price}</Text>
+                    <Text style={[styles.planPriceNote, dark && styles.planSubLight]}>внедрение</Text>
+                    <View style={styles.planPriceDivider} />
+                    <Text style={[styles.planMonthly, dark && styles.lightText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{card.monthly}</Text>
+                    <Text style={[styles.planPriceNote, dark && styles.planSubLight]}>сопровождение</Text>
                   </View>
-                  <Text style={[styles.compareSub, compareColumns === 1 && styles.mhAuto, card.featured && styles.compareSubMain, card.featured && styles.compareSubGreen]}>
-                    {card.sub}
-                  </Text>
-                </View>
-                <View style={styles.paramList}>
-                  {card.params.map((param) => (
-                    <View key={param.label} style={[styles.param, compareColumns === 1 && styles.mhAuto, card.featured && styles.paramMain]}>
-                      <Text style={[styles.paramLabel, card.featured && styles.paramLabelMain]}>{param.label}</Text>
-                      <Text
-                        style={[
-                          styles.paramValue,
-                          card.featured && styles.lightText,
-                          param.tone === "green" && styles.green,
-                          param.tone === "red" && styles.red
-                        ]}
-                      >
-                        {param.value}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </Reveal>
-            ))}
+
+                  <Text style={[styles.planDesc, compareColumns === 4 && styles.planDescGrid, dark && styles.planSubLight]}>{card.desc}</Text>
+
+                  <Text style={[styles.planSection, dark && styles.planSectionLight]}>Что входит</Text>
+                  <View style={styles.planList}>
+                    {card.includes.map((item) => (
+                      <View key={item} style={styles.planRow}>
+                        <Text style={styles.planCheck}>✓</Text>
+                        <Text style={[styles.planRowText, dark && styles.planSubLight]}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {compareColumns === 4 ? <View style={styles.planFill} /> : null}
+                  <View style={[styles.planMeta, dark && styles.planMetaDark]}>
+                    <Text style={[styles.planSection, dark && styles.planSectionLight]}>Подходит для</Text>
+                    <Text style={[styles.planMetaText, dark && styles.planSubLight]}>{card.audience}</Text>
+                  </View>
+                  <View style={[styles.planMeta, dark && styles.planMetaDark]}>
+                    <Text style={[styles.planSection, dark && styles.planSectionLight]}>Эффект</Text>
+                    <Text style={[styles.planMetaText, dark && styles.planSubLight]}>{card.effect}</Text>
+                  </View>
+                </Reveal>
+              );
+            })}
           </View>
         </Section>
 
@@ -1245,7 +1370,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
           containerStyle={containerStyle}
           sectionPadding={sectionPadding}
         >
-          <Eyebrow>Доп. услуги</Eyebrow>
           <Text
             nativeID="extraTitle"
             style={[
@@ -1258,32 +1382,38 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
           >
             Дополнительные услуги
           </Text>
-          <Text style={styles.sub}>
-            Отдельные направления, которые можно подключить к внедрению под задачи вашей клиники.
+          <Text style={[styles.sub, styles.subWide]}>
+            Отдельные направления, которые можно подключить к внедрению под задачи вашей клиники и усилить результат
+            комплексного решения
           </Text>
-          <View
-            style={[
-              styles.blogGrid,
-              blogColumns === 1 && styles.oneColumn,
-              blogColumns === 2 && styles.threeColWrap,
-              blogColumns === 3 && styles.blogGridThree
-            ]}
-          >
-            {EXTRA_SERVICES.map(([meta, title, text, link, target], index) => (
+          <View style={[styles.extraGrid, isMobile && styles.oneColumn]}>
+            {EXTRA_SERVICES.map((service, index) => (
               <Reveal
-                key={title}
+                key={service.num}
                 delay={index * 90}
                 distance={18}
-                style={[styles.blogCard, blogColumns === 1 && styles.stackChild, blogColumns === 3 && styles.blogCardThird, blogColumns === 2 && styles.blogCardHalf]}
+                style={[styles.extraCard, isMobile && styles.stackChild]}
               >
-                <Text style={styles.blogMeta}>{meta}</Text>
-                <Text style={[styles.blogTitle, blogColumns === 1 && styles.mhAuto]}>{title}</Text>
-                <Text style={[styles.blogText, blogColumns === 1 && styles.mhAuto]}>{text}</Text>
-                <Pressable onPress={() => scrollTo(target as SectionId)}>
-                  <Text style={styles.blogLink}>{link}</Text>
-                </Pressable>
+                <View style={styles.extraNumWrap}>
+                  <Text style={styles.extraNum}>{service.num}</Text>
+                </View>
+                <Text style={[styles.extraTitle, !isMobile && styles.extraTitleGrid]}>{service.title}</Text>
+                <View style={styles.extraBullets}>
+                  {service.bullets.map((b) => (
+                    <View key={b} style={styles.extraBulletRow}>
+                      <View style={styles.extraBulletDot} />
+                      <Text style={styles.extraBulletText}>{b}</Text>
+                    </View>
+                  ))}
+                </View>
               </Reveal>
             ))}
+          </View>
+          <View style={styles.extraNote}>
+            <View style={styles.extraNoteDot} />
+            <Text style={styles.extraNoteText}>
+              Все дополнительные услуги легко интегрируются в комплексное решение и усиливают его эффект.
+            </Text>
           </View>
         </Section>
 
@@ -1291,7 +1421,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
           <View style={[styles.audit, isMobile && styles.auditMobile, webBackground(`linear-gradient(135deg, ${NAVY} 0%, #202c95 100%)`, NAVY)]}>
             <View style={[styles.auditGrid, isTablet && styles.oneColumn]}>
               <View style={[styles.auditCopy, isTablet && styles.stackChild]}>
-                <Eyebrow dark>Аудит потерь клиники</Eyebrow>
                 <Text
                   style={[
                     styles.auditTitle,
@@ -1307,10 +1436,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                   Это быстрый способ для собственника или главного врача увидеть, где команда уже сегодня теряет деньги
                   на уровне звонков, записи, квалификации пациента и фиксации следующего шага.
                 </Text>
-                <Text style={styles.auditText}>
-                  По итогам аудита вы поймете, на каком участке воронки теряется выручка, какие навыки администраторов
-                  влияют на это сильнее всего и какие управленческие действия дадут самый быстрый эффект.
-                </Text>
               </View>
               <View style={[styles.auditFormCol, !isTablet && styles.auditFormColDesktop, isTablet && styles.stackChild]}>
                 <View style={[styles.form, isMobile && styles.formMobile]}>
@@ -1324,18 +1449,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                     <Text style={styles.auditFormError}>{auditError}</Text>
                   ) : null}
                 </View>
-                {!isMobile ? (
-                  <View style={styles.auditList}>
-                    {[
-                      "Покажем, где именно падает конверсия и почему.",
-                      "Подсветим, какие ошибки чаще всего совершают администраторы.",
-                      "Оценим, во что эти ошибки могут обходиться клинике в выручке.",
-                      "Дадим понятный следующий шаг: что внедрять в первую очередь."
-                    ].map((item) => (
-                      <Text key={item} style={styles.auditBullet}>• {item}</Text>
-                    ))}
-                  </View>
-                ) : null}
               </View>
             </View>
           </View>
@@ -1348,7 +1461,17 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
           sectionPadding={sectionPadding}
           style={[styles.blogSection, webBackground("linear-gradient(180deg, #ffffff 0%, #f8fbef 100%)", "#f8fbef")]}
         >
-          <Eyebrow>Блог</Eyebrow>
+          <Text
+            style={[
+              styles.title,
+              font(sectionTitleFontSize, {
+                lineHeight: Math.round(sectionTitleFontSize * 0.93),
+                letterSpacing: sectionTitleFontSize * -0.025
+              })
+            ]}
+          >
+            Блог
+          </Text>
           <Text style={styles.sub}>
             Показываем, как связать качество коммуникации, обучение администраторов и управленческую аналитику с
             реальными деньгами клиники.
@@ -1371,16 +1494,31 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 <Text style={styles.blogMeta}>{meta}</Text>
                 <Text style={[styles.blogTitle, blogColumns === 1 && styles.mhAuto]}>{title}</Text>
                 <Text style={[styles.blogText, blogColumns === 1 && styles.mhAuto]}>{text}</Text>
-                <Pressable onPress={() => scrollTo(target as SectionId)}>
+                <Pressable onPress={() => (target === "__article__" ? setArticleOpen(true) : scrollTo(target as SectionId))}>
                   <Text style={styles.blogLink}>{link}</Text>
                 </Pressable>
               </Reveal>
             ))}
           </View>
+          <Pressable
+            onPress={() => openExternal("https://t.me/AItheraDM")}
+            style={(state) => [styles.tgCta, (state as { hovered?: boolean }).hovered && styles.tgCtaHover, isMobile && styles.tgCtaMobile]}
+          >
+            <View style={styles.tgCtaDecor} />
+            <View style={styles.tgCtaIcon}>
+              <Image source={{ uri: ICON_TELEGRAM_W }} style={styles.tgCtaIconImg} />
+            </View>
+            <View style={styles.tgCtaText}>
+              <Text style={styles.tgCtaTitle}>Больше разборов, кейсов и обновлений — в Telegram</Text>
+              <Text style={styles.tgCtaSub}>Подпишитесь на канал Aithera, чтобы не пропускать новые материалы.</Text>
+            </View>
+            <View style={styles.tgCtaBtn}>
+              <Text style={styles.tgCtaBtnText}>Перейти в канал</Text>
+            </View>
+          </Pressable>
         </Section>
 
         <Section id="faq" register={register} containerStyle={containerStyle} sectionPadding={30} style={styles.faqSection}>
-          <Eyebrow>FAQ</Eyebrow>
           <Text
             style={[
               styles.title,
@@ -1416,9 +1554,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 Помогаем премиальным клиникам расти через системную аналитику коммуникаций, ИИ‑тренажер для
                 администраторов и управленческие решения, связанные с выручкой.
               </Text>
-              <Text style={styles.footerLegal}>
-                ООО «Цифровая методология». Разработка и внедрение ИИ‑инструментов для медицинских организаций.
-              </Text>
             </View>
             <View>
               <Text style={styles.footerColTitle}>Разделы</Text>
@@ -1433,9 +1568,18 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
             </View>
             <View>
               <Text style={styles.footerColTitle}>Контакты</Text>
-              <Pressable onPress={() => openExternal("https://t.me/it_selma")}><Text style={styles.footerAccent}>Telegram: @it_selma</Text></Pressable>
-              <Pressable onPress={() => openExternal("mailto:info@tsm.ai")}><Text style={styles.footerAccent}>info@tsm.ai</Text></Pressable>
-              <Pressable onPress={() => onOpenAudit()}><Text style={styles.hiddenWorkspace}>Пройти бесплатный аудит</Text></Pressable>
+              <Pressable onPress={() => openExternal("https://t.me/AItheraDM")} style={styles.contactRow}>
+                <View style={styles.contactIcon}><Image source={{ uri: ICON_TELEGRAM }} style={styles.contactIconImg} /></View>
+                <Text style={[styles.footerAccent, styles.contactText]}>AItheraDM</Text>
+              </Pressable>
+              <Pressable onPress={() => openExternal("tel:+79916394358")} style={styles.contactRow}>
+                <View style={styles.contactIcon}><Image source={{ uri: ICON_PHONE }} style={styles.contactIconImg} /></View>
+                <Text style={[styles.footerAccent, styles.contactText]}>+7 (991) 639-43-58</Text>
+              </Pressable>
+              <Pressable onPress={() => openExternal("mailto:digital-methodology@ya.ru")} style={styles.contactRow}>
+                <View style={styles.contactIcon}><Image source={{ uri: ICON_MAIL }} style={styles.contactIconImg} /></View>
+                <Text style={[styles.footerAccent, styles.contactText]}>digital-methodology@ya.ru</Text>
+              </Pressable>
             </View>
           </View>
           <View style={styles.footerDivider} />
@@ -1447,11 +1591,36 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
       </ScrollView>
       {activeCase ? <CaseModal item={activeCase} onClose={() => setActiveCase(null)} isMobile={isMobile} /> : null}
       {discussOpen ? <DiscussModal onClose={() => setDiscussOpen(false)} isMobile={isMobile} /> : null}
+      {demoOpen ? (
+        <DiscussModal
+          onClose={() => setDemoOpen(false)}
+          isMobile={isMobile}
+          heading="Записаться на демо"
+          intro="Оставьте контакт — покажем продукт вживую на примере вашей клиники и ответим на вопросы."
+          successText="Заявка на демо принята. Мы свяжемся с вами, чтобы согласовать удобное время."
+          source="demo_request"
+        />
+      ) : null}
+      {articleOpen ? <ArticleModal onClose={() => setArticleOpen(false)} isMobile={isMobile} /> : null}
     </SafeAreaView>
   );
 }
 
-function DiscussModal({ onClose, isMobile }: { onClose: () => void; isMobile: boolean }) {
+function DiscussModal({
+  onClose,
+  isMobile,
+  heading = "Обсудить внедрение",
+  intro = "Оставьте контакт — расскажем про сценарий и стоимость внедрения.",
+  successText = "Мы свяжемся с вами в ближайшее время, чтобы обсудить внедрение под вашу клинику.",
+  source = "discuss_implementation"
+}: {
+  onClose: () => void;
+  isMobile: boolean;
+  heading?: string;
+  intro?: string;
+  successText?: string;
+  source?: string;
+}) {
   const [form, setForm] = useState({ name: "", clinic: "", contact: "" });
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -1485,7 +1654,7 @@ function DiscussModal({ onClose, isMobile }: { onClose: () => void; isMobile: bo
         name,
         clinic: form.clinic.trim() || null,
         contact,
-        source: "discuss_implementation"
+        source
       });
       setStatus("success");
     } catch {
@@ -1499,7 +1668,7 @@ function DiscussModal({ onClose, isMobile }: { onClose: () => void; isMobile: bo
       <Pressable style={styles.modalBackdrop} onPress={onClose} />
       <View style={[styles.discussCard, isMobile && styles.discussCardMobile]}>
         <View style={styles.modalHeader}>
-          <Text style={styles.discussHeading}>Обсудить внедрение</Text>
+          <Text style={styles.discussHeading}>{heading}</Text>
           <Pressable onPress={onClose} style={styles.modalClose} accessibilityRole="button">
             <Text style={styles.modalCloseText}>×</Text>
           </Pressable>
@@ -1508,18 +1677,13 @@ function DiscussModal({ onClose, isMobile }: { onClose: () => void; isMobile: bo
           {status === "success" ? (
             <View style={styles.discussSuccess}>
               <Text style={styles.discussSuccessTitle}>Заявка принята</Text>
-              <Text style={styles.discussSuccessText}>
-                Мы свяжемся с вами в ближайшее время, чтобы обсудить внедрение под вашу клинику.
-              </Text>
+              <Text style={styles.discussSuccessText}>{successText}</Text>
               <AnchorButton fullWidth onPress={onClose}>
                 Готово
               </AnchorButton>
             </View>
           ) : (
             <>
-              <Text style={styles.discussText}>
-                Оставьте контакт — расскажем про сценарий и стоимость внедрения.
-              </Text>
               <View style={styles.discussForm}>
                 <TextInput value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.discussInput} />
                 <TextInput value={form.clinic} onChangeText={(clinic) => setForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.discussInput} />
@@ -1620,6 +1784,56 @@ function CaseModal({ item, onClose, isMobile }: { item: CaseItem; onClose: () =>
               <Text style={styles.modalText}>{block.text}</Text>
             </View>
           ))}
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+function ArticleModal({ onClose, isMobile }: { onClose: () => void; isMobile: boolean }) {
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") {
+      return;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  return (
+    <View style={styles.modalOverlay}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose} />
+      <View style={[styles.modalCard, styles.articleModalCard, isMobile && styles.modalCardMobile]}>
+        <View style={[styles.modalHeader, isMobile && styles.modalHeaderMobile]}>
+          <Text style={styles.articleHeaderTag}>{ARTICLE.eyebrow}</Text>
+          <Pressable onPress={onClose} style={styles.modalClose} accessibilityRole="button">
+            <Text style={styles.modalCloseText}>×</Text>
+          </Pressable>
+        </View>
+        <ScrollView style={styles.modalScroll} contentContainerStyle={[styles.modalScrollContent, isMobile && styles.modalScrollContentMobile]} showsVerticalScrollIndicator={false}>
+          <View style={styles.articleInner}>
+          <Text style={[styles.articleTitle, isMobile && styles.articleTitleMobile]}>{ARTICLE.title}</Text>
+          <View style={styles.articleByline}>
+            <View style={styles.articleAvatar}>
+              <Text style={styles.articleAvatarText}>{ARTICLE.author.charAt(0)}</Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.articleBylineName}>{ARTICLE.author}</Text>
+              <Text style={styles.articleBylineRole}>{ARTICLE.authorRole}</Text>
+            </View>
+          </View>
+          <Text style={styles.articleLead}>{ARTICLE.lead}</Text>
+          {ARTICLE.sections.map((section) => (
+            <View key={section.h}>
+              <Text style={styles.articleH}>{section.h}</Text>
+              {section.p.map((para, i) => (
+                <Text key={i} style={styles.articleP}>{para}</Text>
+              ))}
+            </View>
+          ))}
+          </View>
         </ScrollView>
       </View>
     </View>
@@ -1772,6 +1986,19 @@ const styles = StyleSheet.create({
   statTopMobile: { paddingVertical: 18, fontSize: 42, lineHeight: 44 },
   statBottom: { minHeight: 140, backgroundColor: LIME, color: NAVY, paddingVertical: 22, paddingHorizontal: 18, fontWeight: "700", textAlign: "center", textAlignVertical: "center" },
   statBottomMobile: { minHeight: 84, paddingVertical: 16 },
+  payback: { marginTop: 26, alignSelf: "flex-start", maxWidth: 520, flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: SOFT_2, borderWidth: 1, borderColor: LINE, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14 },
+  paybackMobile: { marginTop: 22, alignSelf: "stretch", maxWidth: "100%", gap: 12, paddingVertical: 11, paddingHorizontal: 13 },
+  paybackDecor: { width: 0, height: 0 },
+  paybackBadge: { backgroundColor: "#e4ebd0", borderRadius: 12, paddingVertical: 9, paddingHorizontal: 13, alignItems: "center", justifyContent: "center" },
+  paybackBadgeMobile: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: 11 },
+  paybackValue: { color: NAVY, fontSize: 22, lineHeight: 24, fontWeight: "900", letterSpacing: -0.5 },
+  paybackValueMobile: { fontSize: 20, lineHeight: 22 },
+  paybackTextWrap: { flex: 1, minWidth: 0 },
+  paybackKicker: { color: "#6a9a00", fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 3 },
+  paybackCaption: { marginTop: 18, color: MUTED, fontSize: 14, lineHeight: 20, fontWeight: "600" },
+  paybackCaptionStrong: { color: NAVY, fontWeight: "900" },
+  paybackText: { color: NAVY, fontSize: 16, lineHeight: 21, fontWeight: "800" },
+  paybackTextMobile: { fontSize: 15, lineHeight: 20 },
   section: { overflow: "hidden" },
   compareSection: {},
   pricingSection: {},
@@ -1784,6 +2011,7 @@ const styles = StyleSheet.create({
   eyebrowTextDark: { color: "#fff" },
   title: { color: NAVY, fontWeight: "900", textTransform: "uppercase", marginBottom: 16 },
   sub: { maxWidth: 840, color: MUTED, fontSize: 18, lineHeight: 27, marginBottom: 32 },
+  subWide: { maxWidth: 1180, textAlign: "justify" },
   problemCloud: { flexDirection: "row", gap: 28, alignItems: "stretch" },
   cloudGrid: { flex: 1.15, borderWidth: 1, borderColor: LINE, borderRadius: 36, padding: 24, gap: 16, justifyContent: "center" },
   cloudRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 16 },
@@ -1820,7 +2048,36 @@ const styles = StyleSheet.create({
   compareCardFeaturedCol: { flexBasis: 0, minWidth: 0 },
   compareCardMain: { flex: 1.2, backgroundColor: NAVY },
   compareHeader: { minHeight: 310 },
-  recommend: { position: "absolute", right: 18, top: 18, backgroundColor: LIME, color: NAVY, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 12, fontSize: 12, fontWeight: "900", textTransform: "uppercase", zIndex: 2 },
+  recommend: { position: "absolute", right: 18, top: 18, backgroundColor: LIME, color: NAVY, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 12, fontSize: 12, fontWeight: "900", textTransform: "uppercase", zIndex: 2, overflow: "hidden" },
+  planCard: { flex: 1, minWidth: 250, backgroundColor: "#fff", borderWidth: 1, borderColor: LINE, borderRadius: 28, padding: 24, ...shadow },
+  planCardMain: { backgroundColor: NAVY, borderColor: NAVY },
+  planBadge: { alignSelf: "flex-start", backgroundColor: LIME, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13, marginBottom: 12, height: 31 },
+  planBadgeSpacer: { height: 31, marginBottom: 12 },
+  planBadgeText: { color: NAVY, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.5 },
+  planName: { color: NAVY, fontSize: 21, lineHeight: 25, fontWeight: "900", textTransform: "uppercase", marginBottom: 6, minHeight: 50 },
+  planNameGrid: { minHeight: 80 },
+  planSub: { color: MUTED, fontSize: 14, lineHeight: 19, fontWeight: "700", marginBottom: 18 },
+  planSubGrid: { minHeight: 96 },
+  planDescGrid: { minHeight: 108 },
+  planFill: { flexGrow: 1, minHeight: 10 },
+  planSubLight: { color: "rgba(255,255,255,.75)" },
+  planPriceBox: { backgroundColor: SOFT, borderRadius: 18, padding: 18, marginBottom: 18 },
+  planPriceBoxDark: { backgroundColor: "rgba(255,255,255,.08)" },
+  planPrice: { color: NAVY, fontSize: 30, lineHeight: 34, fontWeight: "900", letterSpacing: -1 },
+  planPriceGreen: { color: LIME },
+  planPriceNote: { color: MUTED, fontSize: 13, fontWeight: "700", marginTop: 2 },
+  planPriceDivider: { height: 1, backgroundColor: LINE, marginVertical: 12, opacity: 0.7 },
+  planMonthly: { color: NAVY, fontSize: 22, lineHeight: 26, fontWeight: "900", letterSpacing: -0.5 },
+  planDesc: { color: MUTED, fontSize: 14, lineHeight: 21, marginBottom: 18 },
+  planSection: { color: "#6a9a00", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 },
+  planSectionLight: { color: LIME_2 },
+  planList: { gap: 10, marginBottom: 18 },
+  planRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  planCheck: { color: LIME, fontSize: 14, lineHeight: 20, fontWeight: "900" },
+  planRowText: { flex: 1, minWidth: 0, color: TEXT, fontSize: 14, lineHeight: 20, fontWeight: "600" },
+  planMeta: { borderTopWidth: 1, borderTopColor: LINE, paddingTop: 14, marginTop: 4 },
+  planMetaDark: { borderTopColor: "rgba(255,255,255,.12)" },
+  planMetaText: { color: MUTED, fontSize: 13, lineHeight: 19 },
   compareName: { color: TEXT, fontSize: 17, lineHeight: 18, fontWeight: "900", textTransform: "uppercase", marginBottom: 12, minHeight: 56 },
   compareNameFeatured: { paddingRight: 118 },
   lightText: { color: "#fff" },
@@ -1915,13 +2172,13 @@ const styles = StyleSheet.create({
   priceText: { color: MUTED, fontSize: 15, lineHeight: 23 },
   audit: { backgroundColor: "#202c95", borderRadius: 34, padding: 34, ...shadow },
   auditMobile: { padding: 18, borderRadius: 26 },
-  auditGrid: { flexDirection: "row", gap: 28, alignItems: "flex-start" },
+  auditGrid: { flexDirection: "row", gap: 28, alignItems: "center" },
   auditCopy: { flex: 1.05, minWidth: 0 },
   auditTitle: { color: "#fff", fontSize: 52, lineHeight: 49, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0, marginBottom: 18 },
   auditTitleMobile: { fontSize: 40, lineHeight: 37, letterSpacing: 0 },
   auditText: { color: "rgba(255,255,255,.82)", fontSize: 18, lineHeight: 27, marginBottom: 14 },
   auditFormCol: { flex: 0.95, minWidth: 0, gap: 18 },
-  auditFormColDesktop: { marginTop: 50 },
+  auditFormColDesktop: { marginTop: 0 },
   auditList: { paddingLeft: 18 },
   auditBullet: { color: "rgba(255,255,255,.85)", fontSize: 17, lineHeight: 25, marginBottom: 10 },
   form: { backgroundColor: "rgba(255,255,255,.09)", borderWidth: 1, borderColor: "rgba(255,255,255,.14)", borderRadius: 28, padding: 22, gap: 12 },
@@ -1938,6 +2195,75 @@ const styles = StyleSheet.create({
   blogTitle: { color: NAVY, fontSize: 22, lineHeight: 23, fontWeight: "900", textTransform: "uppercase", marginBottom: 10, minHeight: 92 },
   blogText: { color: MUTED, fontSize: 15, lineHeight: 23, marginBottom: 16, minHeight: 92 },
   blogLink: { color: NAVY, fontSize: 15, fontWeight: "900" },
+  tgCta: {
+    marginTop: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 18,
+    backgroundColor: NAVY,
+    borderRadius: 24,
+    paddingVertical: 22,
+    paddingHorizontal: 26,
+    overflow: "hidden",
+    ...(Platform.OS === "web" ? ({ cursor: "pointer", transitionDuration: "180ms", transitionProperty: "transform" } as object) : null),
+    ...shadow
+  },
+  tgCtaMobile: { flexDirection: "column", alignItems: "flex-start", gap: 14, paddingVertical: 20, paddingHorizontal: 20, borderRadius: 20 },
+  tgCtaHover: { transform: [{ translateY: -3 }] },
+  tgCtaDecor: { position: "absolute", width: 150, height: 150, backgroundColor: "#229ED9", right: -64, top: -54, opacity: 0.55, transform: [{ rotate: "45deg" }] },
+  tgCtaIcon: { width: 54, height: 54, borderRadius: 16, backgroundColor: "#229ED9", alignItems: "center", justifyContent: "center", zIndex: 1, flexShrink: 0 },
+  tgCtaIconImg: { width: 30, height: 30 },
+  tgCtaText: { flex: 1, minWidth: 0, zIndex: 1 },
+  tgCtaTitle: { color: "#fff", fontSize: 20, lineHeight: 26, fontWeight: "900", marginBottom: 4 },
+  tgCtaSub: { color: "rgba(255,255,255,.78)", fontSize: 15, lineHeight: 21 },
+  tgCtaBtn: { backgroundColor: LIME, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 22, zIndex: 1, flexShrink: 0 },
+  tgCtaBtnText: { color: NAVY, fontSize: 15, fontWeight: "900" },
+  extraGrid: { flexDirection: "row", flexWrap: "wrap", gap: 20 },
+  extraCard: { flexBasis: "47%", flexGrow: 1, minWidth: 260, backgroundColor: "#fff", borderWidth: 1, borderColor: LINE, borderRadius: 24, padding: 26, ...shadow },
+  extraNumWrap: { width: 46, height: 46, borderRadius: 14, backgroundColor: "#edf8ce", alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  extraNum: { color: NAVY, fontSize: 20, fontWeight: "900" },
+  extraTitle: { color: NAVY, fontSize: 21, lineHeight: 26, fontWeight: "900", marginBottom: 16 },
+  extraTitleGrid: { minHeight: 58 },
+  extraText: { color: MUTED, fontSize: 15, lineHeight: 23 },
+  extraBullets: { gap: 11 },
+  extraBulletRow: { flexDirection: "row", gap: 11, alignItems: "flex-start" },
+  extraBulletDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: LIME, marginTop: 8, flexShrink: 0 },
+  extraBulletText: { flex: 1, minWidth: 0, color: MUTED, fontSize: 15, lineHeight: 22 },
+  extraNote: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 24, backgroundColor: SOFT_2, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 20 },
+  extraNoteDot: { width: 10, height: 10, borderRadius: 999, backgroundColor: LIME, flexShrink: 0 },
+  extraNoteText: { flex: 1, minWidth: 0, color: NAVY, fontSize: 15, lineHeight: 22, fontWeight: "700" },
+  articleCard: {
+    backgroundColor: NAVY,
+    borderRadius: 28,
+    padding: 32,
+    marginBottom: 22,
+    overflow: "hidden",
+    ...(Platform.OS === "web" ? ({ cursor: "pointer", transitionDuration: "180ms", transitionProperty: "transform, box-shadow" } as object) : null),
+    ...shadow
+  },
+  articleCardMobile: { padding: 22, borderRadius: 22 },
+  articleCardHover: { transform: [{ translateY: -4 }] },
+  articleDecor: { position: "absolute", width: 200, height: 200, backgroundColor: LIME, right: -80, top: -80, opacity: 0.9, transform: [{ rotate: "45deg" }] },
+  articleEyebrow: { color: LIME_2, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 14, zIndex: 1 },
+  articleCardTitle: { color: "#fff", fontSize: 30, lineHeight: 36, fontWeight: "900", marginBottom: 14, maxWidth: 760, zIndex: 1 },
+  articleCardTitleMobile: { fontSize: 23, lineHeight: 28 },
+  articleCardLead: { color: "rgba(255,255,255,.8)", fontSize: 16, lineHeight: 24, maxWidth: 720, marginBottom: 20, zIndex: 1 },
+  articleCardFoot: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between", zIndex: 1 },
+  articleAuthor: { color: "rgba(255,255,255,.6)", fontSize: 13, fontWeight: "600", flexShrink: 1 },
+  articleCardLink: { color: NAVY, backgroundColor: LIME, paddingVertical: 11, paddingHorizontal: 20, borderRadius: 999, fontSize: 14, fontWeight: "900", overflow: "hidden" },
+  articleModalCard: { maxWidth: 980, maxHeight: "94%" },
+  articleInner: { width: "100%", maxWidth: 760, alignSelf: "center" },
+  articleHeaderTag: { flex: 1, color: MUTED, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 },
+  articleTitle: { color: NAVY, fontSize: 30, lineHeight: 36, fontWeight: "900", marginBottom: 20 },
+  articleTitleMobile: { fontSize: 24, lineHeight: 29 },
+  articleByline: { flexDirection: "row", alignItems: "center", gap: 14, paddingBottom: 22, marginBottom: 22, borderBottomWidth: 1, borderBottomColor: LINE },
+  articleAvatar: { width: 48, height: 48, borderRadius: 999, backgroundColor: NAVY, alignItems: "center", justifyContent: "center" },
+  articleAvatarText: { color: "#fff", fontSize: 19, fontWeight: "800" },
+  articleBylineName: { color: NAVY, fontSize: 16, fontWeight: "900" },
+  articleBylineRole: { color: MUTED, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  articleLead: { color: TEXT, fontSize: 18, lineHeight: 27, fontWeight: "600", marginBottom: 22 },
+  articleH: { color: NAVY, fontSize: 20, lineHeight: 25, fontWeight: "900", marginTop: 14, marginBottom: 12 },
+  articleP: { color: MUTED, fontSize: 16, lineHeight: 25, marginBottom: 14 },
   faq: { gap: 16 },
   faqItem: { backgroundColor: "#fff", borderWidth: 1, borderColor: LINE, borderRadius: 20, overflow: "hidden", ...shadow },
   faqQuestion: { paddingVertical: 22, paddingHorizontal: 24, flexDirection: "row", justifyContent: "space-between", gap: 20, alignItems: "center" },
@@ -1960,6 +2286,11 @@ const styles = StyleSheet.create({
   footerBrand: { flex: 1.5, gap: 14 },
   footerText: { color: "rgba(255,255,255,.78)", fontSize: 15, lineHeight: 24 },
   footerLegal: { color: "rgba(255,255,255,.45)", fontSize: 13, lineHeight: 20 },
+  contactRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  contactIcon: { width: 28, height: 28, borderRadius: 999, backgroundColor: LIME, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  contactIconText: { color: NAVY, fontSize: 14, lineHeight: 16, fontWeight: "900" },
+  contactIconImg: { width: 15, height: 15 },
+  contactText: { flex: 1, minWidth: 0, marginBottom: 0 },
   footerColTitle: { color: "#fff", fontSize: 15, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 },
   footerColLink: { color: "rgba(255,255,255,.78)", fontSize: 15, marginBottom: 9 },
   footerColText: { color: "rgba(255,255,255,.6)", fontSize: 15, lineHeight: 22, marginBottom: 9 },

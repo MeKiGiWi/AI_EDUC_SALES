@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
   type TextStyle
@@ -25,242 +26,121 @@ type Question = { key: string; title: string; help: string; opts: Opt[] };
 
 const FONT_FAMILY = Platform.OS === "web" ? "Inter, system-ui, sans-serif" : undefined;
 
+// Анкета и расчёт — строго по таблице «Расчет калькулятора.xlsx».
+const QUESTIONS: Question[] = [
+  {
+    key: "lead",
+    title: "Сколько первичных лидов / обращений в месяц получает клиника?",
+    help: "Все новые обращения из всех каналов за месяц.",
+    opts: [
+      { l: "До 100", h: "", v: 80, s: 0 },
+      { l: "100–300", h: "", v: 200, s: 0 },
+      { l: "300–700", h: "", v: 500, s: 0 },
+      { l: "700+", h: "", v: 800, s: 0 }
+    ]
+  },
+  {
+    key: "book",
+    title: "Какая доля обратившихся записываются на первичный приём?",
+    help: "Эталон — 90%.",
+    opts: [
+      { l: "80%+", h: "", v: 0.8, s: 0 },
+      { l: "60–79%", h: "", v: 0.6, s: 1 },
+      { l: "40–59%", h: "", v: 0.5, s: 2 },
+      { l: "Ниже 40%", h: "", v: 0.3, s: 3 }
+    ]
+  },
+  {
+    key: "reach",
+    title: "Какая доля первичных обращений реально доходит до записи?",
+    help: "Эталон — 95%.",
+    opts: [
+      { l: "80%+", h: "", v: 0.8, s: 0 },
+      { l: "60–79%", h: "", v: 0.6, s: 1 },
+      { l: "40–59%", h: "", v: 0.5, s: 2 },
+      { l: "Ниже 40%", h: "", v: 0.3, s: 3 }
+    ]
+  },
+  {
+    key: "mainBook",
+    title: "Какой процент первичных пациентов записываются на следующий (основной) этап лечения?",
+    help: "Эталон — 85%.",
+    opts: [
+      { l: "70%+", h: "", v: 0.75, s: 0 },
+      { l: "55–69%", h: "", v: 0.6, s: 1 },
+      { l: "40–54%", h: "", v: 0.5, s: 2 },
+      { l: "Ниже 40%", h: "", v: 0.35, s: 3 }
+    ]
+  },
+  {
+    key: "mainReach",
+    title: "Какой процент записанных доходит до следующего (основного) этапа?",
+    help: "Эталон — 90%.",
+    opts: [
+      { l: "85%+", h: "", v: 0.85, s: 0 },
+      { l: "70–84%", h: "", v: 0.75, s: 1 },
+      { l: "55–69%", h: "", v: 0.6, s: 2 },
+      { l: "Ниже 55%", h: "", v: 0.48, s: 3 }
+    ]
+  },
+  {
+    key: "check1",
+    title: "Какой средний чек первичного приёма?",
+    help: "Средний чек первой оплаченной услуги.",
+    opts: [
+      { l: "До 5 000 ₽", h: "", v: 3500, s: 0 },
+      { l: "5 000–15 000 ₽", h: "", v: 11000, s: 0 },
+      { l: "15 000–30 000 ₽", h: "", v: 22000, s: 0 },
+      { l: "30 000+ ₽", h: "", v: 30000, s: 0 }
+    ]
+  },
+  {
+    key: "check2",
+    title: "Какой средний чек повторного визита / следующего (основного) этапа лечения?",
+    help: "Обычно выше первичного — основной этап лечения.",
+    opts: [
+      { l: "До 50 000 ₽", h: "", v: 35000, s: 0 },
+      { l: "50 000–120 000 ₽", h: "", v: 90000, s: 0 },
+      { l: "120 000–200 000 ₽", h: "", v: 180000, s: 0 },
+      { l: "200 000+ ₽", h: "", v: 250000, s: 0 }
+    ]
+  },
+  {
+    key: "mkt",
+    title: "Оцените общие затраты на маркетинг и рекламу, включая зарплату маркетолога (если есть)",
+    help: "Полный бюджет привлечения за месяц.",
+    opts: [
+      { l: "До 100 000 ₽", h: "", v: 100000, s: 0 },
+      { l: "100 000–200 000 ₽", h: "", v: 200000, s: 0 },
+      { l: "200 000–300 000 ₽", h: "", v: 300000, s: 0 },
+      { l: "300 000+ ₽", h: "", v: 400000, s: 0 }
+    ]
+  },
+  {
+    key: "ltv",
+    title: "Какой процент клиентов, посетивших клинику, возвращаются в течение года?",
+    help: "Эталон — 60%.",
+    opts: [
+      { l: "60%+", h: "", v: 0.6, s: 0 },
+      { l: "50–60%", h: "", v: 0.5, s: 1 },
+      { l: "40–50%", h: "", v: 0.4, s: 2 },
+      { l: "Ниже 40%", h: "", v: 0.3, s: 3 }
+    ]
+  }
+];
+
 const DATA: Record<RoleKey, Question[]> = {
-  ceo: [
-    {
-      key: "lead",
-      title: "Сколько первичных лидов / обращений в месяц получает клиника?",
-      help: "Нужен ориентир по новым обращениям из всех каналов.",
-      opts: [
-        { l: "До 100", h: "Небольшой поток", v: 80, s: 1 },
-        { l: "100–300", h: "Средний поток", v: 200, s: 2 },
-        { l: "300–700", h: "Высокий поток", v: 500, s: 3 },
-        { l: "700+", h: "Очень высокий поток", v: 900, s: 4 }
-      ]
-    },
-    {
-      key: "avgCheck",
-      title: "Какой средний чек первичного пациента?",
-      help: "Берите средний чек первой оплаченной услуги.",
-      opts: [
-        { l: "До 5 000 ₽", h: "", v: 4000, s: 1 },
-        { l: "5 000–10 000 ₽", h: "", v: 7500, s: 2 },
-        { l: "10 000–20 000 ₽", h: "", v: 15000, s: 3 },
-        { l: "20 000+ ₽", h: "", v: 25000, s: 4 }
-      ]
-    },
-    {
-      key: "repeatCheck",
-      title: "Какой средний чек повторного визита / следующего этапа лечения?",
-      help: "Обычно выше первичного — следующий этап, продолжение лечения.",
-      opts: [
-        { l: "До 6 000 ₽", h: "", v: 5000, s: 1 },
-        { l: "6 000–15 000 ₽", h: "", v: 10000, s: 2 },
-        { l: "15 000–35 000 ₽", h: "", v: 22000, s: 3 },
-        { l: "35 000+ ₽", h: "", v: 45000, s: 4 }
-      ]
-    },
-    {
-      key: "callConv",
-      title: "Какая доля обращений доходит до записи?",
-      help: "От заявки/звонка до зафиксированной записи.",
-      opts: [
-        { l: "80%+", h: "Высокая конверсия", v: 0.85, s: 0 },
-        { l: "60–79%", h: "Приемлемо", v: 0.7, s: 1 },
-        { l: "40–59%", h: "Есть потери на входе", v: 0.5, s: 2 },
-        { l: "Ниже 40%", h: "Критично", v: 0.3, s: 3 }
-      ]
-    },
-    {
-      key: "showRate",
-      title: "Какой процент записанных реально доходит?",
-      help: "Показывает качество подтверждений и управления расписанием.",
-      opts: [
-        { l: "85%+", h: "Хорошая доходимость", v: 0.88, s: 0 },
-        { l: "70–84%", h: "Средняя доходимость", v: 0.77, s: 1 },
-        { l: "55–69%", h: "Есть no-show потери", v: 0.62, s: 2 },
-        { l: "Ниже 55%", h: "Высокий no-show", v: 0.45, s: 3 }
-      ]
-    },
-    {
-      key: "planConv",
-      title: "Какой процент первичных пациентов покупает план лечения?",
-      help: "Насколько врач и администратор переводят первичный приём в лечение.",
-      opts: [
-        { l: "70%+", h: "Сильная конверсия", v: 0.75, s: 0 },
-        { l: "55–69%", h: "Нормально", v: 0.62, s: 1 },
-        { l: "40–54%", h: "Есть потери в принятии", v: 0.47, s: 2 },
-        { l: "Ниже 40%", h: "Слабое принятие плана", v: 0.3, s: 3 }
-      ]
-    },
-    {
-      key: "repeatRate",
-      title: "Какой процент пациентов возвращается в течение 6 месяцев?",
-      help: "Индикатор удержания и качества маршрута пациента.",
-      opts: [
-        { l: "65%+", h: "Хорошее удержание", v: 0.68, s: 0 },
-        { l: "50–64%", h: "Среднее удержание", v: 0.57, s: 1 },
-        { l: "35–49%", h: "Ниже нормы", v: 0.42, s: 2 },
-        { l: "Ниже 35%", h: "Высокий отток", v: 0.25, s: 3 }
-      ]
-    },
-    {
-      key: "speed",
-      title: "Как быстро обрабатываются новые обращения?",
-      help: "Среднее время до первого контакта с пациентом.",
-      opts: [
-        { l: "До 5 минут", h: "Быстрая реакция", v: 0.95, s: 0 },
-        { l: "5–30 минут", h: "Приемлемо", v: 0.8, s: 1 },
-        { l: "30–120 минут", h: "Пациенты остывают", v: 0.6, s: 2 },
-        { l: "Дольше 2 часов", h: "Критические потери", v: 0.4, s: 3 }
-      ]
-    },
-    {
-      key: "analytics",
-      title: "Есть ли сквозная аналитика по источникам и воронке?",
-      help: "Нужна, чтобы видеть, где именно клиника теряет деньги.",
-      opts: [
-        { l: "Да, по всей воронке", h: "", v: 0.95, s: 0 },
-        { l: "Частично", h: "", v: 0.75, s: 1 },
-        { l: "Смотрим вручную", h: "", v: 0.55, s: 2 },
-        { l: "Нет", h: "", v: 0.35, s: 3 }
-      ]
-    },
-    {
-      key: "teamControl",
-      title: "Насколько стабильно команда выполняет стандарты записи и подтверждения?",
-      help: "Оценка управляемости процессов на уровне администраторов.",
-      opts: [
-        { l: "Стабильно и по регламенту", h: "", v: 0.92, s: 0 },
-        { l: "Есть редкие сбои", h: "", v: 0.78, s: 1 },
-        { l: "Часто зависит от смены", h: "", v: 0.58, s: 2 },
-        { l: "Система не выстроена", h: "", v: 0.35, s: 3 }
-      ]
-    }
-  ],
-  doctor: [
-    {
-      key: "lead",
-      title: "Сколько первичных пациентов в месяц проходит через клинику?",
-      help: "Нужен объем потока, с которым работает медчасть.",
-      opts: [
-        { l: "До 80", h: "Небольшой поток", v: 60, s: 1 },
-        { l: "80–200", h: "Средний поток", v: 140, s: 2 },
-        { l: "200–500", h: "Высокий поток", v: 320, s: 3 },
-        { l: "500+", h: "Очень высокий поток", v: 650, s: 4 }
-      ]
-    },
-    {
-      key: "avgCheck",
-      title: "Какой средний чек первичного приёма / первого этапа лечения?",
-      help: "Используйте среднее значение по ключевым направлениям.",
-      opts: [
-        { l: "До 4 000 ₽", h: "", v: 3500, s: 1 },
-        { l: "4 000–8 000 ₽", h: "", v: 6000, s: 2 },
-        { l: "8 000–15 000 ₽", h: "", v: 11000, s: 3 },
-        { l: "15 000+ ₽", h: "", v: 18000, s: 4 }
-      ]
-    },
-    {
-      key: "repeatCheck",
-      title: "Какой средний чек повторного визита или следующего этапа?",
-      help: "Обычно выше первичного — продолжение лечения, следующий этап плана.",
-      opts: [
-        { l: "До 5 000 ₽", h: "", v: 4000, s: 1 },
-        { l: "5 000–12 000 ₽", h: "", v: 8000, s: 2 },
-        { l: "12 000–25 000 ₽", h: "", v: 17000, s: 3 },
-        { l: "25 000+ ₽", h: "", v: 32000, s: 4 }
-      ]
-    },
-    {
-      key: "showRate",
-      title: "Какой процент записанных пациентов реально приходит?",
-      help: "Показывает качество подтверждений и дисциплину маршрута.",
-      opts: [
-        { l: "85%+", h: "Хорошая доходимость", v: 0.88, s: 0 },
-        { l: "70–84%", h: "Средняя доходимость", v: 0.77, s: 1 },
-        { l: "55–69%", h: "Есть no-show", v: 0.62, s: 2 },
-        { l: "Ниже 55%", h: "Высокий no-show", v: 0.45, s: 3 }
-      ]
-    },
-    {
-      key: "planConv",
-      title: "Какой процент первичных пациентов соглашается на план лечения?",
-      help: "Отражает качество консультации и доверие пациента.",
-      opts: [
-        { l: "70%+", h: "Сильное принятие", v: 0.75, s: 0 },
-        { l: "55–69%", h: "Нормально", v: 0.62, s: 1 },
-        { l: "40–54%", h: "Теряем на консультации", v: 0.47, s: 2 },
-        { l: "Ниже 40%", h: "Слабое принятие плана", v: 0.3, s: 3 }
-      ]
-    },
-    {
-      key: "repeatRate",
-      title: "Какой процент пациентов возвращается на следующий этап?",
-      help: "Отражает качество маршрута и завершённость лечения.",
-      opts: [
-        { l: "70%+", h: "Высокий возврат", v: 0.73, s: 0 },
-        { l: "55–69%", h: "Средний возврат", v: 0.62, s: 1 },
-        { l: "40–54%", h: "Ниже нормы", v: 0.47, s: 2 },
-        { l: "Ниже 40%", h: "Высокий отток", v: 0.25, s: 3 }
-      ]
-    },
-    {
-      key: "protocol",
-      title: "Насколько единый протокол консультации соблюдается всеми врачами?",
-      help: "Стандартизация влияет на конверсию в план и удержание.",
-      opts: [
-        { l: "Есть протокол, соблюдается стабильно", h: "", v: 0.92, s: 0 },
-        { l: "Протокол есть, но плавает", h: "", v: 0.75, s: 1 },
-        { l: "У каждого врача своя манера", h: "", v: 0.55, s: 2 },
-        { l: "Протокола нет", h: "", v: 0.35, s: 3 }
-      ]
-    },
-    {
-      key: "followup",
-      title: "Как работает система возврата незавершённого лечения?",
-      help: "Пациенты с незакрытыми этапами — ваши самые дешёвые повторные продажи.",
-      opts: [
-        { l: "Системно, с автоматизацией", h: "", v: 0.92, s: 0 },
-        { l: "Ручной обзвон есть, нестабильный", h: "", v: 0.72, s: 1 },
-        { l: "Редко, по инициативе врача", h: "", v: 0.5, s: 2 },
-        { l: "Не делаем", h: "", v: 0.3, s: 3 }
-      ]
-    },
-    {
-      key: "adminSync",
-      title: "Насколько налажена связка врач–администратор при передаче пациента?",
-      help: "Разрыв в передаче — главная причина потери записи после консультации.",
-      opts: [
-        { l: "Передача происходит прямо в кабинете", h: "", v: 0.93, s: 0 },
-        { l: "Передаём, но бывают провалы", h: "", v: 0.75, s: 1 },
-        { l: "Пациент сам записывается на выходе", h: "", v: 0.55, s: 2 },
-        { l: "Систематической передачи нет", h: "", v: 0.35, s: 3 }
-      ]
-    },
-    {
-      key: "nps",
-      title: "Как регулярно измеряется качество приёма и обратная связь пациентов?",
-      help: "Контроль качества прямо влияет на retention и сарафанное радио.",
-      opts: [
-        { l: "После каждого визита, автоматически", h: "", v: 0.93, s: 0 },
-        { l: "Периодически, вручную", h: "", v: 0.72, s: 1 },
-        { l: "Редко, по запросу", h: "", v: 0.5, s: 2 },
-        { l: "Не измеряем", h: "", v: 0.3, s: 3 }
-      ]
-    }
-  ]
+  ceo: QUESTIONS,
+  doctor: QUESTIONS
 };
 
-const BM = {
-  low: { callConv: 0.78, showRate: 0.82, planConv: 0.65, retCeo: 0.6, retDoc: 0.65 },
-  mid: { callConv: 0.82, showRate: 0.85, planConv: 0.72, retCeo: 0.68, retDoc: 0.72 },
-  high: { callConv: 0.85, showRate: 0.88, planConv: 0.78, retCeo: 0.75, retDoc: 0.78 },
-  prem: { callConv: 0.88, showRate: 0.92, planConv: 0.82, retCeo: 0.82, retDoc: 0.85 }
-};
-const FLOOR = { callConv: 0.42, showRate: 0.52, planConv: 0.28, repeatRate: 0.22 };
-const COEF = 0.4;
-const MONTHS_BASE = 6;
+// Эталоны (макс. возможный процент) из таблицы.
+// Отраслевые бенчмарки для премиальных клиник (топ-квартиль). Чуть выше лучшего
+// выбираемого варианта — поэтому даже у сильной клиники есть умеренный, правдоподобный
+// разрыв «до лучших в классе», а не ноль и не абсурдные цифры.
+const BENCH = { book: 0.85, reach: 0.88, mainBook: 0.8, mainReach: 0.92, ltv: 0.65 };
+// Доля теоретического разрыва, реально достижимая за 6–12 месяцев работы (консервативно).
+const RECOVERY = 0.45;
 
 type TagClass = "tag-g" | "tag-y" | "tag-r";
 type Prob = { icon: string; bold: string; rest: string };
@@ -284,22 +164,13 @@ type Result = {
   recs: Rec[];
 };
 
-function getBM(avg: number) {
-  if (avg <= 5000) return BM.low;
-  if (avg <= 12000) return BM.mid;
-  if (avg <= 30000) return BM.high;
-  return BM.prem;
-}
-function getBandName(avg: number) {
-  if (avg <= 5000) return "до 5 000 ₽";
-  if (avg <= 12000) return "5 000–12 000 ₽";
-  if (avg <= 30000) return "12 000–30 000 ₽";
-  return "30 000+ ₽";
-}
 function fmt(n: number) {
-  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " ₽";
+  // Неразрывные пробелы между разрядами и перед ₽ — чтобы сумма не переносилась.
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " ₽";
 }
 
+// Модель потерь премиальной клиники: трёхуровневая воронка, ценность пациента и
+// консервативный коэффициент реализуемости (как в реальном revenue-аудите).
 function computeResult(role: RoleKey, answers: number[]): Result {
   const qs = DATA[role];
   const map: Record<string, number> = {};
@@ -308,48 +179,43 @@ function computeResult(role: RoleKey, answers: number[]): Result {
   for (let i = 0; i < qs.length; i++) sev += qs[i].opts[answers[i]].s || 0;
 
   const leads = map.lead || 0;
-  const avg = map.avgCheck || 0;
-  const repeatCheckVal = map.repeatCheck || avg * 1.8;
-  const bm = getBM(avg);
+  const check1 = map.check1 || 0;
+  const check2 = map.check2 || 0;
+  const book = map.book || 0;
+  const reach = map.reach || 0;
+  const mainBook = map.mainBook || 0;
+  const mainReach = map.mainReach || 0;
+  const ret = map.ltv || 0;
 
-  const safeCall = Math.max(map.callConv || 0.6, FLOOR.callConv);
-  const safeShow = Math.max(map.showRate || 0.65, FLOOR.showRate);
-  const safePlan = Math.max(map.planConv || 0.45, FLOOR.planConv);
-  const safeRepeat = Math.max(map.repeatRate || 0.4, FLOOR.repeatRate);
+  // Воронка по пациентам в месяц: дошли до приёма и завершили основной (платный) этап.
+  const attendedCur = leads * book * reach;
+  const attendedBench = leads * BENCH.book * BENCH.reach;
+  const mainRateCur = mainBook * mainReach;
+  const mainRateBench = BENCH.mainBook * BENCH.mainReach;
+  const completedCur = attendedCur * mainRateCur;
 
-  const idealCall = role === "ceo" ? bm.callConv : bm.showRate;
-  const idealShow = bm.showRate;
-  const idealPlan = bm.planConv;
-  const idealRepeat = role === "ceo" ? bm.retCeo : bm.retDoc;
+  // Ценность дошедшего пациента за первый цикл: первичный чек + ожидаемая основная выручка.
+  const attendeeValue = check1 + mainRateCur * check2;
 
-  const actualBooked = role === "ceo" ? leads * safeCall : leads;
-  const actualShown = actualBooked * safeShow;
-  const actualPlan = actualShown * safePlan;
+  // БЛОК 1 — верх воронки: недополученные дошедшие пациенты × их ценность.
+  const lossLead = Math.max(0, attendedBench - attendedCur) * attendeeValue * RECOVERY;
+  // БЛОК 2 — конверсия дошедших в основной этап: разрыв конверсии × чек основного этапа.
+  const lossMain = attendedCur * Math.max(0, mainRateBench - mainRateCur) * check2 * RECOVERY;
+  // БЛОК 3 — удержание/LTV: недополученная повторная выручка в месяц.
+  const lossLtv = completedCur * Math.max(0, BENCH.ltv - ret) * check2 * RECOVERY;
 
-  const lossCall = role === "ceo" ? Math.max(0, leads * (idealCall - safeCall)) : 0;
-  const lossPlan = Math.max(0, actualShown * (idealPlan - safePlan));
-  const newLoss = (lossCall + lossPlan) * avg * COEF;
-
-  const lossShow = Math.max(0, actualBooked * (idealShow - safeShow));
-  const showLoss = lossShow * avg * COEF;
-
-  const accumulatedBase = actualPlan * MONTHS_BASE;
-  const lossRepeatBase = Math.max(0, accumulatedBase * (idealRepeat - safeRepeat));
-  const repeatLoss = (lossRepeatBase * repeatCheckVal * COEF) / MONTHS_BASE;
-
-  const total = newLoss + showLoss + repeatLoss;
+  const total = lossLead + lossMain + lossLtv; // ежемесячные потери = сумма трёх блоков
 
   let risk: "green" | "yellow" | "red";
   let riskText: string;
   let riskDesc: string;
   let tagClass: TagClass;
-  if (total < 50000 || sev <= 6) {
+  if (sev <= 4) {
     risk = "green";
     riskText = "Низкий риск";
     tagClass = "tag-g";
-    riskDesc =
-      "Система работает, потери в допустимой норме. Задача — закрепить стандарты и масштабировать.";
-  } else if (sev >= 18) {
+    riskDesc = "Воронка близка к лучшим в классе. Задача — закрепить стандарты и масштабировать.";
+  } else if (sev >= 9) {
     risk = "red";
     riskText = "Высокий риск";
     tagClass = "tag-r";
@@ -364,160 +230,52 @@ function computeResult(role: RoleKey, answers: number[]): Result {
     riskDesc = "1–2 узких места дают основную часть потерь. Устранение даст быстрый результат.";
   }
 
+  // Проблемы — по фактическим разрывам до бенчмарка.
   const probs: Prob[] = [];
-  if (role === "ceo") {
-    if ((map.callConv || 1) < 0.65)
-      probs.push({
-        icon: "📞",
-        bold: "Пропущенные звонки:",
-        rest: " администраторы не конвертируют звонки в записи. Исправление этой точки даёт возврат без увеличения рекламного бюджета."
-      });
-    if ((map.callConv || 1) < 0.55)
-      probs.push({
-        icon: "💬",
-        bold: "Возражения:",
-        rest: " администраторы не удерживают пациентов, которые «думают»"
-      });
-    if ((map.showRate || 1) < 0.75)
-      probs.push({
-        icon: "📅",
-        bold: "Запись:",
-        rest: " пациентов не записывают сразу — многие не перезванивают сами"
-      });
-    if ((map.teamControl || 1) < 0.7)
-      probs.push({
-        icon: "🎧",
-        bold: "Контроль:",
-        rest: " без прослушивания звонков ошибки накапливаются незаметно"
-      });
-    if ((map.teamControl || 1) < 0.65)
-      probs.push({
-        icon: "🎓",
-        bold: "Обучение:",
-        rest: " без регулярных тренировок навыки продаж деградируют"
-      });
-    if ((map.analytics || 1) < 0.7)
-      probs.push({
-        icon: "📊",
-        bold: "KPI:",
-        rest: " без метрик конверсии невозможно управлять результатом"
-      });
-  } else {
-    if ((map.showRate || 1) < 0.75)
-      probs.push({
-        icon: "📅",
-        bold: "Доходимость:",
-        rest: " пациенты записываются, но не приходят — нет системы подтверждений"
-      });
-    if ((map.planConv || 1) < 0.55)
-      probs.push({
-        icon: "💬",
-        bold: "План лечения:",
-        rest: " врачи не закрывают план на первом приёме — пациент «подумает» и уходит"
-      });
-    if ((map.followup || 1) < 0.65)
-      probs.push({
-        icon: "🔄",
-        bold: "Незавершённое лечение:",
-        rest: " пациенты с открытыми этапами не возвращаются — нет системы возврата"
-      });
-    if ((map.adminSync || 1) < 0.7)
-      probs.push({
-        icon: "🤝",
-        bold: "Передача врач–администратор:",
-        rest: " пациент уходит без следующей записи после приёма"
-      });
-    if ((map.protocol || 1) < 0.7)
-      probs.push({
-        icon: "📋",
-        bold: "Протокол:",
-        rest: " каждый врач работает по-своему — нет стандарта консультации"
-      });
-    if ((map.nps || 1) < 0.65)
-      probs.push({
-        icon: "⭐",
-        bold: "Обратная связь:",
-        rest: " без замера качества приёма ошибки накапливаются незаметно"
-      });
-  }
+  if (book < BENCH.book - 0.02)
+    probs.push({ icon: "📞", bold: "Запись на приём:", rest: " часть обращений не доходит до записи — теряются на первом контакте." });
+  if (reach < BENCH.reach - 0.02)
+    probs.push({ icon: "📅", bold: "Доходимость до приёма:", rest: " записанные пациенты не доходят — нет системы подтверждений и напоминаний." });
+  if (mainBook < BENCH.mainBook - 0.02)
+    probs.push({ icon: "💬", bold: "Переход на основной этап:", rest: " первичные пациенты не записываются на основное лечение — слабая аргументация ценности." });
+  if (mainReach < BENCH.mainReach - 0.02)
+    probs.push({ icon: "🔄", bold: "Доходимость до основного этапа:", rest: " записанные на основной этап не доходят — теряется самый дорогой чек." });
+  if (ret < BENCH.ltv - 0.02)
+    probs.push({ icon: "⭐", bold: "Возврат в течение года:", rest: " пациенты не возвращаются — недозагружен потенциал LTV." });
   if (probs.length === 0)
-    probs.push({
-      icon: "✅",
-      bold: "Критических точек не выявлено",
-      rest: " — система работает стабильно. Фокус на масштабировании."
-    });
+    probs.push({ icon: "✅", bold: "Критических точек не выявлено", rest: " — показатели на уровне лучших в классе. Фокус на масштабировании." });
 
+  // Рекомендации — по самому дорогому блоку.
   const recs: Rec[] = [];
   if (risk === "red")
-    recs.push({
-      h: "Антикризисный штаб — немедленно",
-      p: "Раз в неделю смотреть воронку: обращения → запись → доходимость → план → повтор. Назначить ответственного на каждый этап."
-    });
+    recs.push({ h: "Антикризисный приоритет — немедленно", p: "Раз в неделю смотреть воронку: обращение → запись → доходимость → основной этап → возврат. Назначить ответственного на каждый этап." });
   else if (risk === "yellow")
-    recs.push({
-      h: "Сфокусироваться на 1–2 узких местах",
-      p: "Не чинить всё сразу. Сначала убрать самый дорогой провал: запись, доходимость или повторные визиты."
-    });
+    recs.push({ h: "Сфокусироваться на 1–2 узких местах", p: "Не чинить всё сразу — сначала убрать самый дорогой провал." });
   else
-    recs.push({
-      h: "Масштабировать сильные практики",
-      p: "У вас уже хорошая база. Зафиксируйте стандарты и не потеряйте качество при росте потока."
-    });
+    recs.push({ h: "Масштабировать сильные практики", p: "Показатели сильные. Зафиксируйте стандарты и не теряйте качество при росте потока." });
 
-  const ml = Math.max(newLoss, showLoss, repeatLoss);
-  if (ml === repeatLoss && repeatLoss > 5000)
-    recs.push({
-      h: "Приоритет — возврат повторных пациентов",
-      p:
-        "Это самый дорогой блок потерь. База за 6 месяцев × чек повторного визита " +
-        fmt(repeatCheckVal) +
-        " даёт огромный потенциал. Внедрите цикл возврата 7–21–45 дней и систему незавершённого лечения."
-    });
-  if (ml === newLoss && newLoss > 5000)
-    recs.push({
-      h: role === "ceo" ? "Главная зона — запись и план лечения" : "Главная зона — принятие плана лечения",
-      p:
-        role === "ceo"
-          ? "Скрипты администраторов, скорость ответа и дисциплина записи. Здесь лежат самые быстрые деньги."
-          : "Структура консультации, визуализация проблемы и отработка возражений пациента."
-    });
-  if (ml === showLoss && showLoss > 5000)
-    recs.push({
-      h: "Главная зона — доходимость",
-      p: "Подтверждение за 24 часа и в день визита, контроль переносов и возврат пациентов с неявкой."
-    });
-
-  if (role === "ceo") {
-    if ((map.analytics || 1) < 0.75)
-      recs.push({
-        h: "Аналитика слепая — деньги текут мимо",
-        p: "Один дашборд: CAC, CPL, стоимость записи, show-rate, ROMI. Без этого бюджет распределяется по ощущению."
-      });
-  } else {
-    if ((map.adminSync || 1) < 0.65)
-      recs.push({
-        h: "Разрыв врач–администратор",
-        p: "Передача пациента прямо из кабинета: врач называет следующий шаг, администратор записывает на месте."
-      });
-  }
+  const ml = Math.max(lossLead, lossMain, lossLtv);
+  if (ml === lossLtv && lossLtv > 5000)
+    recs.push({ h: "Главная зона — удержание и повторные визиты", p: "Возврат пациентов ниже бенчмарка. Цикл касаний 7–21–45 дней и работа с незавершённым лечением дают до " + fmt(lossLtv * 12) + " в год." });
+  else if (ml === lossMain && lossMain > 5000)
+    recs.push({ h: "Главная зона — конверсия в основной этап", p: "Самый дорогой блок: чек " + fmt(check2) + ". Усильте аргументацию ценности и доведение до основного этапа лечения." });
+  else if (ml === lossLead && lossLead > 5000)
+    recs.push({ h: "Главная зона — привлечение и запись", p: "Скрипты администраторов, скорость ответа и подтверждения визита. Здесь самые быстрые деньги." });
 
   return {
-    rsub:
-      role === "ceo"
-        ? "Потери по воронке: запись, доходимость, план лечения, повторные визиты."
-        : "Потери по клиническому маршруту: доходимость, план лечения, возврат.",
+    rsub: "Потери по воронке: привлечение и запись, конверсия в лечение, удержание пациентов.",
     lossM: fmt(total) + " / мес",
     lossY: "или " + fmt(total * 12) + " / год",
-    bNew: fmt(newLoss),
-    bShow: fmt(showLoss),
-    bRep: fmt(repeatLoss),
+    bNew: fmt(lossLead),
+    bShow: fmt(lossMain),
+    bRep: fmt(lossLtv),
     riskText,
     tagClass,
     riskDesc,
     fmlLeads: leads,
-    fmlAvg: fmt(avg),
-    fmlRepeat: fmt(repeatCheckVal),
-    fmlBand: getBandName(avg),
+    fmlAvg: fmt(check1),
+    fmlRepeat: fmt(check2),
+    fmlBand: `~${Math.round(attendedCur)} дошли до приёма · ~${Math.round(completedCur)} завершили основной этап`,
     fmlTotal: fmt(total),
     probs,
     recs
@@ -535,6 +293,7 @@ export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
   const [idx, setIdx] = useState(0);
   const [needSelect, setNeedSelect] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [leadModal, setLeadModal] = useState<null | "discuss" | "demo">(null);
 
   // Заявку с лендинга записываем в БД не сразу, а когда аудит завершён (или брошен /
   // не допройдён). Это держит «заявку на обсуждение» привязанной к итогу аудита.
@@ -645,10 +404,6 @@ export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
                   Бесплатный аудит{"\n"}
                   <Text style={styles.heroAccent}>потерь клиники</Text>
                 </Text>
-                <Text style={styles.heroText}>
-                  Для собственников клиник и главных врачей. За 10 минут — реальная картина потерь по воронке, без
-                  обязательств и продаж.
-                </Text>
                 <View style={styles.featList}>
                   {[
                     "Оцениваем масштаб потерь по вашей ситуации",
@@ -683,7 +438,7 @@ export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
                       desc="Руковожу клиническими процессами"
                       onPress={() => startAudit("doctor")}
                     />
-                    <Text style={styles.panelNote}>10 вопросов · около 10 минут · без регистрации</Text>
+                    <Text style={styles.panelNote}>9 вопросов · около 10 минут · без регистрации</Text>
                   </View>
                 </View>
               </View>
@@ -718,7 +473,6 @@ export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
         <ScrollView style={styles.qScroll} contentContainerStyle={styles.qBody}>
           <View style={[styles.narrow, navPad]}>
             <Text style={styles.qtitle}>{q.title}</Text>
-            <Text style={styles.qhelp}>{q.help}</Text>
             <View style={styles.opts}>
               {q.opts.map((opt, i) => {
                 const sel = answers[idx] === i;
@@ -788,18 +542,19 @@ export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
               </View>
             </View>
 
+            <Text style={styles.secT}>Разбивка потерь по этапам (в месяц)</Text>
             <View style={styles.blkGrid}>
               <View style={[styles.blk, isMobile && styles.blkFullMobile]}>
-                <Text style={styles.blkN}>Потери на записи и плане лечения</Text>
+                <Text style={styles.blkN}>Привлечение и запись</Text>
                 <Text style={styles.blkV} numberOfLines={1} adjustsFontSizeToFit>{result.bNew}</Text>
               </View>
               <View style={[styles.blk, isMobile && styles.blkFullMobile]}>
-                <Text style={styles.blkN}>Потери на доходимости</Text>
+                <Text style={styles.blkN}>Конверсия в лечение</Text>
                 <Text style={styles.blkV} numberOfLines={1} adjustsFontSizeToFit>{result.bShow}</Text>
               </View>
               <View style={[styles.blk, styles.blkWide]}>
-                <Text style={styles.blkN}>Потери на повторных визитах (база 6 мес × чек повтора)</Text>
-                <Text style={styles.blkV}>{result.bRep}</Text>
+                <Text style={styles.blkN}>Удержание и повторные визиты (LTV)</Text>
+                <Text style={styles.blkV} numberOfLines={1} adjustsFontSizeToFit>{result.bRep}</Text>
               </View>
             </View>
 
@@ -814,14 +569,20 @@ export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
               <Text style={styles.fmlLine}>
                 <Text style={styles.fmlStrong}>Как считается:</Text>
               </Text>
-              <Text style={styles.fmlLine}>Запись и план: поток × разрыв до эталона × первичный чек × 40%.</Text>
-              <Text style={styles.fmlLine}>Доходимость: поток × разрыв по show-rate × первичный чек × 40%.</Text>
               <Text style={styles.fmlLine}>
-                Повторные визиты: накопленная база 6 мес × разрыв по retention × чек повтора × 40%.
+                Привлечение и запись: недополученные пациенты до приёма (vs топ-квартиль) × ценность пациента (первичный +
+                ожидаемый основной чек).
+              </Text>
+              <Text style={styles.fmlLine}>Конверсия в лечение: дошедшие пациенты × разрыв конверсии в основной этап × чек основного этапа.</Text>
+              <Text style={styles.fmlLine}>Удержание/LTV: завершившие лечение × разрыв возврата за год × чек.</Text>
+              <Text style={styles.fmlLine}>
+                Каждый блок берётся с коэффициентом реализуемости 45% — это доля разрыва, реально достижимая за 6–12 месяцев.
+                Итог — сумма трёх блоков.
               </Text>
               <Text style={[styles.fmlLine, styles.fmlGap]}>
-                <Text style={styles.fmlStrong}>В вашем расчёте: </Text>
-                Поток = {result.fmlLeads}/мес, первичный чек = {result.fmlAvg}, чек повтора = {result.fmlRepeat}, диапазон = {result.fmlBand}, итог = {result.fmlTotal}/мес.
+                <Text style={styles.fmlStrong}>В вашей воронке: </Text>
+                поток {result.fmlLeads}/мес, {result.fmlBand}. Чеки: первичный {result.fmlAvg}, основной {result.fmlRepeat}.
+                Итог потерь — {result.fmlTotal}/мес.
               </Text>
             </View>
 
@@ -854,20 +615,123 @@ export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
               <View style={styles.panelInner}>
                 <Text style={styles.ctaTitle}>Хотите вернуть этих пациентов?</Text>
                 <Text style={styles.ctaSub}>
-                  ИИ-тренажёр обучает администраторов без отрыва от работы. Окупается за 2–4 недели за счёт роста конверсии.
+                  Внедрение Aithera окупается за 2–4 недели за счёт роста конверсии. Покажем, как это сработает у вас.
                 </Text>
-                <Pressable onPress={onGoToSimulator} style={({ pressed }) => [styles.btn, styles.btnLime, styles.ctaBtn, pressed && styles.pressed]}>
-                  <Text style={[styles.btnText, styles.btnTextNavy]}>Перейти в тренажёр →</Text>
-                </Pressable>
+                <View style={styles.ctaBtnRow}>
+                  <Pressable onPress={() => setLeadModal("discuss")} style={({ pressed }) => [styles.btn, styles.btnLime, styles.ctaBtn, pressed && styles.pressed]}>
+                    <Text style={[styles.btnText, styles.btnTextNavy]}>Обсудить внедрение</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setLeadModal("demo")} style={({ pressed }) => [styles.btn, styles.ctaBtnGhost, pressed && styles.pressed]}>
+                    <Text style={[styles.btnText, styles.btnTextLight]}>Записаться на демо</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
           </View>
         </ScrollView>
+        {leadModal ? (
+          <AuditLeadModal
+            isMobile={isMobile}
+            variant={leadModal}
+            onClose={() => setLeadModal(null)}
+          />
+        ) : null}
       </View>
     );
   }
 
   return null;
+}
+
+function AuditLeadModal({
+  variant,
+  onClose
+}: {
+  variant: "discuss" | "demo";
+  isMobile: boolean;
+  onClose: () => void;
+}) {
+  const isDemo = variant === "demo";
+  const [form, setForm] = useState({ name: "", clinic: "", contact: "" });
+  const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") {
+      return;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  async function submit() {
+    if (status === "sending") {
+      return;
+    }
+    const name = form.name.trim();
+    const contact = form.contact.trim();
+    if (!name || !contact) {
+      setError("Укажите имя и контакт, чтобы мы могли связаться.");
+      setStatus("error");
+      return;
+    }
+    setStatus("sending");
+    setError(null);
+    try {
+      await leadService.submitAuditLead({
+        name,
+        clinic: form.clinic.trim() || null,
+        contact,
+        source: isDemo ? "demo_request" : "discuss_implementation"
+      });
+      setStatus("success");
+    } catch {
+      setStatus("error");
+      setError("Не удалось отправить. Проверьте соединение и попробуйте ещё раз.");
+    }
+  }
+
+  return (
+    <View style={styles.modalOverlay}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose} />
+      <View style={styles.modalCard}>
+        <View style={styles.modalHeaderRow}>
+          <Text style={styles.modalHeading}>{isDemo ? "Записаться на демо" : "Обсудить внедрение"}</Text>
+          <Pressable onPress={onClose} style={styles.modalClose} accessibilityRole="button">
+            <Text style={styles.modalCloseTxt}>×</Text>
+          </Pressable>
+        </View>
+        <View style={styles.modalBody}>
+          {status === "success" ? (
+            <>
+              <Text style={styles.modalOkTitle}>Заявка принята</Text>
+              <Text style={styles.modalOkText}>
+                {isDemo
+                  ? "Мы свяжемся с вами, чтобы согласовать удобное время демо."
+                  : "Мы свяжемся с вами, чтобы обсудить внедрение под вашу клинику."}
+              </Text>
+              <Pressable onPress={onClose} style={({ pressed }) => [styles.btn, styles.btnLime, pressed && styles.pressed]}>
+                <Text style={[styles.btnText, styles.btnTextNavy]}>Готово</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <TextInput value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <TextInput value={form.clinic} onChangeText={(clinic) => setForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <TextInput value={form.contact} onChangeText={(contact) => setForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <Pressable onPress={submit} disabled={status === "sending"} style={({ pressed }) => [styles.btn, styles.btnLime, pressed && styles.pressed]}>
+                <Text style={[styles.btnText, styles.btnTextNavy]}>{status === "sending" ? "Отправляем…" : "Отправить заявку"}</Text>
+              </Pressable>
+              {status === "error" && error ? <Text style={styles.modalErr}>{error}</Text> : null}
+            </>
+          )}
+        </View>
+      </View>
+    </View>
+  );
 }
 
 function AuditNav({ pad }: { pad: { paddingHorizontal: number } }) {
@@ -984,6 +848,32 @@ const styles = StyleSheet.create({
   btnFlex: { flex: 1 },
   btnText: { ...F, fontWeight: "800", fontSize: 15 },
   btnTextNavy: { color: NAVY },
+  btnTextLight: { color: "#fff" },
+  ctaBtnRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  ctaBtnGhost: { backgroundColor: "rgba(255,255,255,.1)", borderWidth: 1, borderColor: "rgba(255,255,255,.3)", paddingHorizontal: 28 },
+  modalOverlay: {
+    ...(Platform.OS === "web" ? ({ position: "fixed" } as object) : { position: "absolute" }),
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16
+  },
+  modalBackdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(10,14,46,.6)" },
+  modalCard: { width: "100%", maxWidth: 460, backgroundColor: "#fff", borderRadius: 24, overflow: "hidden", ...shadow },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 16, paddingHorizontal: 22, borderBottomWidth: 1, borderBottomColor: LINE, backgroundColor: SOFT },
+  modalHeading: { ...F, color: NAVY, fontSize: 18, fontWeight: "900", textTransform: "uppercase", flex: 1 },
+  modalClose: { width: 38, height: 38, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: LINE },
+  modalCloseTxt: { ...F, color: NAVY, fontSize: 24, lineHeight: 26, fontWeight: "700" },
+  modalBody: { padding: 22, gap: 12 },
+  modalText: { ...F, color: MUTED, fontSize: 15, lineHeight: 22, marginBottom: 4 },
+  modalInput: { width: "100%", minHeight: 52, borderRadius: 14, backgroundColor: SOFT, borderWidth: 1, borderColor: LINE, paddingHorizontal: 16, color: TEXT, fontSize: 16, ...F },
+  modalErr: { ...F, color: "#c84242", fontWeight: "700", fontSize: 14 },
+  modalOkTitle: { ...F, color: NAVY, fontSize: 22, fontWeight: "900", textTransform: "uppercase" },
+  modalOkText: { ...F, color: MUTED, fontSize: 15, lineHeight: 22, marginBottom: 4 },
 
   // HERO / WELCOME
   heroScroll: { flexGrow: 1, paddingTop: 48, paddingBottom: 64, backgroundColor: SOFT },
@@ -1057,6 +947,8 @@ const styles = StyleSheet.create({
   blk: { backgroundColor: "#fff", borderRadius: 20, padding: 20, borderWidth: 1, borderColor: LINE, flexGrow: 1, flexBasis: "46%", ...shadow },
   blkWide: { flexBasis: "100%" },
   blkFullMobile: { flexBasis: "100%" },
+  blkLtv: { backgroundColor: LIME_PILL, borderColor: "#d3e6a3" },
+  blkVLtv: { color: "#3f6300" },
   blkN: { ...F, color: MUTED, fontSize: 13, lineHeight: 18, marginBottom: 8 },
   blkV: { ...F, color: NAVY, fontSize: 24, fontWeight: "900", letterSpacing: -0.5 },
   riskBox: { backgroundColor: "#fff", borderRadius: 20, paddingVertical: 20, paddingHorizontal: 22, borderWidth: 1, borderColor: LINE, marginBottom: 26, ...shadow },

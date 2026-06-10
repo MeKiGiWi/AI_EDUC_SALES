@@ -3,14 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.database import get_db_session
-from app.lead_service import AuditLeadService
-from app.models import (
-    AuditLeadCreateDto,
-    AuditLeadDto,
-    AuditLeadListResponseDto,
-    AuditLeadStatus,
-)
+from app.core.database import get_db_session
+from app.leads.schemas import AuditLeadCreateDto, AuditLeadDto, AuditLeadListResponseDto, AuditLeadStatus
+from app.leads.service import AuditLeadService
 
 router = APIRouter(prefix="/api/v1/audit-leads", tags=["audit-leads"])
 

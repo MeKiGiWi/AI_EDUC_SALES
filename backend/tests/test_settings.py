@@ -1,6 +1,6 @@
 import pytest
 
-from app.settings import LLMSettings, get_agents_config, get_settings
+from app.core.settings import LLMSettings, get_agents_config, get_settings
 
 
 def test_get_settings_returns_singleton_settings() -> None:

@@ -6,7 +6,7 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 
-from app.lead_entities import AuditLeadRecord
+from app.leads.entities import AuditLeadRecord
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@ import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.agents import EvaluationAgent
+from app.simulator.agents import EvaluationAgent
 
 
 def _json_payload() -> str:

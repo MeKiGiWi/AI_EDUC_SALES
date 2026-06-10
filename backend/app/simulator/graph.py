@@ -4,8 +4,7 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from app.models import ChatSession, GraphDependencies, GraphState
-from app.prompts import (
+from app.simulator.prompts import (
     BASELINE_OPENING_MESSAGE,
     BUYER_SCENARIO_CONTEXT_PROMPT,
     BUYER_SYSTEM_PROMPT,
@@ -13,7 +12,8 @@ from app.prompts import (
     OFFTOPIC_WARNING_MESSAGE,
     RUDE_REFUSAL_MESSAGE,
 )
-from app.scenario_repository import get_scenario_by_id, get_scenario_info
+from app.simulator.scenario_repository import get_scenario_by_id, get_scenario_info
+from app.simulator.schemas import ChatSession, GraphDependencies, GraphState
 
 
 def create_graph(deps: GraphDependencies):

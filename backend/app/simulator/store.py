@@ -1,4 +1,4 @@
-from app.models import ChatSession
+from app.simulator.schemas import ChatSession
 
 
 class InMemorySessionStore:

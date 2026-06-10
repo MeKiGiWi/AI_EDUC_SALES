@@ -9,11 +9,12 @@ from uuid import uuid4
 from langchain_core.messages import BaseMessage
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import TypedDict
-from app.schemas_report import SalesDialogueReportV2
+
+from app.reports.schemas_v2 import SalesDialogueReportV2
 
 if TYPE_CHECKING:
-    from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
-    from app.store import InMemorySessionStore
+    from app.simulator.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
+    from app.simulator.store import InMemorySessionStore
 
 
 class ChatSession(BaseModel):
@@ -146,14 +147,12 @@ class EvaluationCompetencyRaw(BaseModel):
     @field_validator("quote")
     @classmethod
     def clean_quote(cls, value: list[str]) -> list[str]:
-        cleaned = [item.strip() for item in value if item and item.strip()]
-        return cleaned
+        return [item.strip() for item in value if item and item.strip()]
 
     @field_validator("recommendations")
     @classmethod
     def clean_recommendations(cls, value: list[str]) -> list[str]:
-        cleaned = [item.strip() for item in value if item and item.strip()]
-        return cleaned
+        return [item.strip() for item in value if item and item.strip()]
 
 
 class EvaluationResultRaw(BaseModel):
@@ -179,8 +178,7 @@ class EvaluationResultRaw(BaseModel):
     @field_validator("overall_recommendations")
     @classmethod
     def clean_overall_recommendations(cls, value: list[str]) -> list[str]:
-        cleaned = [item.strip() for item in value if item and item.strip()]
-        return cleaned
+        return [item.strip() for item in value if item and item.strip()]
 
     @model_validator(mode="after")
     def ensure_competencies_present(self):
@@ -194,105 +192,3 @@ class SessionFinishResponseDto(BaseModel):
     status: SessionStatus
     evaluation: EvaluationResultRaw | None = None
     report_v2: SalesDialogueReportV2 | None = None
-
-
-class WorkspaceRole(str, Enum):
-    STUDENT = "student"
-    MANAGER = "manager"
-    HR = "hr"
-    ADMIN = "admin"
-
-
-class ExportFormat(str, Enum):
-    PDF = "pdf"
-    XLSX = "xlsx"
-    CSV = "csv"
-
-
-class ReportType(str, Enum):
-    STUDENT_PROGRESS = "student_progress"
-    TEAM_PERFORMANCE = "team_performance"
-    LEARNING_ADOPTION = "learning_adoption"
-    COMPETENCY_DYNAMICS = "competency_dynamics"
-
-
-class ReportStatus(str, Enum):
-    DRAFT = "draft"
-    GENERATING = "generating"
-    READY = "ready"
-    ERROR = "error"
-
-
-class ReportPreviewSectionDto(BaseModel):
-    id: str
-    title: str
-    lines: list[str]
-
-
-class ReportCardDto(BaseModel):
-    id: str
-    title: str
-    role: WorkspaceRole
-    reportType: ReportType
-    scenarioId: str | None = None
-    scenarioTitle: str
-    status: ReportStatus
-    summary: str
-    format: ExportFormat
-    createdAt: str
-    updatedAt: str
-    ownerLabel: str
-    sourceLabel: str | None = None
-    sessionId: str | None = None
-    availableFormats: list[ExportFormat]
-    previewSections: list[ReportPreviewSectionDto]
-    reportV2: SalesDialogueReportV2 | None = None
-
-
-class ReportListResponseDto(BaseModel):
-    items: list[ReportCardDto]
-
-
-class ReportCreateDto(BaseModel):
-    role: WorkspaceRole
-    scenario_id: str | None = Field(default=None, max_length=200)
-    scenario_title: str = Field(min_length=1, max_length=300)
-    source_label: str | None = Field(default=None, max_length=120)
-    evaluation: EvaluationResultRaw
-    session_id: str | None = Field(default=None, max_length=200)
-    report_v2: SalesDialogueReportV2 | None = None
-
-
-class AuditLeadStatus(str, Enum):
-    NEW = "new"
-    CONTACTED = "contacted"
-    QUALIFIED = "qualified"
-    ARCHIVED = "archived"
-
-
-class AuditLeadCreateDto(BaseModel):
-    """Входящая заявка на аудит с лендинга."""
-
-    name: str = Field(min_length=1, max_length=200)
-    clinic: str | None = Field(default=None, max_length=300)
-    contact: str = Field(min_length=1, max_length=300)
-    comment: str | None = Field(default=None, max_length=2000)
-    source: str = Field(default="landing_audit_form", max_length=64)
-    payload: dict[str, object] | None = None
-
-
-class AuditLeadDto(BaseModel):
-    id: str
-    name: str
-    clinic: str | None = None
-    contact: str
-    comment: str | None = None
-    source: str
-    status: AuditLeadStatus
-    payload: dict[str, object] | None = None
-    created_at: datetime
-    updated_at: datetime
-
-
-class AuditLeadListResponseDto(BaseModel):
-    items: list[AuditLeadDto]

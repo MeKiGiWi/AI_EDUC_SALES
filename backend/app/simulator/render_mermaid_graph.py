@@ -3,12 +3,12 @@ from pathlib import Path
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
-from app.graph import create_graph
-from app.models import GraphDependencies
-from app.store import InMemorySessionStore
+from app.simulator.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
+from app.simulator.graph import create_graph
+from app.simulator.schemas import GraphDependencies
+from app.simulator.store import InMemorySessionStore
 
-ARTIFACTS_DIR = Path(__file__).resolve().parents[1] / "artifacts" / "langgraph"
+ARTIFACTS_DIR = Path(__file__).resolve().parents[2] / "artifacts" / "langgraph"
 
 
 def render_graph_artifacts() -> None:

@@ -7,12 +7,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import router as simulator_router
-from app.api_leads import router as leads_router
-from app.api_reports import router as reports_router
-from app.database import initialize_database
-from app.lead_cleanup import run_lead_cleanup_loop
-from app.render_mermaid_graph import render_graph_artifacts
+from app.core.database import initialize_database
+from app.leads.cleanup import run_lead_cleanup_loop
+from app.routes.leads import router as leads_router
+from app.routes.reports import router as reports_router
+from app.routes.simulator import router as simulator_router
+from app.simulator.render_mermaid_graph import render_graph_artifacts
 
 OPENAPI_PATH = Path(__file__).resolve().parents[1] / "openapi.json"
 

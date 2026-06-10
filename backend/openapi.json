@@ -315,10 +315,336 @@
           }
         }
       }
+    },
+    "/api/v1/audit-leads": {
+      "post": {
+        "tags": [
+          "audit-leads"
+        ],
+        "summary": "Create Audit Lead",
+        "operationId": "create_audit_lead_api_v1_audit_leads_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuditLeadCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLeadDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "audit-leads"
+        ],
+        "summary": "List Audit Leads",
+        "operationId": "list_audit_leads_api_v1_audit_leads_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AuditLeadStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLeadListResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AuditLeadCreateDto": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "clinic": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinic"
+          },
+          "contact": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Contact"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Source",
+            "default": "landing_audit_form"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "contact"
+        ],
+        "title": "AuditLeadCreateDto",
+        "description": "Входящая заявка на аудит с лендинга."
+      },
+      "AuditLeadDto": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "clinic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinic"
+          },
+          "contact": {
+            "type": "string",
+            "title": "Contact"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AuditLeadStatus"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "contact",
+          "source",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AuditLeadDto"
+      },
+      "AuditLeadListResponseDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLeadDto"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AuditLeadListResponseDto"
+      },
+      "AuditLeadStatus": {
+        "type": "string",
+        "enum": [
+          "new",
+          "contacted",
+          "qualified",
+          "archived"
+        ],
+        "title": "AuditLeadStatus"
+      },
+      "CaseInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "scenarioTitle": {
+            "type": "string",
+            "title": "Scenariotitle"
+          },
+          "createdAt": {
+            "type": "string",
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "scenarioTitle",
+          "createdAt"
+        ],
+        "title": "CaseInfo"
+      },
+      "CompetencyAssessment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "level": {
+            "$ref": "#/components/schemas/ReportLevel"
+          },
+          "score": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceQuote"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "level",
+          "score",
+          "comment"
+        ],
+        "title": "CompetencyAssessment"
+      },
       "CompetencyLevel": {
         "type": "string",
         "enum": [
@@ -327,6 +653,94 @@
           "Senior"
         ],
         "title": "CompetencyLevel"
+      },
+      "DevelopmentArea": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment"
+          },
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Actions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "comment"
+        ],
+        "title": "DevelopmentArea"
+      },
+      "DialogueAnalysisStatus": {
+        "type": "string",
+        "enum": [
+          "good",
+          "neutral",
+          "needs_improvement",
+          "critical"
+        ],
+        "title": "DialogueAnalysisStatus"
+      },
+      "DialogueSpeaker": {
+        "type": "string",
+        "enum": [
+          "manager",
+          "client",
+          "assistant",
+          "system"
+        ],
+        "title": "DialogueSpeaker"
+      },
+      "DialogueTurnAnalysis": {
+        "properties": {
+          "turnIndex": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Turnindex"
+          },
+          "speaker": {
+            "$ref": "#/components/schemas/DialogueSpeaker"
+          },
+          "speakerLabel": {
+            "type": "string",
+            "title": "Speakerlabel"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/TurnAnalysis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "turnIndex",
+          "speaker",
+          "speakerLabel",
+          "text",
+          "analysis"
+        ],
+        "title": "DialogueTurnAnalysis"
       },
       "EvaluationCompetencyRaw": {
         "properties": {
@@ -401,6 +815,29 @@
         ],
         "title": "EvaluationResultRaw"
       },
+      "EvidenceQuote": {
+        "properties": {
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "speaker": {
+            "$ref": "#/components/schemas/DialogueSpeaker"
+          },
+          "turnIndex": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Turnindex"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quote",
+          "speaker",
+          "turnIndex"
+        ],
+        "title": "EvidenceQuote"
+      },
       "ExportFormat": {
         "type": "string",
         "enum": [
@@ -430,6 +867,22 @@
           "customer"
         ],
         "title": "MessageRole"
+      },
+      "ParticipantInfo": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "student"
+          },
+          "displayName": {
+            "type": "string",
+            "title": "Displayname",
+            "default": "Ученик"
+          }
+        },
+        "type": "object",
+        "title": "ParticipantInfo"
       },
       "ReportCardDto": {
         "properties": {
@@ -519,6 +972,16 @@
             },
             "type": "array",
             "title": "Previewsections"
+          },
+          "reportV2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SalesDialogueReportV2"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -588,6 +1051,16 @@
               }
             ],
             "title": "Session Id"
+          },
+          "report_v2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SalesDialogueReportV2"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -597,6 +1070,16 @@
           "evaluation"
         ],
         "title": "ReportCreateDto"
+      },
+      "ReportLevel": {
+        "type": "string",
+        "enum": [
+          "Trainee",
+          "Junior",
+          "Middle",
+          "Senior"
+        ],
+        "title": "ReportLevel"
       },
       "ReportListResponseDto": {
         "properties": {
@@ -613,6 +1096,32 @@
           "items"
         ],
         "title": "ReportListResponseDto"
+      },
+      "ReportMeta": {
+        "properties": {
+          "generatedBy": {
+            "type": "string",
+            "title": "Generatedby",
+            "default": "AI Sales Academy"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "dialogue_simulation"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "default": "ru"
+          },
+          "fallback": {
+            "type": "boolean",
+            "title": "Fallback",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ReportMeta"
       },
       "ReportPreviewSectionDto": {
         "properties": {
@@ -650,6 +1159,42 @@
         ],
         "title": "ReportStatus"
       },
+      "ReportSummary": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
+          "overallLevel": {
+            "$ref": "#/components/schemas/ReportLevel"
+          },
+          "overallScore": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Overallscore"
+          },
+          "shortResume": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Shortresume"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "headline",
+          "overallLevel",
+          "overallScore"
+        ],
+        "title": "ReportSummary"
+      },
       "ReportType": {
         "type": "string",
         "enum": [
@@ -659,6 +1204,76 @@
           "competency_dynamics"
         ],
         "title": "ReportType"
+      },
+      "SalesDialogueReportV2": {
+        "properties": {
+          "reportVersion": {
+            "type": "string",
+            "title": "Reportversion",
+            "default": "2.0"
+          },
+          "case": {
+            "$ref": "#/components/schemas/CaseInfo"
+          },
+          "participant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParticipantInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ReportSummary"
+          },
+          "competencies": {
+            "items": {
+              "$ref": "#/components/schemas/CompetencyAssessment"
+            },
+            "type": "array",
+            "title": "Competencies"
+          },
+          "dialogueAnalysis": {
+            "items": {
+              "$ref": "#/components/schemas/DialogueTurnAnalysis"
+            },
+            "type": "array",
+            "title": "Dialogueanalysis"
+          },
+          "strengths": {
+            "items": {
+              "$ref": "#/components/schemas/Strength"
+            },
+            "type": "array",
+            "title": "Strengths"
+          },
+          "developmentAreas": {
+            "items": {
+              "$ref": "#/components/schemas/DevelopmentArea"
+            },
+            "type": "array",
+            "title": "Developmentareas"
+          },
+          "nextSteps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Nextsteps"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ReportMeta"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "case",
+          "summary"
+        ],
+        "title": "SalesDialogueReportV2"
       },
       "ScenarioListResponseDto": {
         "properties": {
@@ -773,6 +1388,16 @@
                 "type": "null"
               }
             ]
+          },
+          "report_v2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SalesDialogueReportV2"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -865,6 +1490,66 @@
           "finished"
         ],
         "title": "SessionStatus"
+      },
+      "Strength": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "comment"
+        ],
+        "title": "Strength"
+      },
+      "TurnAnalysis": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DialogueAnalysisStatus"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation"
+          },
+          "competencyIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Competencyids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "comment"
+        ],
+        "title": "TurnAnalysis"
       },
       "ValidationError": {
         "properties": {

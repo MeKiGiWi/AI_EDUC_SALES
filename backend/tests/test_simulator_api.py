@@ -4,20 +4,20 @@ from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-import app.api as simulator_api
-import app.runtime as simulator_runtime
-from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
-from app.graph import create_graph
 from app.main import app
-from app.models import (
+from app.routes import simulator as simulator_api
+from app.simulator import runtime as simulator_runtime
+from app.simulator.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
+from app.simulator.graph import create_graph
+from app.simulator.prompts import BASELINE_OPENING_MESSAGE
+from app.simulator.schemas import (
     CompetencyLevel,
     EvaluationCompetencyRaw,
     EvaluationResultRaw,
     GraphDependencies,
 )
-from app.prompts import BASELINE_OPENING_MESSAGE
-from app.settings import get_agents_config, get_settings
-from app.store import InMemorySessionStore
+from app.simulator.store import InMemorySessionStore
+from app.core.settings import get_agents_config, get_settings
 
 
 def build_fake_graph(reply_text: str = "Давайте ближе к выгоде для нас."):

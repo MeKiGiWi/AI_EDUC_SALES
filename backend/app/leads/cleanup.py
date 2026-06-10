@@ -5,8 +5,8 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-from app.database import get_session_factory
-from app.lead_repository import AuditLeadRepository
+from app.core.database import get_session_factory
+from app.leads.repository import AuditLeadRepository
 
 logger = logging.getLogger(__name__)
 

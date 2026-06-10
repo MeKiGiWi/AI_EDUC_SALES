@@ -6,9 +6,9 @@ from uuid import uuid4
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models import ReportCardDto, ReportCreateDto, WorkspaceRole
-from app.report_mapper import create_report_record, to_report_card
-from app.report_repository import ReportRepository
+from app.reports.mapper import create_report_record, to_report_card
+from app.reports.repository import ReportRepository
+from app.reports.schemas import ReportCardDto, ReportCreateDto, WorkspaceRole
 
 
 class ReportService:

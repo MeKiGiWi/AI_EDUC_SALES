@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 
-from app.models import CompetencyLevel, EvaluationCompetencyRaw, EvaluationResultRaw
-from app.report_v2 import (
+from app.reports.report_v2 import (
     adapt_legacy_evaluation_to_report_v2,
     build_fallback_report_v2,
     build_dialogue_turns,
     parse_report_v2_payload,
     validate_report_v2_content,
 )
+from app.simulator.schemas import CompetencyLevel, EvaluationCompetencyRaw, EvaluationResultRaw
 
 
 def test_parse_report_v2_payload_from_fenced_json() -> None:

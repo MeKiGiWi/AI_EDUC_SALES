@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.models import (
-    CompetencyLevel,
-    EvaluationResultRaw,
+from app.reports.entities import ReportRecord
+from app.reports.report_v2 import adapt_legacy_evaluation_to_report_v2
+from app.reports.schemas import (
     ExportFormat,
     ReportCardDto,
     ReportCreateDto,
@@ -13,9 +13,8 @@ from app.models import (
     ReportType,
     WorkspaceRole,
 )
-from app.report_entities import ReportRecord
-from app.report_v2 import adapt_legacy_evaluation_to_report_v2
-from app.schemas_report import SalesDialogueReportV2
+from app.reports.schemas_v2 import SalesDialogueReportV2
+from app.simulator.schemas import CompetencyLevel, EvaluationResultRaw
 
 ROLE_OWNER_LABELS: dict[WorkspaceRole, str] = {
     WorkspaceRole.STUDENT: "Ученик",

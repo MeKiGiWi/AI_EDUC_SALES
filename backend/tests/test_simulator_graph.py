@@ -2,17 +2,17 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
-from app.graph import create_graph
-from app.models import GraphDependencies
-from app.prompts import (
+from app.simulator.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
+from app.simulator.graph import create_graph
+from app.simulator.prompts import (
     BASELINE_OPENING_MESSAGE,
     BUYER_SCENARIO_CONTEXT_PROMPT,
     BUYER_SYSTEM_PROMPT,
     RUDE_REFUSAL_MESSAGE,
 )
-from app.scenario_repository import get_scenario_info
-from app.store import InMemorySessionStore
+from app.simulator.scenario_repository import get_scenario_info
+from app.simulator.schemas import GraphDependencies
+from app.simulator.store import InMemorySessionStore
 
 
 def build_graph_with_reply(

@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 
-DIALOG_LOG_DIR = Path(__file__).resolve().parent.parent / "artifacts" / "log_dialog"
+DIALOG_LOG_DIR = Path(__file__).resolve().parents[2] / "artifacts" / "log_dialog"
 
 
 def append_dialog_log(

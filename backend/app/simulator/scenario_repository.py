@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 
 
-SCENARIOS_DIR = Path(__file__).resolve().parent.parent / "kb" / "scenarios"
+SCENARIOS_DIR = Path(__file__).resolve().parents[2] / "kb" / "scenarios"
 SCENARIOS_PATH = SCENARIOS_DIR / "scenarios.json"
 
 

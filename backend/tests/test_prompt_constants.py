@@ -1,4 +1,4 @@
-from app.prompts import (
+from app.simulator.prompts import (
     BASELINE_OPENING_MESSAGE,
     BUYER_SCENARIO_CONTEXT_PROMPT,
     BUYER_SYSTEM_PROMPT,

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.dialog_logger import append_dialog_log
+from app.simulator.dialog_logger import append_dialog_log
 
 
 def test_append_dialog_log_creates_markdown_file_and_appends_entries(tmp_path) -> None:

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.lead_entities import AuditLeadRecord
-from app.lead_notifications import notify_new_lead
-from app.lead_repository import AuditLeadRepository
-from app.models import AuditLeadCreateDto, AuditLeadDto, AuditLeadStatus
+from app.leads.entities import AuditLeadRecord
+from app.leads.notifications import notify_new_lead
+from app.leads.repository import AuditLeadRepository
+from app.leads.schemas import AuditLeadCreateDto, AuditLeadDto, AuditLeadStatus
 
 
 def _to_dto(record: AuditLeadRecord) -> AuditLeadDto:

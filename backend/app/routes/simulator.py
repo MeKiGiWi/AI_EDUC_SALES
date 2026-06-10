@@ -3,9 +3,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, status
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from app.dialog_logger import append_dialog_log
-from app.settings import get_agents_config, get_settings
-from app.models import (
+from app.core.settings import get_agents_config, get_settings
+from app.reports.report_v2 import adapt_legacy_evaluation_to_report_v2, build_dialogue_turns
+from app.simulator.dialog_logger import append_dialog_log
+from app.simulator.runtime import SESSION_STORE, build_evaluation_agent, build_graph
+from app.simulator.scenario_repository import get_scenario_by_id, list_scenarios
+from app.simulator.schemas import (
     CompetencyLevel,
     EvaluationCompetencyRaw,
     EvaluationResultRaw,
@@ -21,9 +24,6 @@ from app.models import (
     SessionMessageResponseDto,
     SessionStatus,
 )
-from app.report_v2 import adapt_legacy_evaluation_to_report_v2, build_dialogue_turns
-from app.runtime import SESSION_STORE, build_evaluation_agent, build_graph
-from app.scenario_repository import get_scenario_by_id, list_scenarios
 
 router = APIRouter(prefix="/api/v1/simulator", tags=["simulator"])
 

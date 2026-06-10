@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.database import get_db_session
-from app.models import ReportCardDto, ReportCreateDto, ReportListResponseDto, WorkspaceRole
-from app.report_service import ReportService
+from app.core.database import get_db_session
+from app.reports.schemas import ReportCardDto, ReportCreateDto, ReportListResponseDto, WorkspaceRole
+from app.reports.service import ReportService
 
 router = APIRouter(prefix="/api/v1/reports", tags=["reports"])
 

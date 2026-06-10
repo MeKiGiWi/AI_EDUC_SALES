@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from app.schemas_report import (
+from app.reports.schemas_v2 import (
     CaseInfo,
     CompetencyAssessment,
     DevelopmentArea,
@@ -26,7 +26,7 @@ from app.schemas_report import (
 )
 
 if TYPE_CHECKING:
-    from app.models import EvaluationResultRaw
+    from app.simulator.schemas import EvaluationResultRaw
 
 COMPETENCY_ID_BY_TITLE: dict[str, str] = {
     "Умение задавать вопросы": "questioning",

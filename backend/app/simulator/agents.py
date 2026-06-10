@@ -1,17 +1,19 @@
 import json
+import re
 from typing import Literal
 
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from pydantic import BaseModel, Field
 
-from app.models import EvaluationResultRaw
-from app.prompts import (
+from app.simulator.prompts import (
     EVALUATION_SYSTEM_PROMPT,
     RUDE_CLASSIFIER_SYSTEM_PROMPT,
     TOPIC_CLASSIFIER_PROMPT,
 )
+from app.simulator.schemas import EvaluationResultRaw
 
 
 class RudeCheckResult(BaseModel):
@@ -38,6 +40,7 @@ class TopicCheckResult(BaseModel):
 
 class RudeClassifierAgent:
     def __init__(self, llm) -> None:
+        self.llm = llm
         self.parser = JsonOutputParser(pydantic_object=RudeCheckResult)
         self.prompt_template = PromptTemplate(
             template=(
@@ -54,8 +57,22 @@ class RudeClassifierAgent:
         self.chain = self.prompt_template | llm | self.parser
 
     async def check(self, message: str) -> RudeCheckResult:
-        result = await self.chain.ainvoke({"message": message})
-        return RudeCheckResult.model_validate(result)
+        try:
+            result = await self.chain.ainvoke({"message": message})
+            return RudeCheckResult.model_validate(result)
+        except (OutputParserException, ValueError, TypeError):
+            raw_output = await (self.prompt_template | self.llm | StrOutputParser()).ainvoke({"message": message})
+            return self._fallback_parse(raw_output)
+
+    @staticmethod
+    def _fallback_parse(raw_output: str) -> RudeCheckResult:
+        normalized = raw_output.strip()
+        rude_match = re.search(r'"rude"\s*:\s*"(yes|no)"', normalized, flags=re.IGNORECASE)
+        confidence = _extract_confidence(normalized)
+        return RudeCheckResult(
+            rude=(rude_match.group(1).lower() if rude_match else "no"),
+            confidence=confidence,
+        )
 
 
 def format_messages_for_topic_check(messages: list[BaseMessage]) -> str:
@@ -70,6 +87,7 @@ def format_messages_for_topic_check(messages: list[BaseMessage]) -> str:
 
 class TopicClassifierAgent:
     def __init__(self, llm) -> None:
+        self.llm = llm
         self.parser = JsonOutputParser(pydantic_object=TopicCheckResult)
         self.prompt_template = PromptTemplate(
             template=(
@@ -86,8 +104,34 @@ class TopicClassifierAgent:
 
     async def check(self, message: str, messages: list[BaseMessage]) -> TopicCheckResult:
         history = format_messages_for_topic_check(messages)
-        result = await self.chain.ainvoke({"sales_message": message, "history": history})
-        return TopicCheckResult.model_validate(result)
+        payload = {"sales_message": message, "history": history}
+        try:
+            result = await self.chain.ainvoke(payload)
+            return TopicCheckResult.model_validate(result)
+        except (OutputParserException, ValueError, TypeError):
+            raw_output = await (self.prompt_template | self.llm | StrOutputParser()).ainvoke(payload)
+            return self._fallback_parse(raw_output)
+
+    @staticmethod
+    def _fallback_parse(raw_output: str) -> TopicCheckResult:
+        normalized = raw_output.strip()
+        topic_match = re.search(r'"on_topic"\s*:\s*"(yes|no)"', normalized, flags=re.IGNORECASE)
+        confidence = _extract_confidence(normalized)
+        return TopicCheckResult(
+            on_topic=(topic_match.group(1).lower() if topic_match else "yes"),
+            confidence=confidence,
+        )
+
+
+def _extract_confidence(raw_output: str) -> float:
+    confidence_match = re.search(r'"confidence"\s*:\s*([0-9]+(?:\.[0-9]+)?)', raw_output, flags=re.IGNORECASE)
+    if not confidence_match:
+        return 0.0
+    try:
+        value = float(confidence_match.group(1))
+    except ValueError:
+        return 0.0
+    return max(0.0, min(1.0, value))
 
 
 class BuyerAgent:

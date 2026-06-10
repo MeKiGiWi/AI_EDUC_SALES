@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.lead_entities import AuditLeadRecord
+from app.leads.entities import AuditLeadRecord
 
 
 class AuditLeadRepository:

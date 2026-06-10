@@ -7,9 +7,9 @@ from sqlalchemy import create_engine, text
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
 
-from app.database import initialize_database, reset_database_state
+from app.core.database import initialize_database, reset_database_state
 from app.main import app
-from app.models import CompetencyLevel, EvaluationCompetencyRaw, EvaluationResultRaw
+from app.simulator.schemas import CompetencyLevel, EvaluationCompetencyRaw, EvaluationResultRaw
 
 
 def build_evaluation_payload() -> dict[str, object]:

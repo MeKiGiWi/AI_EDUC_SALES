@@ -8,7 +8,7 @@ from typing import Generator
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-DEFAULT_SQLITE_PATH = Path(__file__).resolve().parents[1] / "data" / "reports.db"
+DEFAULT_SQLITE_PATH = Path(__file__).resolve().parents[2] / "data" / "reports.db"
 
 
 class Base(DeclarativeBase):
@@ -50,8 +50,8 @@ def get_db_session() -> Generator[Session, None, None]:
 
 
 def initialize_database() -> None:
-    from app import lead_entities  # noqa: F401
-    from app import report_entities  # noqa: F401
+    from app.leads import entities as lead_entities  # noqa: F401
+    from app.reports import entities as report_entities  # noqa: F401
 
     engine = get_engine()
     Base.metadata.create_all(bind=engine)

@@ -1,11 +1,11 @@
 from fastapi import HTTPException, status
 from langchain_openai import ChatOpenAI
 
-from app.agents import BuyerAgent, EvaluationAgent, RudeClassifierAgent, TopicClassifierAgent
-from app.graph import create_graph
-from app.models import GraphDependencies
-from app.settings import LLMSettings, get_agents_config
-from app.store import InMemorySessionStore
+from app.core.settings import LLMSettings, get_agents_config
+from app.simulator.agents import BuyerAgent, EvaluationAgent, RudeClassifierAgent, TopicClassifierAgent
+from app.simulator.graph import create_graph
+from app.simulator.schemas import GraphDependencies
+from app.simulator.store import InMemorySessionStore
 
 SESSION_STORE = InMemorySessionStore()
 

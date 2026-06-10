@@ -3,9 +3,9 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
 
-from app.models import ChatSession, GraphDependencies, GraphState
-from app.agents import RudeCheckResult, TopicCheckResult
-from app.graph import create_graph
+from app.simulator.agents import RudeCheckResult, TopicCheckResult
+from app.simulator.graph import create_graph
+from app.simulator.schemas import ChatSession, GraphDependencies, GraphState
 
 class MockSessionStore:
     def __init__(self):

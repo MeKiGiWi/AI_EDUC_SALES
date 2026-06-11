@@ -5,12 +5,11 @@ from langchain_core.runnables import RunnableLambda
 from app.simulator.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
 from app.simulator.graph import create_graph
 from app.simulator.prompts import (
-    BASELINE_OPENING_MESSAGE,
     BUYER_SCENARIO_CONTEXT_PROMPT,
     BUYER_SYSTEM_PROMPT,
     RUDE_REFUSAL_MESSAGE,
 )
-from app.simulator.scenario_repository import get_scenario_info
+from app.simulator.scenario_repository import get_scenario_by_id, get_scenario_info
 from app.simulator.schemas import GraphDependencies
 from app.simulator.store import InMemorySessionStore
 
@@ -33,7 +32,7 @@ def build_graph_with_reply(
 @pytest.mark.asyncio
 async def test_graph_finishes_dialogue_when_user_is_rude() -> None:
     graph = build_graph_with_reply("Не должно вызваться", rude_json='{"rude":"yes","confidence":0.95}')
-    started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
     result = await graph.ainvoke(
         {"action": "reply_to_sales", "session_id": started["session_id"], "sales_message": "Иди ты нахер"}
     )
@@ -49,7 +48,7 @@ async def test_graph_finishes_dialogue_when_user_is_rude() -> None:
 @pytest.mark.asyncio
 async def test_graph_returns_buyer_reply_when_user_is_not_rude() -> None:
     graph = build_graph_with_reply("Нам важно не сорвать внедрение.")
-    started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
     result = await graph.ainvoke(
         {"action": "reply_to_sales", "session_id": started["session_id"], "sales_message": "Какие у вас сейчас главные риски?"}
     )
@@ -64,7 +63,7 @@ async def test_graph_returns_buyer_reply_when_user_is_not_rude() -> None:
 @pytest.mark.asyncio
 async def test_graph_think_reply_keeps_dialogue_active() -> None:
     graph = build_graph_with_reply("Я пока подумаю и вернусь позже.")
-    started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
     result = await graph.ainvoke(
         {"action": "reply_to_sales", "session_id": started["session_id"], "sales_message": "Давайте уточним критерии выбора."}
     )
@@ -75,19 +74,18 @@ async def test_graph_think_reply_keeps_dialogue_active() -> None:
 @pytest.mark.asyncio
 async def test_graph_starts_with_scenario_context_and_opening_message() -> None:
     graph = build_graph_with_reply("Ответ")
-    started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
 
     assert isinstance(started["messages"][0], SystemMessage)
     assert started["messages"][0].content == BUYER_SYSTEM_PROMPT
     assert isinstance(started["messages"][1], SystemMessage)
     assert "Не пересказывай этот текст пользователю." in started["messages"][1].content
-    assert "СЛЕДУЙ СТРОГО СЦЕНАРИЮ" in started["messages"][1].content
     assert started["messages"][1].content == BUYER_SCENARIO_CONTEXT_PROMPT.format(
-        scenario_info=get_scenario_info("baseline")
+        scenario_info=get_scenario_info("clinic-appointment"),
+        reference_dialogues=get_scenario_by_id("clinic-appointment")["reference_dialogues"],
     )
     assert isinstance(started["messages"][2], AIMessage)
-    assert started["messages"][2].content == BASELINE_OPENING_MESSAGE
-    assert started["messages"][2].content == BASELINE_OPENING_MESSAGE
+    assert started["messages"][2].content == get_scenario_by_id("clinic-appointment")["opening_message"]
     assert started["customer_message"] == started["messages"][2].content
 
 
@@ -97,7 +95,7 @@ async def test_graph_returns_buyer_reply_when_user_message_is_on_topic() -> None
         "Нам важно не сорвать внедрение.",
         topic_json='{"on_topic":"yes","confidence":0.9}',
     )
-    started = await graph.ainvoke({"action": "open_session", "scenario_id": "baseline"})
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
     result = await graph.ainvoke(
         {
             "action": "reply_to_sales",

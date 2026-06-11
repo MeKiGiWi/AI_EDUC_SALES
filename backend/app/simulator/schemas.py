@@ -79,8 +79,14 @@ class CompetencyLevel(str, Enum):
 class ScenarioSummaryDto(BaseModel):
     id: str
     title: str
+    description: str = ""
     openingMessage: str
     status: ScenarioStatus
+    segment: str = "B2C"
+    duration: str = ""
+    level: str = ""
+    targetCompetencies: list[str] = Field(default_factory=list)
+    introLines: list[str] = Field(default_factory=list)
 
 
 class ScenarioListResponseDto(BaseModel):

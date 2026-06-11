@@ -10,6 +10,17 @@ from typing import Any
 
 import httpx
 
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from scripts.smoke_cases.clinic_appointment import CLINIC_APPOINTMENT_SMOKE
+from scripts.smoke_cases.clinic_appointment_role_copy_guard import (
+    CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE,
+)
+from scripts.smoke_cases.clinic_complaint import CLINIC_COMPLAINT_SMOKE
+from scripts.smoke_cases.models import SmokeCaseDefinition
+
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_OUTPUT = Path("artifacts/simulator-regression/latest.md")
@@ -215,26 +226,30 @@ def record_turn(learner_text: str, learner_source: str, response: MessageRespons
     )
 
 
-def run_role_copy_guard_baseline(client: SimulatorClient) -> CaseResult:
-    started = client.start_session("baseline")
+def run_role_copy_guard_case(
+    client: SimulatorClient,
+    *,
+    case: SmokeCaseDefinition,
+) -> CaseResult:
+    started = client.start_session(case.scenario_id)
     transcript: list[TurnRecord] = []
-
     learner_text = started.opening_text
-    response = client.send_message(started.session_id, learner_text)
-    transcript.append(record_turn(learner_text, "copied_from_customer_opening", response))
+    response: MessageResponse | None = None
 
-    learner_text = transcript[-1].customer_text
-    response = client.send_message(started.session_id, learner_text)
-    transcript.append(record_turn(learner_text, "copied_from_last_llm_reply", response))
+    for turn_index in range(3):
+        response = client.send_message(started.session_id, learner_text)
+        source = "copied_from_customer_opening" if turn_index == 0 else "copied_from_last_llm_reply"
+        transcript.append(record_turn(learner_text, source, response))
+        if response.status == "finished":
+            break
+        learner_text = transcript[-1].customer_text
 
-    learner_text = transcript[-1].customer_text
-    response = client.send_message(started.session_id, learner_text)
-    transcript.append(record_turn(learner_text, "copied_from_last_llm_reply", response))
-
+    if response is None:
+        raise RegressionError(f"Case {case.name} did not produce any response.")
     checks = evaluate_checks(response)
     return CaseResult(
-        name="role_copy_guard_baseline",
-        scenario_id="baseline",
+        name=case.name,
+        scenario_id=case.scenario_id,
         api_status="ok",
         heuristic_status=aggregate_heuristic_status(checks),
         turns=len(transcript),
@@ -248,25 +263,23 @@ def run_role_copy_guard_baseline(client: SimulatorClient) -> CaseResult:
 def run_scripted_case(
     client: SimulatorClient,
     *,
-    case_name: str,
-    scenario_id: str,
-    learner_messages: list[str],
+    case: SmokeCaseDefinition,
 ) -> CaseResult:
-    started = client.start_session(scenario_id)
+    started = client.start_session(case.scenario_id)
     transcript: list[TurnRecord] = []
     last_response: MessageResponse | None = None
 
-    for learner_text in learner_messages:
+    for learner_text in case.learner_messages:
         last_response = client.send_message(started.session_id, learner_text)
         transcript.append(record_turn(learner_text, "scripted_test_input", last_response))
 
     if last_response is None:
-        raise RegressionError(f"Case {case_name} has no learner messages.")
+        raise RegressionError(f"Case {case.name} has no learner messages.")
 
     checks = evaluate_checks(last_response)
     return CaseResult(
-        name=case_name,
-        scenario_id=scenario_id,
+        name=case.name,
+        scenario_id=case.scenario_id,
         api_status="ok",
         heuristic_status=aggregate_heuristic_status(checks),
         turns=len(transcript),
@@ -279,31 +292,13 @@ def run_scripted_case(
 
 def build_cases(client: SimulatorClient) -> list[CaseResult]:
     return [
-        run_role_copy_guard_baseline(client),
-        run_scripted_case(
-            client,
-            case_name="realistic_baseline_discovery",
-            scenario_id="baseline",
-            learner_messages=[
-                "Чтобы не присылать общий шаблон, подскажите, что сейчас происходит в цеху и почему задача стала актуальной?",
-                "Правильно понимаю, что вопрос не только в комфорте, но и в риске просадки производительности или сроков?",
-                "Что для вас будет главным критерием: стабильность температуры, монтаж без простоя, стоимость эксплуатации или что-то ещё?",
-                "Тогда ценность решения стоит сравнивать не только по цене, а по тому, снизит ли оно риск простоя и проблем в эксплуатации.",
-                "Предлагаю подготовить короткую сверку по вашим критериям и созвониться на 15 минут завтра после обеда. Такой формат подойдёт?",
-            ],
-        ),
-        run_scripted_case(
-            client,
-            case_name="realistic_objection_and_next_step",
-            scenario_id="price-objection",
-            learner_messages=[
-                "Понимаю ваше сомнение, спорить с ощущением высокой цены точно не хочу.",
-                "Подскажите, пожалуйста, с чем именно вы сейчас сравниваете нашу цену: с другим поставщиком, внутренним бюджетом или прошлым проектом?",
-                "Если смотреть шире цены закупки, где для вас самый чувствительный риск: простой на монтаже, нестабильная работа системы или дальнейшая эксплуатация?",
-                "Предлагаю сравнить варианты на одной понятной рамке: цена входа, риск простоя, срок монтажа и стоимость эксплуатации на дистанции.",
-                "Если вам ок, я подготовлю короткое сравнение по этим критериям и завтра коротко созвонимся на 15 минут без обязательств.",
-            ],
-        ),
+        run_role_copy_guard_case(client, case=CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE),
+        run_scripted_case(client, case=CLINIC_APPOINTMENT_SMOKE),
+        run_scripted_case(client, case=CLINIC_COMPLAINT_SMOKE),
+        # Deprecated legacy B2B smoke cases are intentionally disabled.
+        # Keep them here as a reference only if we need to compare old behavior:
+        # run_scripted_case(client, case=LEGACY_BASELINE_SMOKE),
+        # run_scripted_case(client, case=LEGACY_PRICE_OBJECTION_SMOKE),
     ]
 
 

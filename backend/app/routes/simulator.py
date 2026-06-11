@@ -27,14 +27,6 @@ from app.simulator.schemas import (
 
 router = APIRouter(prefix="/api/v1/simulator", tags=["simulator"])
 
-COMPETENCY_CATALOG = [
-    "Умение задавать вопросы",
-    "Диагностика потребности",
-    "Формулировка ценности через выгоду",
-    "Работа с возражением «подумаю / не сейчас»",
-    "Фиксация следующего шага",
-]
-
 
 def map_message(message) -> SessionMessageDto:
     if isinstance(message, HumanMessage):
@@ -90,11 +82,11 @@ def build_default_competency(name: str) -> EvaluationCompetencyRaw:
     )
 
 
-def normalize_evaluation_result(raw: EvaluationResultRaw) -> EvaluationResultRaw:
+def normalize_evaluation_result(raw: EvaluationResultRaw, competency_catalog: list[str]) -> EvaluationResultRaw:
     by_name = {normalize_competency_name(item.name): item for item in raw.competencies}
     normalized_competencies: list[EvaluationCompetencyRaw] = []
 
-    for competency_name in COMPETENCY_CATALOG:
+    for competency_name in competency_catalog:
         item = by_name.get(normalize_competency_name(competency_name))
         if item is None:
             normalized_competencies.append(build_default_competency(competency_name))
@@ -134,17 +126,24 @@ async def get_scenarios() -> ScenarioListResponseDto:
             ScenarioSummaryDto(
                 id=str(scenario["id"]),
                 title=str(scenario["title"]),
+                description=str(scenario.get("description", "")),
                 openingMessage=str(scenario["opening_message"]),
                 status=ScenarioStatus.READY,
+                segment=str(scenario.get("segment", "B2C")),
+                duration=str(scenario.get("duration", "")),
+                level=str(scenario.get("level", "")),
+                targetCompetencies=[str(item) for item in scenario.get("target_competencies", [])],
+                introLines=[str(item) for item in scenario.get("intro_lines", [])],
             )
-            for scenario in list_scenarios()
+            for scenario in list_scenarios(active_only=True)
         ]
     )
 
 
 @router.post("/sessions", response_model=SessionCreateResponseDto, status_code=201)
 async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
-    if get_scenario_by_id(payload.scenario_id) is None:
+    scenario = get_scenario_by_id(payload.scenario_id)
+    if scenario is None:
         raise HTTPException(status_code=404, detail="Сценарий не найден.")
 
     graph = build_graph()
@@ -208,13 +207,15 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
     )
 
     try:
-        evaluation_agent = build_evaluation_agent()
+        scenario = get_scenario_by_id(session.scenario_id) or {}
+        competency_catalog = [str(item) for item in scenario.get("target_competencies", [])]
+        evaluation_agent = build_evaluation_agent(session.scenario_id)
         raw_evaluation = await evaluation_agent.evaluate(
             dialogue=dialogue_text,
             manager_replies=manager_replies,
             min_replies=get_settings().MIN_MANAGER_TURNS,
         )
-        evaluation = normalize_evaluation_result(raw_evaluation)
+        evaluation = normalize_evaluation_result(raw_evaluation, competency_catalog)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

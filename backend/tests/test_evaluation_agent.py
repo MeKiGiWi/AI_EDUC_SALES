@@ -55,7 +55,18 @@ def _json_payload() -> str:
 
 @pytest.mark.asyncio
 async def test_evaluation_agent_parses_valid_json() -> None:
-    agent = EvaluationAgent(RunnableLambda(lambda _: AIMessage(content=_json_payload())))
+    agent = EvaluationAgent(
+        RunnableLambda(lambda _: AIMessage(content=_json_payload())),
+        scenario_title="Clinic appointment",
+        segment="B2C",
+        competency_catalog=[
+            "Умение задавать вопросы",
+            "Диагностика потребности",
+            "Формулировка ценности через выгоду",
+            "Работа с возражением «подумаю / не сейчас»",
+            "Фиксация следующего шага",
+        ],
+    )
     result = await agent.evaluate(
         dialogue="Менеджер: Какие у вас критерии?\nКлиент: Важна стабильность.",
         manager_replies=2,
@@ -68,7 +79,18 @@ async def test_evaluation_agent_parses_valid_json() -> None:
 @pytest.mark.asyncio
 async def test_evaluation_agent_extracts_json_from_fenced_output() -> None:
     raw = f"Ответ:\n```json\n{_json_payload()}\n```"
-    agent = EvaluationAgent(RunnableLambda(lambda _: AIMessage(content=raw)))
+    agent = EvaluationAgent(
+        RunnableLambda(lambda _: AIMessage(content=raw)),
+        scenario_title="Clinic appointment",
+        segment="B2C",
+        competency_catalog=[
+            "Умение задавать вопросы",
+            "Диагностика потребности",
+            "Формулировка ценности через выгоду",
+            "Работа с возражением «подумаю / не сейчас»",
+            "Фиксация следующего шага",
+        ],
+    )
     result = await agent.evaluate(
         dialogue="Менеджер: Какие у вас критерии?\nКлиент: Важна стабильность.",
         manager_replies=2,
@@ -94,7 +116,12 @@ async def test_evaluation_agent_accepts_tz_recommendations_alias() -> None:
     }
   ]
 }"""
-    agent = EvaluationAgent(RunnableLambda(lambda _: AIMessage(content=raw)))
+    agent = EvaluationAgent(
+        RunnableLambda(lambda _: AIMessage(content=raw)),
+        scenario_title="Clinic appointment",
+        segment="B2C",
+        competency_catalog=["Умение задавать вопросы"],
+    )
     result = await agent.evaluate(
         dialogue="Менеджер: Расскажите подробнее, что именно не устраивает?",
         manager_replies=1,

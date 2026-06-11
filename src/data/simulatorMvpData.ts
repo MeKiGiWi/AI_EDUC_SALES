@@ -2,181 +2,128 @@ import type { Scenario, SimulatorPublicScenarioDto } from "../types/academy";
 
 export const API_SIMULATOR_MODULE_ID = "mod-simulator-api";
 export const DEFAULT_BACKEND_DIFFICULTY = "medium";
-// UI hint until backend exposes the target dynamically via a settings/scenarios contract.
 export const MANAGER_REPLY_TARGET = 10;
-export const TRAINING_FORMAT_LABEL = "Симуляция текстового диалога с B2B-клиентом";
-export const DEFAULT_SCENARIO_GOAL =
-  "Договориться с покупателем о конкретном следующем шаге.";
-export const DEFAULT_SCENARIO_CONTEXT = [
-  "Входящий запрос на кондиционирование производственного цеха",
-  "Клиент сравнивает нескольких поставщиков",
-  "Важны сроки монтажа, простои и стабильность решения"
+export const TRAINING_FORMAT_LABEL = "Симуляция текстового диалога с пациентом";
+export const DEFAULT_SCENARIO_GOAL = "Довести разговор до понятного и безопасного следующего шага.";
+
+const clinicCompetencies = [
+  "Умение установить спокойный контакт",
+  "Умение задавать уточняющие вопросы по симптомам без постановки диагноза",
+  "Первичная маршрутизация пациента к подходящему врачу",
+  "Работа с тревогой и сомнениями пациента",
+  "Фиксация следующего шага"
 ];
 
 export const baselineDisplayScenario: Scenario = {
-  id: "baseline",
+  id: "clinic-appointment",
   moduleId: API_SIMULATOR_MODULE_ID,
-  title: "B2B-диалог с клиентом",
+  title: "Первичная запись: тревожный пациент с симптомами",
   goal: DEFAULT_SCENARIO_GOAL,
   difficulty: "Средний",
   status: "ready",
   channel: "Чат",
-  targetCompetencies: [
-    "Умение задавать вопросы",
-    "Диагностика потребности",
-    "Формулировка ценности через выгоду",
-    "Работа с возражением «подумаю / не сейчас»",
-    "Фиксация следующего шага"
-  ],
+  targetCompetencies: clinicCompetencies,
   persona: {
-    id: "persona-production-manager",
-    name: "ИИ-покупатель",
-    company: "Производственное предприятие",
-    roleTitle: "Руководитель производства",
-    mood: "Деловой, рациональный, умеренно требовательный",
-    painPoints: DEFAULT_SCENARIO_CONTEXT,
-    objectionStyle: "Проверяет сроки, простои, бюджет и риски внедрения"
+    id: "persona-clinic-appointment",
+    name: "Анна",
+    company: "Частная клиника",
+    roleTitle: "Пациент, 34 года",
+    mood: "Тревожная, сомневающаяся, но конструктивная",
+    painPoints: [
+      "Есть симптомы, но непонятно, к какому врачу идти",
+      "Не хочется тратить деньги на лишние визиты",
+      "Важно понять срочность и безопасный следующий шаг"
+    ],
+    objectionStyle: "Сомневается, тревожится и просит понятную логику маршрута"
   },
   openingMessage:
-    "Добрый день. Ищу решение по кондиционированию цеха. Разослал запрос нескольким поставщикам, смотрю варианты.",
+    "Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.",
   suggestedActions: [
-    "Уточнить контекст производства",
-    "Сформулировать ценность через риски простоя",
-    "Зафиксировать следующий шаг"
+    "Снять начальное напряжение",
+    "Уточнить симптомы без постановки диагноза",
+    "Предложить логичную запись и зафиксировать шаг"
   ],
   quickReplies: [
-    "Расскажите, пожалуйста, какой цех и какие ограничения по остановке линии?",
-    "Что будет самым критичным при выборе поставщика: сроки, бюджет или риски монтажа?",
-    "Давайте согласуем короткий аудит условий, чтобы предложить точное решение."
+    "Давайте я задам несколько вопросов, чтобы помочь сориентироваться по записи.",
+    "Подскажите, пожалуйста, как давно это началось и как часто повторяется?",
+    "По тому, что вы описываете, могу предложить понятный первый шаг и удобное окно записи."
   ],
   customerReplies: [],
   transcript: []
 };
 
 export const fallbackSimulatorScenarios: Scenario[] = [
+  baselineDisplayScenario,
   {
     ...baselineDisplayScenario,
-    id: "price-objection",
-    title: "Возражение на цену",
-    goal: "Сохранить интерес клиента и перевести разговор из цены в измеримый эффект.",
-    difficulty: "Средний",
+    id: "clinic-complaint",
+    title: "Жалоба на сервис клиники и длительное ожидание",
     persona: {
-      ...baselineDisplayScenario.persona,
-      id: "persona-budget",
-      roleTitle: "Коммерческий директор",
+      id: "persona-clinic-complaint",
+      name: "Елена",
+      company: "Частная клиника",
+      roleTitle: "Пациент, 41 год",
+      mood: "Раздраженная, но конструктивная",
       painPoints: [
-        "Сравнивает решение с более дешевыми поставщиками",
-        "Боится переплатить без понятного эффекта",
-        "Хочет короткий и проверяемый пилот"
+        "Долгое ожидание приёма при записи на точное время",
+        "Никто не объяснял реальные сроки ожидания",
+        "Важно понять, что жалоба не потеряется"
       ],
-      objectionStyle: "Сразу сравнивает цену и требует конкретику по окупаемости"
+      objectionStyle: "Требует конкретики, ясности и уважительного отношения"
     },
     openingMessage:
-      "Цена выглядит выше рынка. Почему нам не выбрать более дешевый вариант?",
+      "Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.",
+    targetCompetencies: [
+      "Контакт в жалобной коммуникации",
+      "Сбор фактов по жалобе",
+      "Эмпатия без обороны",
+      "Предложение решения по обращению",
+      "Фиксация следующего шага"
+    ],
     suggestedActions: [
-      "Не спорить с ценой",
-      "Уточнить, с чем клиент сравнивает решение",
-      "Предложить критерии короткого пилота"
+      "Принять жалобу без оправданий",
+      "Собрать факты и ожидания пациента",
+      "Зафиксировать понятный следующий шаг"
     ],
     quickReplies: [
-      "С чем именно вы сейчас сравниваете стоимость?",
-      "Где для вас риск дороже: в цене решения или в простоях после монтажа?",
-      "Если покажем эффект на коротком пилоте, это будет достаточным основанием?"
-    ]
-  },
-  {
-    ...baselineDisplayScenario,
-    id: "competitor-comparison",
-    title: "Сравнение с конкурентом",
-    goal: "Понять, по каким критериям клиент сравнивает поставщиков, и показать разницу через практическую ценность.",
-    difficulty: "Базовый",
-    persona: {
-      ...baselineDisplayScenario.persona,
-      id: "persona-competitor-comparison",
-      roleTitle: "Коммерческий директор",
-      painPoints: [
-        "Сравнивает нескольких поставщиков по цене и срокам",
-        "Не хочет переплатить за необязательные опции",
-        "Ищет понятные критерии сравнения предложений"
-      ],
-      objectionStyle: "Сравнивает предложения и просит объяснить практическую разницу"
-    },
-    openingMessage:
-      "Мы уже сравниваем вас с другим поставщиком. У них предложение выглядит проще и дешевле. В чем практическая разница для нас?",
-    suggestedActions: [
-      "Уточнить критерии сравнения",
-      "Показать разницу через риски и эффект",
-      "Согласовать следующий шаг для проверки гипотез"
-    ],
-    quickReplies: [
-      "Какие критерии сейчас для вас самые важные при сравнении вариантов?",
-      "Если сравнить не только цену, а риск простоя и срок внедрения, что для вас критичнее?",
-      "Давайте соберем короткое сравнение по вашим реальным требованиям и быстро проверим его вместе."
-    ]
-  },
-  {
-    ...baselineDisplayScenario,
-    id: "timeline-negotiation",
-    title: "Переговоры о сроках",
-    goal: "Подтвердить реалистичный срок внедрения и показать, как снизить риск простоя.",
-    difficulty: "Средний",
-    persona: {
-      ...baselineDisplayScenario.persona,
-      id: "persona-timeline-negotiation",
-      roleTitle: "Операционный директор",
-      painPoints: [
-        "Нужно успеть до запуска новой линии",
-        "Остановка производства крайне нежелательна",
-        "Любая задержка влияет на план и выручку"
-      ],
-      objectionStyle: "Фокусируется на сроках, рисках срыва и практической реализуемости проекта"
-    },
-    openingMessage:
-      "Если проект затянется, мы рискуем сорвать запуск линии. Насколько реально уложиться в короткие сроки без лишнего простоя?",
-    suggestedActions: [
-      "Уточнить временные ограничения",
-      "Показать, как минимизируется простой",
-      "Предложить реалистичный следующий шаг"
-    ],
-    quickReplies: [
-      "Какая дата запуска для вас сейчас критична?",
-      "Где для вас самый болезненный риск: монтаж, согласование или остановка линии?",
-      "Давайте быстро проверим условия, чтобы подтвердить реалистичный график."
+      "Спасибо, что сказали об этом. Давайте уточню детали, чтобы корректно зафиксировать обращение.",
+      "Подскажите, пожалуйста, на какое время вы были записаны и сколько в итоге ждали?",
+      "Я отмечу ключевые детали жалобы и зафиксирую удобный способ обратной связи."
     ]
   }
 ];
-
-export function formatScenarioTitle(title: string): string {
-  return title.trim().toLowerCase() === "baseline"
-    ? baselineDisplayScenario.title
-    : title;
-}
 
 export function mapApiScenarioToScenario(
   item: SimulatorPublicScenarioDto,
   moduleId: string = API_SIMULATOR_MODULE_ID
 ): Scenario {
+  const personaName = item.id === "clinic-complaint" ? "Елена" : "Анна";
+  const personaRole = item.id === "clinic-complaint" ? "Пациент, 41 год" : "Пациент, 34 года";
+
   return {
     id: item.id,
     moduleId,
-    title: formatScenarioTitle(item.title),
+    title: item.title,
     goal: DEFAULT_SCENARIO_GOAL,
-    difficulty: "medium",
+    difficulty: item.level || "Средний",
     status: item.status,
     channel: "chat",
-    targetCompetencies: baselineDisplayScenario.targetCompetencies,
+    targetCompetencies: item.targetCompetencies,
     persona: {
       id: `persona-${item.id}`,
-      name: "ИИ-покупатель",
-      company: "Производственное предприятие",
-      roleTitle: "Руководитель производства",
-      mood: "Деловой, рациональный, умеренно требовательный",
-      painPoints: DEFAULT_SCENARIO_CONTEXT,
-      objectionStyle: "Проверяет сроки, простои, бюджет и риски внедрения"
+      name: personaName,
+      company: "Частная клиника",
+      roleTitle: personaRole,
+      mood: item.id === "clinic-complaint" ? "Раздраженная, но конструктивная" : "Тревожная и сомневающаяся",
+      painPoints: item.introLines,
+      objectionStyle:
+        item.id === "clinic-complaint"
+          ? "Хочет быть услышанной и получить понятный разбор жалобы"
+          : "Хочет понять, к какому врачу идти и насколько это срочно"
     },
     openingMessage: item.openingMessage,
-    suggestedActions: baselineDisplayScenario.suggestedActions,
-    quickReplies: baselineDisplayScenario.quickReplies,
+    suggestedActions: [],
+    quickReplies: [],
     customerReplies: [],
     transcript: []
   };
@@ -187,32 +134,16 @@ export function buildTrainingContextRows(
 ): Array<{ label: string; value: string }> {
   if (!scenario) {
     return [
-      {
-        label: "Сценарий",
-        value: "Не выбран"
-      },
-      {
-        label: "Формат",
-        value: TRAINING_FORMAT_LABEL
-      }
+      { label: "Сценарий", value: "Не выбран" },
+      { label: "Формат", value: TRAINING_FORMAT_LABEL }
     ];
   }
 
-  const persona = scenario.persona;
-  const buyer = persona.roleTitle || "Руководитель производства";
-  const context =
-    persona.painPoints.length > 0
-      ? persona.painPoints.join("; ")
-      : DEFAULT_SCENARIO_CONTEXT.join("; ");
-  const objections =
-    persona.objectionStyle || "Проверяет сроки, простои, бюджет и риски внедрения";
-  const rows = [
+  return [
     { label: "Сценарий", value: scenario.title },
-    { label: "Покупатель", value: buyer },
-    { label: "Контекст", value: context },
-    { label: "Возражение", value: objections },
+    { label: "Собеседник", value: scenario.persona.roleTitle || "Пациент" },
+    { label: "Контекст", value: scenario.persona.painPoints.join("; ") },
+    { label: "Фокус", value: scenario.persona.objectionStyle },
     { label: "Цель", value: scenario.goal || DEFAULT_SCENARIO_GOAL }
-  ];
-
-  return rows.filter((row) => row.value.trim().length > 0);
+  ].filter((row) => row.value.trim().length > 0);
 }

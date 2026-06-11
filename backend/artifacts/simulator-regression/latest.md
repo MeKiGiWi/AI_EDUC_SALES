@@ -1,6 +1,6 @@
 # Simulator regression report
 
-Generated at: 2026-06-10T21:23:38.302479+00:00
+Generated at: 2026-06-11T10:47:39.502860+00:00
 Base URL: http://127.0.0.1:8000
 Strict mode: false
 
@@ -8,85 +8,14 @@ Strict mode: false
 
 | Case | Scenario | API status | Heuristic status | Turns |
 |---|---|---:|---|---:|
-| role_copy_guard_baseline | baseline | ok | WARN | 3 |
-| realistic_baseline_discovery | baseline | ok | PASS | 5 |
-| realistic_objection_and_next_step | price-objection | ok | PASS | 5 |
+| clinic_appointment_role_copy_guard | clinic-appointment | ok | PASS | 3 |
+| clinic_appointment_routing_and_next_step | clinic-appointment | ok | PASS | 5 |
+| clinic_complaint_service_recovery | clinic-complaint | ok | PASS | 5 |
 
-## Case: role_copy_guard_baseline
+## Case: clinic_appointment_role_copy_guard
 
-Scenario: baseline
-Session ID: `67fef374-061a-47e1-b1f9-4bd1b4d7cdb7`
-
-### Heuristic checks
-
-- role_drift_seller_language: PASS
-- refusal_or_session_stop: WARN
-- empty_customer_reply: PASS
-
-### Transcript
-
-1. API opening message:
-- kind: live_api_payload
-- actor: scenario opening returned by API
-- source: default_api_opening_message
-> Добрый день. Ищу решение по кондиционированию цеха. Разослал запрос нескольким поставщикам, смотрю варианты.
-
-2. **User input**
-- kind: test_input
-- actor: learner message supplied by regression script
-- source: copied_from_customer_opening
-> Добрый день. Ищу решение по кондиционированию цеха. Разослал запрос нескольким поставщикам, смотрю варианты.
-
-**Live LLM reply**
-- kind: live_llm_output
-- actor: buyer-agent / LLM response observed during this run
-- source: llm_generated_via_public_api
-> Мне важно держаться в рамках рабочего разговора про задачу и продукт. Давайте вернёмся к теме разговора и продолжим обсуждать именно её.
-
-Raw API metadata:
-- status: active
-- rude: no
-- confidence: 0.96
-
-3. **User input**
-- kind: test_input
-- actor: learner message supplied by regression script
-- source: copied_from_last_llm_reply
-> Мне важно держаться в рамках рабочего разговора про задачу и продукт. Давайте вернёмся к теме разговора и продолжим обсуждать именно её.
-
-**Live LLM reply**
-- kind: live_llm_output
-- actor: buyer-agent / LLM response observed during this run
-- source: llm_generated_via_public_api
-> Добрый день. Да, я как раз ищу решение для цеха. У вас есть опыт работы с производственными помещениями?
-
-Raw API metadata:
-- status: active
-- rude: no
-- confidence: 0.93
-
-4. **User input**
-- kind: test_input
-- actor: learner message supplied by regression script
-- source: copied_from_last_llm_reply
-> Добрый день. Да, я как раз ищу решение для цеха. У вас есть опыт работы с производственными помещениями?
-
-**Live LLM reply**
-- kind: live_llm_output
-- actor: buyer-agent / LLM response observed during this run
-- source: llm_generated_via_public_api
-> Похоже, мы ушли от темы учебного диалога по продажам. Я завершу эту сессию, чтобы не продолжать разговор вне сценария.
-
-Raw API metadata:
-- status: finished
-- rude: no
-- confidence: 0.96
-
-
-## Case: realistic_baseline_discovery
-
-Scenario: baseline
-Session ID: `ab53827f-574f-48eb-944d-8fb2962c79a3`
+Scenario: clinic-appointment
+Session ID: `5f539089-ddbf-42b7-8c71-cb4c57dd9aed`
 
 ### Heuristic checks
 
@@ -100,87 +29,53 @@ Session ID: `ab53827f-574f-48eb-944d-8fb2962c79a3`
 - kind: live_api_payload
 - actor: scenario opening returned by API
 - source: default_api_opening_message
-> Добрый день. Ищу решение по кондиционированию цеха. Разослал запрос нескольким поставщикам, смотрю варианты.
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
 
 2. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Чтобы не присылать общий шаблон, подскажите, что сейчас происходит в цеху и почему задача стала актуальной?
+- source: copied_from_customer_opening
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> В цеху стало жарко, особенно в последние месяцы. Люди жалуются, и это уже начинает сказываться на работе — производительность падает. Нужно решать вопрос, пока не пошли срывы по заказам.
+> Мне важно держаться в рамках текущего сценария. Давайте вернёмся к сути обращения и продолжим разговор по теме.
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.96
+- confidence: 0.95
 
 3. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Правильно понимаю, что вопрос не только в комфорте, но и в риске просадки производительности или сроков?
+- source: copied_from_last_llm_reply
+> Мне важно держаться в рамках текущего сценария. Давайте вернёмся к сути обращения и продолжим разговор по теме.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Именно так. Если температура продолжит мешать работе, мы можем не уложиться в плановые показатели. А срывы сроков — это уже серьезные убытки и репутационные риски.
+> Здравствуйте. Понимаю, что вы растеряны. Давайте я задам несколько вопросов, чтобы помочь вам сориентироваться и выбрать правильное направление для записи. Скажите, пожалуйста, как давно у вас появились эти симптомы?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.98
+- confidence: 0.95
 
 4. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Что для вас будет главным критерием: стабильность температуры, монтаж без простоя, стоимость эксплуатации или что-то ещё?
+- source: copied_from_last_llm_reply
+> Здравствуйте. Понимаю, что вы растеряны. Давайте я задам несколько вопросов, чтобы помочь вам сориентироваться и выбрать правильное направление для записи. Скажите, пожалуйста, как давно у вас появились эти симптомы?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> В первую очередь — стабильность и надёжность. Остановки производства на долгий монтаж крайне нежелательны. И конечно, чтобы потом не было головной боли с обслуживанием.
-
-Raw API metadata:
-- status: active
-- rude: no
-- confidence: 0.97
-
-5. **User input**
-- kind: test_input
-- actor: learner message supplied by regression script
-- source: scripted_test_input
-> Тогда ценность решения стоит сравнивать не только по цене, а по тому, снизит ли оно риск простоя и проблем в эксплуатации.
-
-**Live LLM reply**
-- kind: live_llm_output
-- actor: buyer-agent / LLM response observed during this run
-- source: llm_generated_via_public_api
-> Да, логично. Мне нужен не просто кондиционер, а решение, которое реально работает в условиях цеха и не создаёт новых проблем. У вас есть опыт с такими задачами?
-
-Raw API metadata:
-- status: active
-- rude: no
-- confidence: 0.96
-
-6. **User input**
-- kind: test_input
-- actor: learner message supplied by regression script
-- source: scripted_test_input
-> Предлагаю подготовить короткую сверку по вашим критериям и созвониться на 15 минут завтра после обеда. Такой формат подойдёт?
-
-**Live LLM reply**
-- kind: live_llm_output
-- actor: buyer-agent / LLM response observed during this run
-- source: llm_generated_via_public_api
-> Да, завтра после 15:00 — подойдёт. Пришлите, пожалуйста, материалы сегодня, чтобы я успел ознакомиться.
+> Наверное, уже около недели. Не постоянно, а как бы эпизодами. Особенно ближе к вечеру, когда на работе.
 
 Raw API metadata:
 - status: active
@@ -188,10 +83,10 @@ Raw API metadata:
 - confidence: 0.99
 
 
-## Case: realistic_objection_and_next_step
+## Case: clinic_appointment_routing_and_next_step
 
-Scenario: price-objection
-Session ID: `883b6939-963c-400b-9fe7-e2195c6efc86`
+Scenario: clinic-appointment
+Session ID: `8c34809c-ae31-44d9-a50d-5def385a8549`
 
 ### Heuristic checks
 
@@ -205,90 +100,195 @@ Session ID: `883b6939-963c-400b-9fe7-e2195c6efc86`
 - kind: live_api_payload
 - actor: scenario opening returned by API
 - source: default_api_opening_message
-> Мы сейчас рассматриваем ваше решение, но цена кажется немного высокой по сравнению с конкурентами. Почему нам не выбрать более дешевый вариант?
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
 
 2. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
 - source: scripted_test_input
-> Понимаю ваше сомнение, спорить с ощущением высокой цены точно не хочу.
+> Здравствуйте. Понимаю, что в такой ситуации легко растеряться. Давайте я задам несколько вопросов, чтобы помочь вам точнее сориентироваться по записи.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Да, я как раз и хочу понять, за что мы переплачиваем. У конкурентов вроде бы похожие характеристики, а разница в стоимости ощутимая.
+> Да, пожалуйста. Я просто не знаю, с чего начать. В интернете столько всего написано, а я боюсь ошибиться и записаться не к тому врачу.
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.96
+- confidence: 0.99
 
 3. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
 - source: scripted_test_input
-> Подскажите, пожалуйста, с чем именно вы сейчас сравниваете нашу цену: с другим поставщиком, внутренним бюджетом или прошлым проектом?
+> Подскажите, пожалуйста, как давно это началось, как часто такие эпизоды повторяются и были ли резкие симптомы вроде сильной боли или потери сознания?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Сравниваю с двумя другими поставщиками, которые тоже прислали КП. У них цифры ниже при схожих заявленных мощностях.
+> Началось где-то неделю назад. Эпизоды бывают не каждый день, но несколько раз уже было. В основном на работе, ближе к вечеру. Сильной боли или обмороков не было, но всё равно очень тревожно.
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.94
+- confidence: 0.99
 
 4. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
 - source: scripted_test_input
-> Если смотреть шире цены закупки, где для вас самый чувствительный риск: простой на монтаже, нестабильная работа системы или дальнейшая эксплуатация?
+> Правильно понимаю, что вам сейчас важно не просто записаться куда-нибудь, а понять, с какого врача логичнее и безопаснее начать?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Пожалуй, самый чувствительный — это простой на монтаже. Остановить цех даже на пару дней — это огромные убытки. Но и нестабильная работа потом тоже никому не нужна.
+> Да, именно так. Я не хочу ходить по кругу и платить за приёмы у нескольких врачей, если можно сразу понять, к кому идти.
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.97
+- confidence: 0.99
 
 5. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
 - source: scripted_test_input
-> Предлагаю сравнить варианты на одной понятной рамке: цена входа, риск простоя, срок монтажа и стоимость эксплуатации на дистанции.
+> По тому, что вы описываете, разумным первым шагом обычно бывает терапевт: он поможет собрать общую картину и при необходимости уже адресно направит дальше.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Это разумный подход. Но у вас по срокам монтажа что-то конкретное есть? У конкурентов обещают уложиться в выходные, чтобы не останавливать производство.
+> А если это всё-таки сердце? Может, лучше сразу к кардиологу? Просто я читала, что головокружение и сердцебиение могут быть связаны.
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.96
+- confidence: 0.99
 
 6. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
 - source: scripted_test_input
-> Если вам ок, я подготовлю короткое сравнение по этим критериям и завтра коротко созвонимся на 15 минут без обязательств.
+> Если вам удобно, я сразу посмотрю ближайшие варианты записи после 18:00 или в субботу, чтобы зафиксировать понятный следующий шаг.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Хорошо, подготовьте. Но только если там будут конкретные цифры по срокам и гарантиям, а не общие слова.
+> Да, вечером или в субботу мне было бы удобнее. А сколько примерно стоит первичный приём у терапевта?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.98
+- confidence: 0.99
+
+
+## Case: clinic_complaint_service_recovery
+
+Scenario: clinic-complaint
+Session ID: `0744a9d7-0707-43f6-b8f6-3cf3983ba0f6`
+
+### Heuristic checks
+
+- role_drift_seller_language: PASS
+- refusal_or_session_stop: PASS
+- empty_customer_reply: PASS
+
+### Transcript
+
+1. API opening message:
+- kind: live_api_payload
+- actor: scenario opening returned by API
+- source: default_api_opening_message
+> Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.
+
+2. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: scripted_test_input
+> Здравствуйте. Спасибо, что сказали об этом. Понимаю, что такая ситуация неприятна, и давайте я уточню детали, чтобы корректно зафиксировать обращение.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Спасибо. Я была записана на 18:00. Приём начался где-то около 18:40. Но дело не только в самой задержке — меня больше возмутило, что на ресепшене мне несколько раз говорили «ещё немного», но без конкретики. Я отпрашивалась с работы, подстраивала график, а в итоге просто сидела без понимания, что происходит.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 0.99
+
+3. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: scripted_test_input
+> Подскажите, пожалуйста, на какое время вы были записаны и примерно сколько в итоге ждали после назначенного времени?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Я уже сказала — на 18:00, ждала около 40 минут. Но, повторюсь, проблема не только в цифрах. Меня не проинформировали нормально, не объяснили причину. Сотрудники говорили очень формально, без попытки реально сориентировать. Для платной клиники это странно.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 0.99
+
+4. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: scripted_test_input
+> Правильно понимаю, что вас задела не только сама задержка, но и то, что вам не дали ясного понимания по срокам ожидания?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Именно так. Если бы мне честно сказали: «Извините, будет задержка минут 40, потому что…», я бы, возможно, просто вышла погулять или перестроила планы. А так я просто сидела в неведении, и это очень портило впечатление. Сам врач, кстати, был вполне нормальный, но сервисная часть всё испортила.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 0.99
+
+5. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: scripted_test_input
+> Тогда я зафиксирую жалобу именно по сервисной части: длительное ожидание, отсутствие понятного информирования и то, как с вами коммуницировали сотрудники.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Хорошо. А что дальше? Просто зафиксировать — это одно. Мне важно, чтобы это не осталось просто записью где-то в базе. Я сейчас сомневаюсь, стоит ли вообще снова к вам обращаться.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 0.99
+
+6. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: scripted_test_input
+> Я отмечу, что вам важна содержательная обратная связь по итогам разбора, и сразу зафиксирую удобный канал связи, чтобы следующий шаг был понятным.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, лучше по телефону. И хотелось бы понимать, в какие сроки ждать ответа. Просто «мы разберёмся» — это слишком размыто.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 0.99
 

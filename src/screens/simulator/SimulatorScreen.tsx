@@ -112,7 +112,7 @@ export function SimulatorScreen({
 }: SimulatorScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
-  const [segment, setSegment] = useState<"B2B" | "B2C">("B2B");
+  const [segment, setSegment] = useState<"B2B" | "B2C">("B2C");
   const [activeFilter, setActiveFilter] = useState<(typeof trainerFilters)[number]>("Все");
   const [infoSheet, setInfoSheet] = useState<SimulatorInfoSheetState>(null);
 
@@ -224,16 +224,7 @@ export function SimulatorScreen({
             { backgroundColor: "rgba(18,26,104,0.05)", borderColor: "transparent" }
           ]}
         >
-          <SegmentButton
-            label="B2B"
-            active={segment === "B2B"}
-            onPress={() => setSegment("B2B")}
-          />
-          <SegmentButton
-            label="B2C"
-            active={segment === "B2C"}
-            onPress={() => setSegment("B2C")}
-          />
+          <SegmentButton label="B2C" active={segment === "B2C"} onPress={() => setSegment("B2C")} />
         </View>
       </View>
 
@@ -745,15 +736,15 @@ function DialogueView({
                 <Text style={[styles.scenarioIntroTitle, { color: LP.textPrimary }]}>
                   Контекст сценария
                 </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Продукт:</Text> Промышленные кондиционеры
-                </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Ситуация:</Text> Входящий запрос, первый контакт
-                </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Цель:</Text> Договориться о следующем шаге
-                </Text>
+                {(selectedScenario.introLines ?? []).map((line) => {
+                  const [label, ...rest] = line.split(":");
+                  const value = rest.join(":").trim();
+                  return (
+                    <Text key={line} style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
+                      <Text style={styles.scenarioIntroStrong}>{label}:</Text> {value || line}
+                    </Text>
+                  );
+                })}
               </View>
             ) : null}
             {messages.map((message) => (
@@ -925,7 +916,7 @@ function SegmentButton({
   active,
   onPress
 }: {
-  label: "B2B" | "B2C";
+  label: string;
   active: boolean;
   onPress: () => void;
 }) {

@@ -5,9 +5,9 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from app.simulator.prompts import (
-    BASELINE_OPENING_MESSAGE,
     BUYER_SCENARIO_CONTEXT_PROMPT,
     BUYER_SYSTEM_PROMPT,
+    DEFAULT_OPENING_MESSAGE,
     OFFTOPIC_REFUSAL_MESSAGE,
     OFFTOPIC_WARNING_MESSAGE,
     RUDE_REFUSAL_MESSAGE,
@@ -80,16 +80,22 @@ def _open_new_session(deps: GraphDependencies):
         scenario_id = state["scenario_id"]
         scenario = get_scenario_by_id(scenario_id)
         opening_message = (
-            scenario["opening_message"] if scenario is not None else BASELINE_OPENING_MESSAGE
+            scenario["opening_message"] if scenario is not None else DEFAULT_OPENING_MESSAGE
         )
         scenario_info = get_scenario_info(scenario_id)
         if scenario_info is None:
             scenario_info = f"Сценарий: {scenario_id}. Дополнительная информация недоступна."
+        reference_dialogues = ""
+        if scenario is not None:
+            reference_dialogues = str(scenario.get("reference_dialogues", "")).strip()
 
         messages = [
             SystemMessage(content=BUYER_SYSTEM_PROMPT),
             SystemMessage(
-                content=BUYER_SCENARIO_CONTEXT_PROMPT.format(scenario_info=scenario_info)
+                content=BUYER_SCENARIO_CONTEXT_PROMPT.format(
+                    scenario_info=scenario_info,
+                    reference_dialogues=reference_dialogues or "Эталонные диалоги не добавлены.",
+                )
             ),
             AIMessage(content=opening_message),
         ]
@@ -163,9 +169,12 @@ def _append_customer_left_message(deps: GraphDependencies):
 
 def _classify_sales_topic(deps: GraphDependencies):
     async def node(state: GraphState) -> GraphState:
+        scenario = get_scenario_by_id(state["session"].scenario_id) or {}
+        training_context = str(scenario.get("scenario_info", "")).strip()
         result = await deps.topic_classifier.check(
             message=state["sales_message"],
-            messages=state["messages"]
+            messages=state["messages"],
+            training_context=training_context,
         )
         session = state["session"]
 

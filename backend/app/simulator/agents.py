@@ -9,9 +9,9 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, Prom
 from pydantic import BaseModel, Field
 
 from app.simulator.prompts import (
-    EVALUATION_SYSTEM_PROMPT,
     RUDE_CLASSIFIER_SYSTEM_PROMPT,
     TOPIC_CLASSIFIER_PROMPT,
+    build_evaluation_system_prompt,
 )
 from app.simulator.schemas import EvaluationResultRaw
 
@@ -29,7 +29,7 @@ class RudeCheckResult(BaseModel):
 
 class TopicCheckResult(BaseModel):
     on_topic: Literal["yes", "no"] = Field(
-        description="Whether the sales message is relevant to the B2B sales training dialogue."
+        description="Whether the learner message is relevant to the current training dialogue."
     )
     confidence: float = Field(
         ge=0.0,
@@ -102,9 +102,19 @@ class TopicClassifierAgent:
         )
         self.chain = self.prompt_template | llm | self.parser
 
-    async def check(self, message: str, messages: list[BaseMessage]) -> TopicCheckResult:
+    async def check(
+        self,
+        message: str,
+        messages: list[BaseMessage],
+        *,
+        training_context: str = "",
+    ) -> TopicCheckResult:
         history = format_messages_for_topic_check(messages)
-        payload = {"sales_message": message, "history": history}
+        payload = {
+            "sales_message": message,
+            "history": history,
+            "training_context": training_context or "Контекст сценария не передан.",
+        }
         try:
             result = await self.chain.ainvoke(payload)
             return TopicCheckResult.model_validate(result)
@@ -147,7 +157,7 @@ class BuyerAgent:
 
 
 class EvaluationAgent:
-    def __init__(self, llm) -> None:
+    def __init__(self, llm, *, scenario_title: str, segment: str, competency_catalog: list[str]) -> None:
         self.parser = StrOutputParser()
         self.prompt_template = PromptTemplate(
             template=(
@@ -160,15 +170,20 @@ class EvaluationAgent:
                 "Диалог:\n{dialogue}"
             ),
             input_variables=[
+                "system_prompt",
                 "dialogue",
                 "manager_replies",
                 "min_replies",
                 "short_dialogue_note",
                 "retry_instruction",
             ],
-            partial_variables={"system_prompt": EVALUATION_SYSTEM_PROMPT},
         )
         self.chain = self.prompt_template | llm | self.parser
+        self.system_prompt = build_evaluation_system_prompt(
+            scenario_title=scenario_title,
+            segment=segment,
+            competency_catalog=competency_catalog,
+        )
 
     async def evaluate(
         self,
@@ -192,6 +207,7 @@ class EvaluationAgent:
             )
             raw_output = await self.chain.ainvoke(
                 {
+                    "system_prompt": self.system_prompt,
                     "dialogue": dialogue,
                     "manager_replies": manager_replies,
                     "min_replies": min_replies,

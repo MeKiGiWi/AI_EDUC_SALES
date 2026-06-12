@@ -141,8 +141,12 @@ def _classify_sales_tone(deps: GraphDependencies):
     async def node(state: GraphState) -> GraphState:
         result = await deps.rude_classifier.check(state["sales_message"])
         return {
-            "dialog_route": "stop_after_rudeness" if result.rude == "yes" else "go_to_topic_check",
+            "dialog_route": "stop_after_rudeness" if result.terminate_session else "go_to_topic_check",
             "confidence": result.confidence,
+            "moderation_label": result.label,
+            "moderation_severity": result.severity,
+            "terminate_session": result.terminate_session,
+            "moderation_reason": result.reason,
         }
 
     return node

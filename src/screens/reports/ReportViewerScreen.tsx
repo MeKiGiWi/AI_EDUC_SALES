@@ -77,6 +77,7 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
 
   const isGenerating = report?.status === "generating";
   const isError = report?.status === "error";
+  const reportV2 = report?.reportV2;
   const evaluation = report?.evaluation;
   const strengthCompetencies = evaluation ? getStrengthCompetencies(evaluation) : [];
   const developmentCompetencies = evaluation ? getDevelopmentCompetencies(evaluation) : [];
@@ -106,6 +107,105 @@ export function ReportViewerScreen({ report, onBack }: ReportViewerScreenProps) 
       <AppCard style={styles.statusCard}>
         <Text style={[styles.statusTitle, { color: theme.semantic.danger }]}>Отчёт не сформирован</Text>
         <Text style={[styles.statusBody, { color: theme.semantic.textSecondary }]}>{report?.summary}</Text>
+      </AppCard>
+    </View>
+  ) : reportV2 ? (
+    <View style={[styles.reportContent, !layout.isDesktop && styles.reportContentMobile]}>
+      <AppCard style={styles.summaryCard}>
+        <View style={styles.levelHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Итог по диалогу</Text>
+          <LevelBadge level={reportV2.summary.overallLevel === "Trainee" ? "Junior" : reportV2.summary.overallLevel} />
+        </View>
+        <Text style={[styles.summary, { color: theme.semantic.textSecondary }]}>
+          {reportV2.summary.headline}
+        </Text>
+        <View style={styles.lines}>
+          {reportV2.summary.shortResume.map((line) => (
+            <Text key={line} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+              • {line}
+            </Text>
+          ))}
+        </View>
+      </AppCard>
+
+      <AppCard style={styles.sectionCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Компетенции</Text>
+        <View style={styles.competencyTable}>
+          {reportV2.competencies.map((competency) => (
+            <View key={competency.id} style={[styles.competencyRow, { borderColor: theme.semantic.border }]}>
+              <View style={styles.competencyHead}>
+                <Text style={[styles.competencyName, { color: theme.semantic.textPrimary }]}>
+                  {competency.title}
+                </Text>
+                <LevelBadge level={competency.level === "Trainee" ? "Junior" : competency.level} compact />
+              </View>
+              <Text style={[styles.competencyArgument, { color: theme.semantic.textSecondary }]}>
+                {competency.comment}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </AppCard>
+
+      <AppCard style={styles.sectionCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Сильные стороны</Text>
+        <View style={styles.lines}>
+          {reportV2.strengths.map((item) => (
+            <Text key={item.title} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+              • {item.title}: {item.comment}
+            </Text>
+          ))}
+        </View>
+      </AppCard>
+
+      <AppCard style={styles.sectionCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Зоны развития</Text>
+        <View style={styles.lines}>
+          {reportV2.developmentAreas.map((item) => (
+            <View key={item.title} style={styles.focusBlock}>
+              <Text style={[styles.focusHeader, { color: theme.semantic.textPrimary }]}>
+                {item.title}
+              </Text>
+              <Text style={[styles.line, { color: theme.semantic.textPrimary }]}>{item.comment}</Text>
+              {item.actions.map((action) => (
+                <Text key={action} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+                  — {action}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </View>
+      </AppCard>
+
+      <AppCard style={styles.sectionCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Следующие шаги</Text>
+        <View style={styles.lines}>
+          {reportV2.nextSteps.map((step) => (
+            <Text key={step} style={[styles.line, { color: theme.semantic.textPrimary }]}>
+              • {step}
+            </Text>
+          ))}
+        </View>
+      </AppCard>
+
+      <AppCard style={styles.sectionCard}>
+        <Text style={[styles.sectionTitle, { color: theme.semantic.textPrimary }]}>Анализ диалога</Text>
+        <View style={styles.lines}>
+          {reportV2.dialogueAnalysis.map((turn) => (
+            <View key={`${turn.turnIndex}-${turn.speaker}`} style={styles.focusBlock}>
+              <Text style={[styles.focusHeader, { color: theme.semantic.textPrimary }]}>
+                {turn.turnIndex}. {turn.speakerLabel}
+              </Text>
+              <Text style={[styles.quoteLine, { color: theme.semantic.textSecondary }]}>{turn.text}</Text>
+              <Text style={[styles.line, { color: theme.semantic.textPrimary }]}>{turn.analysis.comment}</Text>
+              {turn.analysis.recommendation ? (
+                <Text style={[styles.line, { color: theme.semantic.textPrimary }]}>
+                  — {turn.analysis.recommendation}
+                </Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
       </AppCard>
     </View>
   ) : evaluation ? (
@@ -340,6 +440,18 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function buildReportPlainText(report: ReportCard): string {
+  if (report.reportV2) {
+    return [
+      report.title,
+      report.reportV2.summary.headline,
+      "",
+      "Компетенции",
+      ...report.reportV2.competencies.map((item) => `- ${item.title}: ${item.comment}`),
+      "",
+      "Следующие шаги",
+      ...report.reportV2.nextSteps.map((item) => `- ${item}`)
+    ].join("\n");
+  }
   const sections = report.previewSections
     .map((section) => `${section.title}\n${section.lines.map((line) => `- ${line}`).join("\n")}`)
     .join("\n\n");

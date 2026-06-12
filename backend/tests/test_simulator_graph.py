@@ -32,7 +32,10 @@ def build_graph_with_reply(
 
 @pytest.mark.asyncio
 async def test_graph_finishes_dialogue_when_user_is_rude() -> None:
-    graph = build_graph_with_reply("Не должно вызваться", rude_json='{"rude":"yes","confidence":0.95}')
+    graph = build_graph_with_reply(
+        "Не должно вызваться",
+        rude_json='{"rude":"yes","label":"abusive","severity":"high","terminate_session":true,"reason":"Оскорбление","confidence":0.95}',
+    )
     started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
     result = await graph.ainvoke(
         {"action": "reply_to_sales", "session_id": started["session_id"], "sales_message": "Иди ты нахер"}
@@ -59,6 +62,27 @@ async def test_graph_returns_buyer_reply_when_user_is_not_rude() -> None:
     assert isinstance(result["session"].messages[-2], HumanMessage)
     assert isinstance(result["session"].messages[-1], AIMessage)
     assert result["session"].messages[-1].content == "Нам важно не сорвать внедрение."
+
+
+@pytest.mark.asyncio
+async def test_graph_keeps_dialogue_active_for_tactless_but_not_abusive_message() -> None:
+    graph = build_graph_with_reply(
+        "Давайте спокойно уточним симптомы.",
+        rude_json='{"rude":"no","label":"tactless","severity":"low","terminate_session":false,"reason":"Неловкая формулировка без оскорбления","confidence":0.79}',
+    )
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
+    result = await graph.ainvoke(
+        {
+            "action": "reply_to_sales",
+            "session_id": started["session_id"],
+            "sales_message": "Здравствуйте, вы уже что-то предпринимали? Может пили таблетки?",
+        }
+    )
+
+    assert result["status"] == "active"
+    assert result["dialog_route"] == "continue_with_customer_reply"
+    assert result["moderation_label"] == "tactless"
+    assert result["terminate_session"] is False
 
 
 @pytest.mark.asyncio

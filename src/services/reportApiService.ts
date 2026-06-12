@@ -1,4 +1,4 @@
-import type { ReportCard, SimulatorEvaluationPayloadDto, UserRole } from "../types/academy";
+import type { ReportCard, SalesDialogueReportV2, SimulatorEvaluationPayloadDto, UserRole } from "../types/academy";
 
 const backendApiUrl = process.env.EXPO_PUBLIC_SIMULATOR_API_URL?.trim() ?? "";
 
@@ -73,6 +73,7 @@ export const reportApiService = {
     scenarioId?: string | null;
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
+    reportV2?: SalesDialogueReportV2;
     sourceLabel?: string | null;
     sessionId?: string | null;
   }): Promise<ReportCard> {
@@ -83,6 +84,7 @@ export const reportApiService = {
         scenario_id: payload.scenarioId ?? null,
         scenario_title: payload.scenarioTitle,
         evaluation: payload.evaluation,
+        report_v2: payload.reportV2 ?? null,
         source_label: payload.sourceLabel ?? null,
         session_id: payload.sessionId ?? null
       })

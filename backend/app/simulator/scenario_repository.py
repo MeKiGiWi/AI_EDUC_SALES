@@ -15,7 +15,7 @@ def _load_scenarios() -> list[dict[str, Any]]:
     if not SCENARIOS_PATH.exists():
         return []
 
-    payload = json.loads(SCENARIOS_PATH.read_text(encoding="utf-8"))
+    payload = json.loads(SCENARIOS_PATH.read_text(encoding="utf-8").lstrip("\ufeff"))
     scenarios: list[dict[str, Any]] = []
     for item in payload:
         scenarios.append(
@@ -45,7 +45,7 @@ def _load_text_file(relative_path: str) -> str:
     scenario_info_path = SCENARIOS_DIR / relative_path
     if not scenario_info_path.exists():
         return ""
-    return scenario_info_path.read_text(encoding="utf-8").strip()
+    return scenario_info_path.read_text(encoding="utf-8").lstrip("\ufeff").strip()
 
 
 def list_scenarios(*, active_only: bool = False) -> list[dict[str, Any]]:

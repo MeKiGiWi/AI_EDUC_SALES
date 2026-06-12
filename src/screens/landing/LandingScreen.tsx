@@ -1605,6 +1605,19 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 Помогаем премиальным клиникам расти через системную аналитику коммуникаций, ИИ‑тренажер для
                 администраторов и управленческие решения, связанные с выручкой.
               </Text>
+              <View style={styles.footerCompanyInfo} testID="footer-company-info">
+                <Text style={styles.footerColTitle}>Информация о компании</Text>
+                <Text style={styles.footerLegal}>{legalContent.company.legalName}</Text>
+                <Text style={styles.footerLegal}>
+                  Юридическая и регистрационная информация доступна ниже, вместе с реквизитами для официальных документов.
+                </Text>
+                <View style={styles.footerRequisites} testID="footer-requisites">
+                  <Text style={styles.footerColText}>{legalContent.company.legalName}</Text>
+                  <Text style={styles.footerColText}>ИНН: {legalContent.company.inn}</Text>
+                  <Text style={styles.footerColText}>КПП: {legalContent.company.kpp}</Text>
+                  <Text style={styles.footerColText}>ОГРН: {legalContent.company.ogrn}</Text>
+                </View>
+              </View>
             </View>
             <View>
               <Text style={styles.footerColTitle}>Разделы</Text>
@@ -1642,13 +1655,6 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 <View style={styles.contactIcon}><Image source={{ uri: ICON_MAIL }} style={styles.contactIconImg} /></View>
                 <Text style={[styles.footerAccent, styles.contactText]}>digital-methodology@ya.ru</Text>
               </Pressable>
-            </View>
-            <View style={styles.footerCompany}>
-              <Text style={styles.footerColTitle}>Реквизиты</Text>
-              <Text style={styles.footerColText}>{legalContent.company.legalName}</Text>
-              <Text style={styles.footerColText}>ИНН: {legalContent.company.inn}</Text>
-              <Text style={styles.footerColText}>КПП: {legalContent.company.kpp}</Text>
-              <Text style={styles.footerColText}>ОГРН: {legalContent.company.ogrn}</Text>
             </View>
           </View>
           <View style={styles.footerDivider} />
@@ -2372,7 +2378,17 @@ const styles = StyleSheet.create({
   footerDivider: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,.08)" },
   footerMain: { flexDirection: "row", gap: 32, paddingVertical: 36 },
   footerBrand: { flex: 1.5, gap: 14 },
-  footerCompany: { flex: 1, minWidth: 0 },
+  footerCompanyInfo: {
+    marginTop: 10,
+    paddingTop: 18,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,.08)",
+    gap: 10
+  },
+  footerRequisites: {
+    gap: 2,
+    paddingTop: 4
+  },
   footerText: { color: "rgba(255,255,255,.78)", fontSize: 15, lineHeight: 24 },
   footerLegal: { color: "rgba(255,255,255,.45)", fontSize: 13, lineHeight: 20 },
   contactRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },

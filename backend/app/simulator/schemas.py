@@ -49,6 +49,10 @@ class GraphState(TypedDict, total=False):
     role_copy_detected: bool
     role_copy_similarity: float
     copied_customer_message: str
+    moderation_label: str
+    moderation_severity: str
+    terminate_session: bool
+    moderation_reason: str
 
 
 @dataclass
@@ -122,6 +126,10 @@ class SessionMessageResponseDto(BaseModel):
     session_id: str
     status: SessionStatus
     rude: str
+    moderation_label: str | None = None
+    moderation_severity: str | None = None
+    terminate_session: bool = False
+    moderation_reason: str | None = None
     confidence: float
     messages: list[SessionMessageDto]
 

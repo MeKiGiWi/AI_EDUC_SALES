@@ -16,6 +16,7 @@ import type {
   ManagerDashboard,
   ReportCard,
   SavedSimulatorReport,
+  SalesDialogueReportV2,
   SalesAcademyMock,
   Scenario,
   SimulatorEvaluationPayloadDto,
@@ -81,6 +82,7 @@ export const academyDataService = {
     scenarioId?: string | null;
     scenarioTitle: string;
     evaluation: SimulatorEvaluationPayloadDto;
+    reportV2?: SalesDialogueReportV2;
     sessionId?: string | null;
   }): Promise<ReportCard[]> {
     if (reportApiService.isEnabled()) {
@@ -90,6 +92,7 @@ export const academyDataService = {
           scenarioId: params.scenarioId,
           scenarioTitle: params.scenarioTitle,
           evaluation: params.evaluation,
+          reportV2: params.reportV2,
           sourceLabel: "Диалог в чате",
           sessionId: params.sessionId
         });
@@ -107,7 +110,8 @@ export const academyDataService = {
       scenarioTitle: params.scenarioTitle,
       sourceLabel: "Диалог в чате",
       sessionId: params.sessionId,
-      evaluation: params.evaluation
+      evaluation: params.evaluation,
+      reportV2: params.reportV2
     });
 
     const allSaved = await reportStorageService.getAll(params.role);

@@ -1,5 +1,6 @@
 import type {
   ReportCard,
+  SalesDialogueReportV2,
   SavedSimulatorReport,
   SimulatorEvaluationPayloadDto,
   UserRole
@@ -137,6 +138,7 @@ export function savedReportToReportCard(saved: SavedSimulatorReport, role: UserR
     sourceLabel: saved.sourceLabel ?? "Диалог в чате",
     sessionId: saved.sessionId ?? null,
     availableFormats: ["pdf", "csv"],
+    reportV2: saved.reportV2,
     evaluation,
     previewSections: [
       {
@@ -198,6 +200,7 @@ export function saveLatestSimulatorReportLocal(params: {
   sourceLabel?: string | null;
   sessionId?: string | null;
   evaluation: SimulatorEvaluationPayloadDto;
+  reportV2?: SalesDialogueReportV2;
   existingReports?: SavedSimulatorReport[];
   createdAt?: string;
   reportId?: string;
@@ -212,7 +215,8 @@ export function saveLatestSimulatorReportLocal(params: {
     createdAt,
     sourceLabel: params.sourceLabel ?? "Диалог в чате",
     sessionId: params.sessionId ?? undefined,
-    evaluation: params.evaluation
+    evaluation: params.evaluation,
+    reportV2: params.reportV2
   };
   const savedReports = [savedReport, ...(params.existingReports ?? [])];
 

@@ -87,10 +87,13 @@ test("landing legal links and footer company details are visible", async ({ page
     page.getByText("согласие на обработку персональных данных", { exact: true }).first()
   ).toBeVisible();
 
-  await expect(page.getByText("Общество с ограниченной ответственностью «Цифровая методология»")).toBeVisible();
-  await expect(page.getByText("ИНН: 5010060840")).toBeVisible();
-  await expect(page.getByText("КПП: 501001001")).toBeVisible();
-  await expect(page.getByText("ОГРН: 1235000008275")).toBeVisible();
+  await expect(page.getByText("Общество с ограниченной ответственностью «Цифровая методология»").first()).toBeVisible();
+  await expect(page.getByText("ИНН: 5010060840").first()).toBeVisible();
+  await expect(page.getByText("КПП: 501001001").first()).toBeVisible();
+  await expect(page.getByText("ОГРН: 1235000008275").first()).toBeVisible();
+  await expect(page.getByTestId("footer-company-info")).toContainText("Информация о компании");
+  await expect(page.getByTestId("footer-company-info")).toContainText("ИНН: 5010060840");
+  await expect(page.getByTestId("footer-requisites")).toContainText("ОГРН: 1235000008275");
 });
 
 test("legal pages open full text and keep docx access", async ({ page }, testInfo) => {
@@ -99,12 +102,12 @@ test("legal pages open full text and keep docx access", async ({ page }, testInf
   await page.goto("/legal/privacy-policy.html");
   await expect(page).toHaveURL(/\/legal\/privacy-policy\.html$/);
   await expect(page.getByText("Политика конфиденциальности", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Открыть оригинал DOCX")).toBeVisible();
+  await expect(page.getByText("Вернуться назад")).toBeVisible();
 
   await page.goto("/legal/personal-data-processing-agreement.html");
   await expect(page).toHaveURL(/\/legal\/personal-data-processing-agreement\.html$/);
-  await expect(page.getByText("Согласие на обработку персональных данных", { exact: true })).toBeVisible();
-  await expect(page.getByText("Открыть оригинал DOCX")).toBeVisible();
+  await expect(page.getByText(/обработк[ае] персональных данных/i).first()).toBeVisible();
+  await expect(page.getByText("Вернуться назад")).toBeVisible();
 });
 
 test("api mode uses backend opening message, backend reply and backend evaluation", async ({
@@ -196,6 +199,89 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
     });
   });
 
+  const reportV2 = {
+    reportVersion: "2.0",
+    case: {
+      id: "clinic-appointment",
+      title: "Первичная запись: тревожный пациент с симптомами",
+      scenarioTitle: "Первичная запись: тревожный пациент с симптомами",
+      createdAt: iso
+    },
+    participant: { role: "student", displayName: "Ученик" },
+    summary: {
+      title: "Отчет по диалогу: Первичная запись: тревожный пациент с симптомами",
+      headline: "Backend evaluation summary",
+      overallLevel: "Senior",
+      overallScore: 90,
+      shortResume: [
+        "Кейс: Первичная запись: тревожный пациент с симптомами",
+        "Общий уровень: Senior",
+        "dialogueAnalysis должен прийти с backend."
+      ]
+    },
+    competencies: [
+      {
+        id: "calm_contact",
+        title: "Умение установить спокойный контакт",
+        level: "Senior",
+        score: 90,
+        comment: "Быстро снижаете тревогу и задаёте безопасную рамку.",
+        evidence: [{ quote: "API opening message", speaker: "manager", turnIndex: 1 }]
+      },
+      {
+        id: "symptom_questions_without_diagnosis",
+        title: "Умение задавать уточняющие вопросы по симптомам без постановки диагноза",
+        level: "Senior",
+        score: 90,
+        comment: "Задаёте уместные уточняющие вопросы и не уходите в диагноз.",
+        evidence: [{ quote: managerText, speaker: "manager", turnIndex: 2 }]
+      },
+      {
+        id: "patient_routing",
+        title: "Первичная маршрутизация пациента к подходящему врачу",
+        level: "Middle",
+        score: 68,
+        comment: "Маршрут намечен, но можно чуть яснее объяснить логику.",
+        evidence: [{ quote: "Ответ покупателя с backend stub", speaker: "manager", turnIndex: 3 }]
+      },
+      {
+        id: "anxiety_handling",
+        title: "Работа с тревогой и сомнениями пациента",
+        level: "Senior",
+        score: 90,
+        comment: "Хорошо удерживаете эмоциональный фон и не обесцениваете тревогу.",
+        evidence: [{ quote: "API opening message", speaker: "manager", turnIndex: 4 }]
+      },
+      {
+        id: "next_step",
+        title: "Фиксация следующего шага",
+        level: "Middle",
+        score: 68,
+        comment: "Следующий шаг сформулирован, но можно конкретнее.",
+        evidence: [{ quote: "Ответ покупателя с backend stub", speaker: "manager", turnIndex: 5 }]
+      }
+    ],
+    dialogueAnalysis: [
+      {
+        turnIndex: 1,
+        speaker: "manager",
+        speakerLabel: "Менеджер",
+        timestamp: "12:30",
+        text: managerText,
+        analysis: {
+          status: "good",
+          comment: "dialogueAnalysis из V2 виден во viewer.",
+          recommendation: null,
+          competencyIds: ["calm_contact"]
+        }
+      }
+    ],
+    strengths: [{ title: "Спокойный контакт", comment: "Снижаете тревогу пациента.", evidence: [managerText] }],
+    developmentAreas: [{ title: "Следующий шаг", comment: "Добавьте конкретику по записи.", actions: ["Фиксируйте время визита."] }],
+    nextSteps: ["Фиксировать время визита.", "Сохранять мягкий тон."],
+    meta: { generatedBy: "AI Sales Academy", source: "dialogue_simulation", language: "ru" }
+  };
+
   await page.route("**/api/v1/simulator/sessions/session-e2e-api-1/finish", async (route) => {
     await route.fulfill({
       status: 200,
@@ -247,17 +333,20 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
               recommendations: ["Сохраняйте текущий уровень эмпатии."]
             }
           ]
-        }
+        },
+        report_v2: reportV2
       })
     });
   });
 
   await page.route("**/api/v1/reports", async (route) => {
     if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON() as { report_v2?: { dialogueAnalysis?: unknown[] } };
+      expect(body.report_v2?.dialogueAnalysis?.length).toBeGreaterThan(0);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(reportCard)
+        body: JSON.stringify({ ...reportCard, reportV2 })
       });
       return;
     }
@@ -265,7 +354,7 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ items: [reportCard] })
+      body: JSON.stringify({ items: [{ ...reportCard, reportV2 }] })
     });
   });
 
@@ -293,7 +382,10 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
   await expect(page.getByText("Backend evaluation summary", { exact: true })).toBeVisible();
   await expect(page.getByText("Умение установить спокойный контакт").first()).toBeVisible();
   await expect(page.getByText("Senior").first()).toBeVisible();
+  await expect(page.getByText("Анализ диалога")).toBeVisible();
+  await expect(page.getByText("dialogueAnalysis из V2 виден во viewer.")).toBeVisible();
   await expect(
     page.getByText("диалог завершен, отчет сформирован по mock-оценке.")
   ).toHaveCount(0);
+  await expect(page.getByText(/КП|смета|простой|выезд/)).toHaveCount(0);
 });

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.reports.entities import ReportRecord
-from app.reports.report_v2 import adapt_legacy_evaluation_to_report_v2
+from app.reports.report_v2 import adapt_legacy_evaluation_to_report_v2, validate_report_v2_content
 from app.reports.schemas import (
     ExportFormat,
     ReportCardDto,
@@ -142,12 +142,18 @@ def build_preview_sections(evaluation: EvaluationResultRaw, scenario_title: str,
 def create_report_record(payload: ReportCreateDto, report_id: str, created_at: datetime) -> ReportRecord:
     title = build_display_name(payload.scenario_title, created_at)
     preview_sections = build_preview_sections(payload.evaluation, payload.scenario_title, report_id)
-    report_v2 = payload.report_v2 or adapt_legacy_evaluation_to_report_v2(
-        evaluation=payload.evaluation,
-        dialogue_turns=[],
-        scenario_id=payload.scenario_id or report_id,
-        scenario_title=payload.scenario_title,
-        created_at=created_at,
+    report_v2 = payload.report_v2
+    if report_v2 is None:
+        report_v2 = adapt_legacy_evaluation_to_report_v2(
+            evaluation=payload.evaluation,
+            dialogue_turns=[],
+            scenario_id=payload.scenario_id or report_id,
+            scenario_title=payload.scenario_title,
+            created_at=created_at,
+        )
+    report_v2 = validate_report_v2_content(
+        report_v2,
+        expected_scenario_id=payload.scenario_id or report_v2.case.id,
     )
     return ReportRecord(
         id=report_id,

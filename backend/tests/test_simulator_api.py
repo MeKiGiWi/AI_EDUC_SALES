@@ -4,20 +4,20 @@ from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-import app.api as simulator_api
-import app.runtime as simulator_runtime
-from app.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
-from app.graph import create_graph
 from app.main import app
-from app.models import (
+from app.routes import simulator as simulator_api
+from app.simulator import runtime as simulator_runtime
+from app.simulator.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
+from app.simulator.graph import create_graph
+from app.simulator.scenario_repository import get_scenario_by_id
+from app.simulator.schemas import (
     CompetencyLevel,
     EvaluationCompetencyRaw,
     EvaluationResultRaw,
     GraphDependencies,
 )
-from app.prompts import BASELINE_OPENING_MESSAGE
-from app.settings import get_agents_config, get_settings
-from app.store import InMemorySessionStore
+from app.simulator.store import InMemorySessionStore
+from app.core.settings import get_agents_config, get_settings
 
 
 def build_fake_graph(reply_text: str = "Давайте ближе к выгоде для нас."):
@@ -109,25 +109,35 @@ async def test_create_session_returns_opening_message(monkeypatch) -> None:
     monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
-        response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
+        response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "clinic-appointment"})
 
     payload = response.json()
     assert response.status_code == status.HTTP_201_CREATED
     assert payload["status"] == "active"
     assert "session_id" in payload
     assert payload["message"]["role"] == "customer"
-    assert payload["message"]["text"] == BASELINE_OPENING_MESSAGE
+    assert payload["message"]["text"] == get_scenario_by_id("clinic-appointment")["opening_message"]
 
 
 @pytest.mark.asyncio
-async def test_get_scenarios_returns_baseline() -> None:
+async def test_get_scenarios_returns_only_active_clinic_scenarios() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.get("/api/v1/simulator/scenarios")
 
     payload = response.json()
     assert response.status_code == status.HTTP_200_OK
-    assert any(item["id"] == "baseline" for item in payload["items"])
-    assert any(item["id"] == "price-objection" for item in payload["items"])
+    assert [item["id"] for item in payload["items"]] == ["clinic-appointment", "clinic-complaint"]
+    assert {item["id"] for item in payload["items"]}.isdisjoint(
+        {
+            "baseline",
+            "price-objection",
+            "competitor-comparison",
+            "timeline-negotiation",
+            "cold-call",
+            "upsell",
+            "customer-return",
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -144,6 +154,19 @@ async def test_create_session_with_unknown_scenario_returns_404(monkeypatch) -> 
 
 
 @pytest.mark.asyncio
+async def test_create_session_with_inactive_legacy_scenario_returns_404(monkeypatch) -> None:
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Сценарий не найден."
+
+
+@pytest.mark.asyncio
 async def test_send_message_returns_buyer_reply(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
@@ -154,7 +177,7 @@ async def test_send_message_returns_buyer_reply(monkeypatch) -> None:
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
-        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
+        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "clinic-appointment"})
         session_id = created.json()["session_id"]
         response = await client.post(
             f"/api/v1/simulator/sessions/{session_id}/messages",
@@ -179,7 +202,7 @@ async def test_send_message_stays_active_even_for_refusal_text(monkeypatch) -> N
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
-        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
+        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "clinic-appointment"})
         session_id = created.json()["session_id"]
         response = await client.post(
             f"/api/v1/simulator/sessions/{session_id}/messages",
@@ -192,11 +215,45 @@ async def test_send_message_stays_active_even_for_refusal_text(monkeypatch) -> N
 
 
 @pytest.mark.asyncio
+async def test_repeated_customer_copy_keeps_api_roles_fixed(monkeypatch) -> None:
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(
+        simulator_api,
+        "build_graph",
+        lambda: build_fake_graph("Вы повторили мою мысль. Что конкретно вы предлагаете дальше?"),
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "clinic-appointment"})
+        session_id = created.json()["session_id"]
+        learner_text = created.json()["message"]["text"]
+        last_payload = None
+
+        for _ in range(5):
+            response = await client.post(
+                f"/api/v1/simulator/sessions/{session_id}/messages",
+                json={"text": learner_text},
+            )
+            assert response.status_code == status.HTTP_200_OK
+            last_payload = response.json()
+            assert last_payload["status"] == "active"
+            assert [message["role"] for message in last_payload["messages"]] == ["learner", "customer"]
+            learner_text = last_payload["messages"][-1]["text"]
+
+    assert last_payload is not None
+
+
+@pytest.mark.asyncio
 async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
     monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
-    monkeypatch.setattr(simulator_api, "build_evaluation_agent", lambda: FakeEvaluationAgent(expected_min_replies=3))
+    monkeypatch.setattr(
+        simulator_api,
+        "build_evaluation_agent",
+        lambda scenario_id: FakeEvaluationAgent(expected_min_replies=3),
+    )
     monkeypatch.setenv("MIN_MANAGER_TURNS", "3")
     get_settings.cache_clear()
     log_calls: list[dict[str, str]] = []
@@ -207,7 +264,7 @@ async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
-        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
+        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "clinic-appointment"})
         session_id = created.json()["session_id"]
         await client.post(
             f"/api/v1/simulator/sessions/{session_id}/messages",
@@ -224,14 +281,14 @@ async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None
     assert payload["report_v2"]["summary"]["headline"]
     assert len(payload["evaluation"]["competencies"]) == 5
     assert [item["name"] for item in payload["evaluation"]["competencies"]] == [
-        "Умение задавать вопросы",
-        "Диагностика потребности",
-        "Формулировка ценности через выгоду",
-        "Работа с возражением «подумаю / не сейчас»",
+        "Умение установить спокойный контакт",
+        "Умение задавать уточняющие вопросы по симптомам без постановки диагноза",
+        "Первичная маршрутизация пациента к подходящему врачу",
+        "Работа с тревогой и сомнениями пациента",
         "Фиксация следующего шага",
     ]
     assert len(log_calls) == 1
     assert log_calls[0]["model_name"] == get_agents_config().buyer_agent_llm_settings.LLM_MODEL
-    assert log_calls[0]["scenario_name"] == "baseline"
+    assert log_calls[0]["scenario_name"] == "clinic-appointment"
     assert "Менеджер:" in log_calls[0]["dialogue"]
     get_settings.cache_clear()

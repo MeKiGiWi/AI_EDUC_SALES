@@ -1,0 +1,37 @@
+from pathlib import Path
+
+from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableLambda
+
+from app.simulator.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
+from app.simulator.graph import create_graph
+from app.simulator.schemas import GraphDependencies
+from app.simulator.store import InMemorySessionStore
+
+ARTIFACTS_DIR = Path(__file__).resolve().parents[2] / "artifacts" / "langgraph"
+
+
+def render_graph_artifacts() -> None:
+    graph = create_graph(
+        GraphDependencies(
+            session_store=InMemorySessionStore(),
+            rude_classifier=RudeClassifierAgent(
+                RunnableLambda(lambda _: AIMessage(content='{"rude":"no","confidence":0.5}'))
+            ),
+            topic_classifier=TopicClassifierAgent(
+                RunnableLambda(lambda _: AIMessage(content='{"on_topic":"yes","confidence":0.5}'))
+            ),
+            buyer_agent=BuyerAgent(RunnableLambda(lambda _: AIMessage(content="Понял. Что именно вы хотите уточнить?"))),
+        )
+    )
+    mermaid = graph.get_graph().draw_mermaid()
+    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    (ARTIFACTS_DIR / "simulator_graph.mmd").write_text(mermaid, encoding="utf-8")
+    (ARTIFACTS_DIR / "simulator_graph.md").write_text(
+        f"# Simulator Graph\n\n```mermaid\n{mermaid}\n```\n",
+        encoding="utf-8",
+    )
+
+
+if __name__ == "__main__":
+    render_graph_artifacts()

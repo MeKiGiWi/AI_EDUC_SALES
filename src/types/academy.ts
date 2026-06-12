@@ -194,8 +194,14 @@ export interface SimulatorEvaluation {
 export interface SimulatorPublicScenarioDto {
   id: string;
   title: string;
+  description: string;
   openingMessage: string;
   status: "ready";
+  segment: "B2B" | "B2C";
+  duration: string;
+  level: string;
+  targetCompetencies: string[];
+  introLines: string[];
 }
 
 export interface SimulatorCatalogResponseDto {
@@ -295,6 +301,7 @@ export interface ScenarioCardItem {
   id: string;
   title: string;
   description: string;
+  openingMessage?: string;
   duration: string;
   level: string;
   progressLabel: string;
@@ -303,6 +310,8 @@ export interface ScenarioCardItem {
   segment: "B2B" | "B2C";
   icon: string;
   accent: "mint" | "warning" | "info" | "violet" | "peach";
+  introLines?: string[];
+  targetCompetencies?: string[];
 }
 
 export interface DialogueMessage {

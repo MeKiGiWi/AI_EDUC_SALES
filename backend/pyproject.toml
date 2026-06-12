@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-render-simulator-graph = "app.render_graph:render_graph_artifacts"
+render-simulator-graph = "app.simulator.render_mermaid_graph:render_graph_artifacts"
 
 [build-system]
 requires = ["setuptools>=68.0"]

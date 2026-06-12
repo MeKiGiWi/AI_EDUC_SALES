@@ -288,7 +288,8 @@ export function AppNavigator() {
           scenarioTitle: selectedScenario.title,
           messages: buildInitialMockDialogue({
             scenarioId,
-            scenarioTitle: selectedScenario.title
+            scenarioTitle: selectedScenario.title,
+            openingMessage: selectedScenario.openingMessage
           }),
           status: "active",
           errorText: null,

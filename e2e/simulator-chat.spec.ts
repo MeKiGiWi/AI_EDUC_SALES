@@ -2,14 +2,15 @@ import { expect, test } from "@playwright/test";
 
 const iso = "2026-05-05T12:30:00.000Z";
 const managerText = "Добрый день, давайте уточним критерии выбора.";
+const managerMessages = Array.from({ length: 10 }, (_, index) => `${managerText} #${index + 1}`);
 
 test("mock mode keeps the last bubble above input and clears transient UI state", async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mock", "mock project only");
 
-  await page.goto("/");
-  await page.getByRole("button", { name: "Перейти в тренажер" }).click();
+  await page.goto("/simulator");
+  await page.getByText("Начать тренировку", { exact: true }).click();
 
   await expect(page.getByTestId("simulator-chat-panel")).toBeVisible();
   await page.getByTestId("simulator-chat-input").fill(managerText);
@@ -35,6 +36,77 @@ test("mock mode keeps the last bubble above input and clears transient UI state"
   expect(bubbleBox.y + bubbleBox.height).toBeLessThanOrEqual(inputBox.y + 8);
 });
 
+test("simulator catalog shows only 2 B2C clinic scenarios and empty B2B state", async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mock", "mock project only");
+
+  await page.goto("/simulator");
+
+  await expect(page.getByTestId("scenario-tile-clinic-appointment")).toBeVisible();
+  await expect(page.getByTestId("scenario-tile-clinic-complaint")).toBeVisible();
+  await expect(page.getByTestId(/scenario-tile-/)).toHaveCount(2);
+  await expect(page.getByText(/кондиционер|кондиционирование|цех|поставщик/i)).toHaveCount(0);
+
+  await page.getByText("B2B", { exact: true }).click();
+
+  await expect(page.getByText("В B2B пока нет доступных сценариев.")).toBeVisible();
+  await expect(
+    page.getByText("Legacy-сценарии скрыты, новые сценарии появятся позже.")
+  ).toBeVisible();
+  await expect(page.getByTestId(/scenario-tile-/)).toHaveCount(0);
+  await expect(page.getByText("Начать тренировку", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/кондиционер|кондиционирование|цех|поставщик/i)).toHaveCount(0);
+});
+
+test("mock mode opens both B2C scenarios with correct first patient line", async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mock", "mock project only");
+
+  await page.goto("/simulator");
+  await page.getByTestId("scenario-play-clinic-appointment").click();
+  await expect(page.getByText("Я впервые к вам обращаюсь")).toBeVisible();
+  await expect(page.getByText("не понимаю, к кому мне вообще надо записаться")).toBeVisible();
+
+  await page.goto("/simulator");
+  await page.getByTestId("scenario-play-clinic-complaint").click();
+  await expect(page.getByText("Хотела бы оставить жалобу по поводу вчерашнего визита")).toBeVisible();
+  await expect(page.getByText("мне никто толком не мог сказать, сколько ещё ждать")).toBeVisible();
+});
+
+test("landing legal links and footer company details are visible", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mock", "mock project only");
+
+  await page.goto("/landing");
+
+  const consentText = page.getByText("Нажимая на кнопку, вы даете согласие", { exact: false }).first();
+  await expect(consentText).toBeVisible();
+  await expect(page.getByText("политикой конфиденциальности", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText("согласие на обработку персональных данных", { exact: true }).first()
+  ).toBeVisible();
+
+  await expect(page.getByText("Общество с ограниченной ответственностью «Цифровая методология»")).toBeVisible();
+  await expect(page.getByText("ИНН: 5010060840")).toBeVisible();
+  await expect(page.getByText("КПП: 501001001")).toBeVisible();
+  await expect(page.getByText("ОГРН: 1235000008275")).toBeVisible();
+});
+
+test("legal pages open full text and keep docx access", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mock", "mock project only");
+
+  await page.goto("/legal/privacy-policy.html");
+  await expect(page).toHaveURL(/\/legal\/privacy-policy\.html$/);
+  await expect(page.getByText("Политика конфиденциальности", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Открыть оригинал DOCX")).toBeVisible();
+
+  await page.goto("/legal/personal-data-processing-agreement.html");
+  await expect(page).toHaveURL(/\/legal\/personal-data-processing-agreement\.html$/);
+  await expect(page.getByText("Согласие на обработку персональных данных", { exact: true })).toBeVisible();
+  await expect(page.getByText("Открыть оригинал DOCX")).toBeVisible();
+});
+
 test("api mode uses backend opening message, backend reply and backend evaluation", async ({
   page
 }, testInfo) => {
@@ -42,11 +114,11 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
 
   const reportCard = {
     id: "report-api-1",
-    title: "Возражение на цену 05.05",
+    title: "Первичная запись пациента 05.05",
     role: "student",
     reportType: "student_progress",
-    scenarioId: "price-objection",
-    scenarioTitle: "Возражение на цену",
+    scenarioId: "clinic-appointment",
+    scenarioTitle: "Первичная запись: тревожный пациент с симптомами",
     status: "ready",
     summary: "Backend evaluation summary",
     format: "pdf",
@@ -61,7 +133,7 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
         id: "preview-api-1",
         title: "Краткое резюме",
         lines: [
-          "Кейс: Возражение на цену",
+          "Кейс: Первичная запись: тревожный пациент с симптомами",
           "Общий уровень: Senior",
           "Backend evaluation summary"
         ]
@@ -70,7 +142,7 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
         id: "preview-api-2",
         title: "Компетенции",
         lines: [
-          "Диагностика потребности: Senior — Глубоко раскрываете контекст клиента.",
+          "Умение установить спокойный контакт: Senior — Быстро снижаете тревогу и задаёте безопасную рамку.",
           "Фиксация следующего шага: Middle — Следующий шаг сформулирован, но можно конкретнее."
         ]
       }
@@ -87,7 +159,7 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
         message: {
           id: "api-open-1",
           role: "customer",
-          text: "API opening message",
+          text: "Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней странное состояние, и я не понимаю, к кому мне записаться.",
           created_at: iso
         }
       })
@@ -96,7 +168,7 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
 
   await page.route("**/api/v1/simulator/sessions/session-e2e-api-1/messages", async (route) => {
     const requestBody = route.request().postDataJSON() as { text: string };
-    expect(requestBody).toEqual({ text: managerText });
+    expect(typeof requestBody.text).toBe("string");
 
     await route.fulfill({
       status: 200,
@@ -110,7 +182,7 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
           {
             id: "api-learner-1",
             role: "learner",
-            text: managerText,
+            text: requestBody.text,
             created_at: iso
           },
           {
@@ -140,11 +212,11 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
           ],
           competencies: [
             {
-              name: "Диагностика потребности",
+              name: "Умение установить спокойный контакт",
               level: "Senior",
-              argument: "Глубоко раскрываете контекст клиента.",
+              argument: "Быстро снижаете тревогу и задаёте безопасную рамку.",
               quote: ["API opening message"],
-              recommendations: ["Сохраните текущую глубину диагностики."]
+              recommendations: ["Сохраняйте спокойную структуру старта диалога."]
             },
             {
               name: "Фиксация следующего шага",
@@ -154,25 +226,25 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
               recommendations: ["Добавьте дату следующего касания."]
             },
             {
-              name: "Аргументация ценности",
+              name: "Умение задавать уточняющие вопросы по симптомам без постановки диагноза",
               level: "Senior",
-              argument: "Убедительно связываете выгоду с контекстом клиента.",
+              argument: "Задаёте уместные уточняющие вопросы и не уходите в диагноз.",
               quote: [managerText],
-              recommendations: ["Продолжайте опираться на бизнес-критерии."]
+              recommendations: ["Продолжайте структурировать симптомы и контекст."]
             },
             {
-              name: "Работа с возражением",
+              name: "Первичная маршрутизация пациента к подходящему врачу",
               level: "Middle",
-              argument: "Сохраняете темп диалога без давления.",
+              argument: "Маршрут намечен, но можно чуть яснее объяснить логику.",
               quote: ["Ответ покупателя с backend stub"],
-              recommendations: ["Добавьте одну проверку согласия клиента."]
+              recommendations: ["Коротко поясняйте, почему выбран именно этот первый шаг."]
             },
             {
-              name: "Структура диалога",
+              name: "Работа с тревогой и сомнениями пациента",
               level: "Senior",
-              argument: "Диалог остается последовательным и понятным.",
+              argument: "Хорошо удерживаете эмоциональный фон и не обесцениваете тревогу.",
               quote: ["API opening message"],
-              recommendations: ["Сохраните текущую структуру."]
+              recommendations: ["Сохраняйте текущий уровень эмпатии."]
             }
           ]
         }
@@ -202,22 +274,25 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
       "/";
   });
 
-  await page.goto("/");
-  await page.getByRole("button", { name: "Перейти в тренажер" }).click();
+  await page.goto("/simulator");
+  await page.getByText("Начать тренировку", { exact: true }).click();
 
-  await expect(page.getByText("API opening message")).toBeVisible();
+  await expect(page.getByText("Я впервые к вам обращаюсь")).toBeVisible();
   await expect(page.getByText("Мы сейчас рассматриваем ваше решение")).toHaveCount(0);
 
-  await page.getByTestId("simulator-chat-input").fill(managerText);
-  await page.getByTestId("simulator-send-button").click();
+  for (const text of managerMessages) {
+    await page.getByTestId("simulator-chat-input").fill(text);
+    await page.getByTestId("simulator-send-button").click();
+  }
 
   await expect(page.getByText("Ответ покупателя с backend stub")).toBeVisible();
-  await expect(page.getByText(managerText, { exact: true })).toHaveCount(1);
+  await expect(page.getByText(managerMessages[9], { exact: true })).toBeVisible();
 
-  await page.getByTestId("simulator-finish-button").click();
+  await page.getByText("Завершить и получить отчёт").click();
 
   await expect(page.getByText("Backend evaluation summary", { exact: true })).toBeVisible();
-  await expect(page.getByText("Диагностика потребности: Senior")).toBeVisible();
+  await expect(page.getByText("Умение установить спокойный контакт").first()).toBeVisible();
+  await expect(page.getByText("Senior").first()).toBeVisible();
   await expect(
     page.getByText("диалог завершен, отчет сформирован по mock-оценке.")
   ).toHaveCount(0);

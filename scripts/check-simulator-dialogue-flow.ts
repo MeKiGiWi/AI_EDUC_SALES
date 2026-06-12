@@ -120,4 +120,38 @@ const fallbackIdMessage = mapApiMessageToDialogueMessage({
 } satisfies SimulatorApiMessageDto);
 assert(fallbackIdMessage.id.length > 0, "fallback id must be generated when backend id is missing");
 
+const sameText = "Повторяю дословно";
+const sameTextMerged = mergeApiMessages(
+  [
+    {
+      id: "optimistic-copy",
+      author: "manager",
+      text: sameText,
+      time: "12:32"
+    }
+  ],
+  [
+    {
+      id: "api-learner-copy",
+      role: "learner",
+      text: sameText,
+      created_at: iso
+    },
+    {
+      id: "api-customer-copy",
+      role: "customer",
+      text: sameText,
+      created_at: iso
+    }
+  ],
+  "optimistic-copy"
+);
+assert(sameTextMerged.length === 2, "same text with different authors must stay as two bubbles");
+assert(
+  sameTextMerged.filter((message) => message.text === sameText).map((message) => message.author).join(",") ===
+    "manager,customer",
+  "merge must preserve manager/customer role mapping even when text is identical"
+);
+assert(countManagerReplies(sameTextMerged) === 1, "countManagerReplies must count only learner/manager messages");
+
 console.log("simulator-dialogue-flow-check: ok");

@@ -112,12 +112,11 @@ export function SimulatorScreen({
 }: SimulatorScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
-  const [segment, setSegment] = useState<"B2B" | "B2C">("B2B");
+  const [segment, setSegment] = useState<"B2B" | "B2C">("B2C");
   const [activeFilter, setActiveFilter] = useState<(typeof trainerFilters)[number]>("Все");
   const [infoSheet, setInfoSheet] = useState<SimulatorInfoSheetState>(null);
 
   const selectedScenario = data.scenarios.find((scenario) => scenario.id === activeScenarioId);
-  const featuredScenario = selectedScenario ?? data.scenarios[0];
   const filteredScenarios = useMemo(() => {
     return data.scenarios.filter((scenario) => {
       if (scenario.segment !== segment) {
@@ -131,6 +130,15 @@ export function SimulatorScreen({
       return true;
     });
   }, [activeFilter, data.scenarios, segment]);
+  const segmentScenarios = useMemo(
+    () => data.scenarios.filter((scenario) => scenario.segment === segment),
+    [data.scenarios, segment]
+  );
+  const featuredScenario =
+    selectedScenario && selectedScenario.segment === segment
+      ? selectedScenario
+      : filteredScenarios[0] ?? segmentScenarios[0] ?? null;
+  const isSegmentEmpty = segmentScenarios.length === 0;
 
   function openProgressInfo() {
     setInfoSheet({
@@ -224,55 +232,46 @@ export function SimulatorScreen({
             { backgroundColor: "rgba(18,26,104,0.05)", borderColor: "transparent" }
           ]}
         >
-          <SegmentButton
-            label="B2B"
-            active={segment === "B2B"}
-            onPress={() => setSegment("B2B")}
-          />
-          <SegmentButton
-            label="B2C"
-            active={segment === "B2C"}
-            onPress={() => setSegment("B2C")}
-          />
+          <SegmentButton label="B2C" active={segment === "B2C"} onPress={() => setSegment("B2C")} />
+          <SegmentButton label="B2B" active={segment === "B2B"} onPress={() => setSegment("B2B")} />
         </View>
       </View>
 
-      <View style={[styles.heroPanel, webBg("linear-gradient(135deg, #121a68 0%, #232f9c 100%)", NAVY)]}>
-        <View style={[styles.heroDecor, styles.heroDecorTop]} />
-        <View style={[styles.heroDecor, styles.heroDecorBottom]} />
-        <View style={[styles.heroContent, !layout.isWide && styles.heroStack]}>
-          <View style={styles.heroText}>
-            <View style={styles.heroEyebrow}>
-              <View style={styles.heroEyebrowDot} />
-              <Text style={styles.heroEyebrowText}>Продолжить с места остановки</Text>
-            </View>
-            <Text style={styles.heroTitle}>{featuredScenario.title}</Text>
-            <Text style={styles.heroDescription}>{featuredScenario.description}</Text>
-            <View style={styles.heroPills}>
-              <View style={styles.heroMetaPill}>
-                <Text style={styles.heroMetaPillText}>{featuredScenario.duration}</Text>
+      {featuredScenario ? (
+        <View style={[styles.heroPanel, webBg("linear-gradient(135deg, #121a68 0%, #232f9c 100%)", NAVY)]}>
+          <View style={[styles.heroDecor, styles.heroDecorTop]} />
+          <View style={[styles.heroDecor, styles.heroDecorBottom]} />
+          <View style={[styles.heroContent, !layout.isWide && styles.heroStack]}>
+            <View style={styles.heroText}>
+              <View style={styles.heroEyebrow}>
+                <View style={styles.heroEyebrowDot} />
+                <Text style={styles.heroEyebrowText}>Продолжить с места остановки</Text>
               </View>
-              <View style={styles.heroMetaPill}>
-                <Text style={styles.heroMetaPillText}>Уровень: {featuredScenario.level}</Text>
+              <Text style={styles.heroTitle}>{featuredScenario.title}</Text>
+              <Text style={styles.heroDescription}>{featuredScenario.description}</Text>
+              <View style={styles.heroPills}>
+                <View style={styles.heroMetaPill}>
+                  <Text style={styles.heroMetaPillText}>{featuredScenario.duration}</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          <View
-            style={[
-              styles.heroIllustrationWrap,
-              !layout.isWide && styles.heroIllustrationWrapMobile
-            ]}
-          >
-            <Pressable
-              onPress={() => onStartScenario(featuredScenario.id)}
-              style={({ pressed }) => [styles.heroCta, pressed && styles.pressed]}
+            <View
+              style={[
+                styles.heroIllustrationWrap,
+                !layout.isWide && styles.heroIllustrationWrapMobile
+              ]}
             >
-              <Text style={styles.heroCtaText}>Начать тренировку</Text>
-            </Pressable>
+              <Pressable
+                onPress={() => onStartScenario(featuredScenario.id)}
+                style={({ pressed }) => [styles.heroCta, pressed && styles.pressed]}
+              >
+                <Text style={styles.heroCtaText}>Начать тренировку</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-      </View>
+      ) : null}
 
       <View style={[styles.filtersRow, !layout.isDesktop && styles.filtersStack]}>
         <View style={styles.filterPills}>
@@ -301,15 +300,26 @@ export function SimulatorScreen({
         </View>
       </View>
 
-      <View style={styles.cardGrid}>
-        {filteredScenarios.map((scenario) => (
-          <ScenarioTile
-            key={scenario.id}
-            scenario={scenario}
-            onPlay={() => onStartScenario(scenario.id)}
-          />
-        ))}
-      </View>
+      {isSegmentEmpty ? (
+        <View style={styles.emptyStateCard}>
+          <Text style={[styles.emptyStateTitle, { color: LP.textPrimary }]}>
+            В B2B пока нет доступных сценариев.
+          </Text>
+          <Text style={[styles.emptyStateText, { color: LP.textSecondary }]}>
+            Legacy-сценарии скрыты, новые сценарии появятся позже.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.cardGrid}>
+          {filteredScenarios.map((scenario) => (
+            <ScenarioTile
+              key={scenario.id}
+              scenario={scenario}
+              onPlay={() => onStartScenario(scenario.id)}
+            />
+          ))}
+        </View>
+      )}
 
       <AppBottomSheet
         visible={infoSheet !== null}
@@ -745,15 +755,15 @@ function DialogueView({
                 <Text style={[styles.scenarioIntroTitle, { color: LP.textPrimary }]}>
                   Контекст сценария
                 </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Продукт:</Text> Промышленные кондиционеры
-                </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Ситуация:</Text> Входящий запрос, первый контакт
-                </Text>
-                <Text style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
-                  <Text style={styles.scenarioIntroStrong}>Цель:</Text> Договориться о следующем шаге
-                </Text>
+                {(selectedScenario.introLines ?? []).map((line) => {
+                  const [label, ...rest] = line.split(":");
+                  const value = rest.join(":").trim();
+                  return (
+                    <Text key={line} style={[styles.scenarioIntroLine, { color: LP.textPrimary }]}>
+                      <Text style={styles.scenarioIntroStrong}>{label}:</Text> {value || line}
+                    </Text>
+                  );
+                })}
               </View>
             ) : null}
             {messages.map((message) => (
@@ -925,7 +935,7 @@ function SegmentButton({
   active,
   onPress
 }: {
-  label: "B2B" | "B2C";
+  label: string;
   active: boolean;
   onPress: () => void;
 }) {
@@ -966,6 +976,7 @@ function ScenarioTile({
 
   return (
     <View
+      testID={`scenario-tile-${scenario.id}`}
       style={[
         styles.scenarioTile,
         {
@@ -991,32 +1002,19 @@ function ScenarioTile({
           </Text>
         </View>
         <View style={styles.scenarioText}>
-          <Text style={[styles.scenarioTitle, { color: LP.textPrimary }]}>
+          <Text numberOfLines={4} style={[styles.scenarioTitle, { color: LP.textPrimary }]}>
             {scenario.title}
           </Text>
-          <Text style={[styles.scenarioDescription, { color: LP.textSecondary }]}>
+          <Text numberOfLines={5} style={[styles.scenarioDescription, { color: LP.textSecondary }]}>
             {scenario.description}
           </Text>
         </View>
       </View>
       <View style={styles.scenarioFooter}>
-        {scenario.status === "new" ? (
-          <View
-            style={[
-              styles.newBadge,
-              styles.scenarioStatusBadge,
-              { backgroundColor: TINT }
-            ]}
-          >
-            <Text style={[styles.newBadgeText, { color: NAVY }]}>
-              {scenario.progressLabel}
-            </Text>
-          </View>
-        ) : null}
         <View style={styles.scenarioActionRow}>
           <InfoPill label={scenario.duration} compact />
-          <InfoPill label={scenario.level} compact />
           <Pressable
+            testID={`scenario-play-${scenario.id}`}
             onPress={onPlay}
             style={[
               styles.playButton,
@@ -1365,6 +1363,27 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     alignItems: "flex-start"
   },
+  emptyStateCard: {
+    width: "100%",
+    maxWidth: 1128,
+    alignSelf: "center",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: LP.border,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    gap: 8
+  },
+  emptyStateTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "800"
+  },
+  emptyStateText: {
+    fontSize: 15,
+    lineHeight: 22
+  },
   scenarioTile: {
     width: "32.2%",
     minWidth: 300,
@@ -1373,7 +1392,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
     flexGrow: 0,
-    minHeight: 196,
+    minHeight: 280,
     justifyContent: "space-between"
   },
   scenarioTileTop: {
@@ -1394,18 +1413,20 @@ const styles = StyleSheet.create({
   scenarioText: {
     flex: 1,
     gap: 8,
-    minHeight: 74
+    minHeight: 192
   },
   scenarioTitle: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: "900",
     textTransform: "uppercase",
-    letterSpacing: -0.3
+    letterSpacing: -0.3,
+    minHeight: 80
   },
   scenarioDescription: {
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 14,
+    lineHeight: 21,
+    minHeight: 105
   },
   scenarioFooter: {
     gap: 10,

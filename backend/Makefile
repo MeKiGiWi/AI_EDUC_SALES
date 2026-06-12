@@ -1,6 +1,6 @@
 PYTHON ?= python3.11
 
-.PHONY: build test render-graph openapi smoke-simulator
+.PHONY: build test render-graph openapi smoke-simulator smoke-reports
 
 build:
 	$(PYTHON) -m compileall app
@@ -17,3 +17,6 @@ openapi:
 
 smoke-simulator:
 	$(PYTHON) scripts/run_simulator_regression.py
+
+smoke-reports:
+	$(PYTHON) scripts/run_report_generation_regression.py

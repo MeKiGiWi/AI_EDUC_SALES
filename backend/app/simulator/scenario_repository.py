@@ -62,6 +62,13 @@ def get_scenario_by_id(scenario_id: str) -> dict[str, Any] | None:
     return None
 
 
+def get_active_scenario_by_id(scenario_id: str) -> dict[str, Any] | None:
+    scenario = get_scenario_by_id(scenario_id)
+    if scenario is None or not scenario.get("active"):
+        return None
+    return scenario
+
+
 def get_scenario_info(scenario_id: str) -> str | None:
     scenario = get_scenario_by_id(scenario_id)
     if scenario is None:

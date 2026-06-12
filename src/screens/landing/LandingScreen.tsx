@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { legalContent } from "../../data/legal";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { leadService } from "../../services/leadService";
 import type { RoleWorkspaceOption } from "../../types/academy";
@@ -924,6 +925,55 @@ function Reveal({
   );
 }
 
+function LegalLink({
+  children,
+  href,
+  docxHref,
+  variant = "inline"
+}: {
+  children: ReactNode;
+  href: string;
+  docxHref?: string;
+  variant?: "inline" | "footer";
+}) {
+  return (
+    <Text
+      accessibilityRole="link"
+      {...(Platform.OS === "web"
+        ? ({ href } as object)
+        : null)}
+      {...({ dataSet: { legalHref: href, legalDocxHref: docxHref ?? "" } } as object)}
+      onPress={() => {
+        void Linking.openURL(href);
+      }}
+      style={variant === "footer" ? styles.footerLegalLink : styles.legalInlineLink}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function LegalConsentNotice({ tone = "dark" }: { tone?: "dark" | "light" }) {
+  return (
+    <Text style={tone === "dark" ? styles.legalConsentTextDark : styles.legalConsentTextLight}>
+      Нажимая на кнопку, вы даете{" "}
+      <LegalLink
+        href={legalContent.pages.personalDataAgreement}
+        docxHref={legalContent.documents.personalDataAgreement.href}
+      >
+        согласие на обработку персональных данных
+      </LegalLink>{" "}
+      и соглашаетесь с{" "}
+      <LegalLink
+        href={legalContent.pages.privacyPolicy}
+        docxHref={legalContent.documents.privacyPolicy.href}
+      >
+        политикой конфиденциальности
+      </LegalLink>
+    </Text>
+  );
+}
+
 export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
   const layout = useResponsiveLayout();
   const scrollRef = useRef<ScrollView>(null);
@@ -1445,6 +1495,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                   <AnchorButton tone="lime" fullWidth onPress={handleAuditSubmit}>
                     Пройти аудит
                   </AnchorButton>
+                  <LegalConsentNotice tone="dark" />
                   {auditStatus === "error" && auditError ? (
                     <Text style={styles.auditFormError}>{auditError}</Text>
                   ) : null}
@@ -1562,9 +1613,20 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                   <Text style={styles.footerColLink}>{label}</Text>
                 </Pressable>
               ))}
-              <Pressable onPress={() => {}}>
-                <Text style={styles.footerColLink}>Политика конфиденциальности</Text>
-              </Pressable>
+              <LegalLink
+                href={legalContent.pages.privacyPolicy}
+                docxHref={legalContent.documents.privacyPolicy.href}
+                variant="footer"
+              >
+                {legalContent.documents.privacyPolicy.label}
+              </LegalLink>
+              <LegalLink
+                href={legalContent.pages.personalDataAgreement}
+                docxHref={legalContent.documents.personalDataAgreement.href}
+                variant="footer"
+              >
+                Обработка персональных данных
+              </LegalLink>
             </View>
             <View>
               <Text style={styles.footerColTitle}>Контакты</Text>
@@ -1581,11 +1643,33 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 <Text style={[styles.footerAccent, styles.contactText]}>digital-methodology@ya.ru</Text>
               </Pressable>
             </View>
+            <View style={styles.footerCompany}>
+              <Text style={styles.footerColTitle}>Реквизиты</Text>
+              <Text style={styles.footerColText}>{legalContent.company.legalName}</Text>
+              <Text style={styles.footerColText}>ИНН: {legalContent.company.inn}</Text>
+              <Text style={styles.footerColText}>КПП: {legalContent.company.kpp}</Text>
+              <Text style={styles.footerColText}>ОГРН: {legalContent.company.ogrn}</Text>
+            </View>
           </View>
           <View style={styles.footerDivider} />
           <View style={[containerStyle, styles.footerBottom, isMobile && styles.footerBottomMobile]}>
-            <Text style={styles.footerBottomText}>© 2026 Цифровая методология. Все права защищены.</Text>
-            <Pressable onPress={() => {}}><Text style={styles.footerBottomLink}>Политика конфиденциальности</Text></Pressable>
+            <Text style={styles.footerBottomText}>© 2026 {legalContent.company.shortName}. Все права защищены.</Text>
+            <View style={[styles.footerBottomLinks, isMobile && styles.footerBottomLinksMobile]}>
+              <LegalLink
+                href={legalContent.pages.privacyPolicy}
+                docxHref={legalContent.documents.privacyPolicy.href}
+                variant="footer"
+              >
+                {legalContent.documents.privacyPolicy.label}
+              </LegalLink>
+              <LegalLink
+                href={legalContent.pages.personalDataAgreement}
+                docxHref={legalContent.documents.personalDataAgreement.href}
+                variant="footer"
+              >
+                {legalContent.documents.personalDataAgreement.label}
+              </LegalLink>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -1691,6 +1775,7 @@ function DiscussModal({
                 <AnchorButton tone="lime" fullWidth disabled={status === "sending"} onPress={submit}>
                   {status === "sending" ? "Отправляем…" : "Отправить заявку"}
                 </AnchorButton>
+                <LegalConsentNotice tone="light" />
                 {status === "error" && error ? <Text style={styles.discussError}>{error}</Text> : null}
               </View>
             </>
@@ -2185,6 +2270,9 @@ const styles = StyleSheet.create({
   formMobile: { padding: 14, borderRadius: 22 },
   input: { width: "100%", minHeight: 56, borderRadius: 14, backgroundColor: "#fff", paddingHorizontal: 18, color: TEXT, fontSize: 16 },
   auditFormError: { color: "#ffb4b4", fontWeight: "700", fontSize: 14, lineHeight: 20 },
+  legalConsentTextDark: { color: "rgba(255,255,255,.72)", fontSize: 12, lineHeight: 18 },
+  legalConsentTextLight: { color: MUTED, fontSize: 12, lineHeight: 18 },
+  legalInlineLink: { color: LIME_2, fontSize: 12, lineHeight: 18, textDecorationLine: "underline" },
   formResult: { color: LIME_2, fontWeight: "800", fontSize: 14, lineHeight: 20 },
   blogGrid: { flexDirection: "row", gap: 20 },
   blogGridThree: { flexWrap: "nowrap" },
@@ -2284,6 +2372,7 @@ const styles = StyleSheet.create({
   footerDivider: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,.08)" },
   footerMain: { flexDirection: "row", gap: 32, paddingVertical: 36 },
   footerBrand: { flex: 1.5, gap: 14 },
+  footerCompany: { flex: 1, minWidth: 0 },
   footerText: { color: "rgba(255,255,255,.78)", fontSize: 15, lineHeight: 24 },
   footerLegal: { color: "rgba(255,255,255,.45)", fontSize: 13, lineHeight: 20 },
   contactRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
@@ -2293,11 +2382,14 @@ const styles = StyleSheet.create({
   contactText: { flex: 1, minWidth: 0, marginBottom: 0 },
   footerColTitle: { color: "#fff", fontSize: 15, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 },
   footerColLink: { color: "rgba(255,255,255,.78)", fontSize: 15, marginBottom: 9 },
+  footerLegalLink: { color: LIME_2, fontSize: 15, lineHeight: 22 },
   footerColText: { color: "rgba(255,255,255,.6)", fontSize: 15, lineHeight: 22, marginBottom: 9 },
   footerAccent: { color: LIME, fontSize: 15, fontWeight: "700", marginBottom: 9 },
   hiddenWorkspace: { color: "rgba(255,255,255,.35)", fontSize: 13, marginTop: 10 },
   footerBottom: { flexDirection: "row", justifyContent: "space-between", gap: 16, paddingVertical: 18 },
   footerBottomMobile: { flexDirection: "column" },
+  footerBottomLinks: { flexDirection: "row", flexWrap: "wrap", gap: 18 },
+  footerBottomLinksMobile: { gap: 10 },
   footerBottomText: { color: "rgba(255,255,255,.55)", fontSize: 13 },
   footerBottomLink: { color: "rgba(255,255,255,.75)", fontSize: 13 },
   footerMainTop: { paddingTop: 8 },

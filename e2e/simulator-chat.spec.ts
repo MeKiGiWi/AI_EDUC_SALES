@@ -36,6 +36,77 @@ test("mock mode keeps the last bubble above input and clears transient UI state"
   expect(bubbleBox.y + bubbleBox.height).toBeLessThanOrEqual(inputBox.y + 8);
 });
 
+test("simulator catalog shows only 2 B2C clinic scenarios and empty B2B state", async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mock", "mock project only");
+
+  await page.goto("/simulator");
+
+  await expect(page.getByTestId("scenario-tile-clinic-appointment")).toBeVisible();
+  await expect(page.getByTestId("scenario-tile-clinic-complaint")).toBeVisible();
+  await expect(page.getByTestId(/scenario-tile-/)).toHaveCount(2);
+  await expect(page.getByText(/кондиционер|кондиционирование|цех|поставщик/i)).toHaveCount(0);
+
+  await page.getByText("B2B", { exact: true }).click();
+
+  await expect(page.getByText("В B2B пока нет доступных сценариев.")).toBeVisible();
+  await expect(
+    page.getByText("Legacy-сценарии скрыты, новые сценарии появятся позже.")
+  ).toBeVisible();
+  await expect(page.getByTestId(/scenario-tile-/)).toHaveCount(0);
+  await expect(page.getByText("Начать тренировку", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/кондиционер|кондиционирование|цех|поставщик/i)).toHaveCount(0);
+});
+
+test("mock mode opens both B2C scenarios with correct first patient line", async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mock", "mock project only");
+
+  await page.goto("/simulator");
+  await page.getByTestId("scenario-play-clinic-appointment").click();
+  await expect(page.getByText("Я впервые к вам обращаюсь")).toBeVisible();
+  await expect(page.getByText("не понимаю, к кому мне вообще надо записаться")).toBeVisible();
+
+  await page.goto("/simulator");
+  await page.getByTestId("scenario-play-clinic-complaint").click();
+  await expect(page.getByText("Хотела бы оставить жалобу по поводу вчерашнего визита")).toBeVisible();
+  await expect(page.getByText("мне никто толком не мог сказать, сколько ещё ждать")).toBeVisible();
+});
+
+test("landing legal links and footer company details are visible", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mock", "mock project only");
+
+  await page.goto("/landing");
+
+  const consentText = page.getByText("Нажимая на кнопку, вы даете согласие", { exact: false }).first();
+  await expect(consentText).toBeVisible();
+  await expect(page.getByText("политикой конфиденциальности", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText("согласие на обработку персональных данных", { exact: true }).first()
+  ).toBeVisible();
+
+  await expect(page.getByText("Общество с ограниченной ответственностью «Цифровая методология»")).toBeVisible();
+  await expect(page.getByText("ИНН: 5010060840")).toBeVisible();
+  await expect(page.getByText("КПП: 501001001")).toBeVisible();
+  await expect(page.getByText("ОГРН: 1235000008275")).toBeVisible();
+});
+
+test("legal pages open full text and keep docx access", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mock", "mock project only");
+
+  await page.goto("/legal/privacy-policy.html");
+  await expect(page).toHaveURL(/\/legal\/privacy-policy\.html$/);
+  await expect(page.getByText("Политика конфиденциальности", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Открыть оригинал DOCX")).toBeVisible();
+
+  await page.goto("/legal/personal-data-processing-agreement.html");
+  await expect(page).toHaveURL(/\/legal\/personal-data-processing-agreement\.html$/);
+  await expect(page.getByText("Согласие на обработку персональных данных", { exact: true })).toBeVisible();
+  await expect(page.getByText("Открыть оригинал DOCX")).toBeVisible();
+});
+
 test("api mode uses backend opening message, backend reply and backend evaluation", async ({
   page
 }, testInfo) => {
@@ -220,7 +291,8 @@ test("api mode uses backend opening message, backend reply and backend evaluatio
   await page.getByText("Завершить и получить отчёт").click();
 
   await expect(page.getByText("Backend evaluation summary", { exact: true })).toBeVisible();
-  await expect(page.getByText("Умение установить спокойный контакт: Senior")).toBeVisible();
+  await expect(page.getByText("Умение установить спокойный контакт").first()).toBeVisible();
+  await expect(page.getByText("Senior").first()).toBeVisible();
   await expect(
     page.getByText("диалог завершен, отчет сформирован по mock-оценке.")
   ).toHaveCount(0);

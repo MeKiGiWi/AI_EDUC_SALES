@@ -58,7 +58,7 @@ function resolveBuildDir(urlPath: string) {
 
 function resolveFilePath(buildDir: string, urlPath: string) {
   const relativePath = urlPath.replace(/^\/(mock|api)/, "") || "/";
-  const candidatePath = relativePath === "/" ? "/index.html" : relativePath;
+  const candidatePath = relativePath === "/" ? "index.html" : relativePath.replace(/^\/+/, "");
   const filePath = path.join(buildDir, candidatePath);
 
   if (existsSync(filePath) && !filePath.endsWith(path.sep)) {

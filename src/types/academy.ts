@@ -301,6 +301,7 @@ export interface ScenarioCardItem {
   id: string;
   title: string;
   description: string;
+  openingMessage?: string;
   duration: string;
   level: string;
   progressLabel: string;

@@ -127,6 +127,17 @@ async def test_get_scenarios_returns_only_active_clinic_scenarios() -> None:
     payload = response.json()
     assert response.status_code == status.HTTP_200_OK
     assert [item["id"] for item in payload["items"]] == ["clinic-appointment", "clinic-complaint"]
+    assert {item["id"] for item in payload["items"]}.isdisjoint(
+        {
+            "baseline",
+            "price-objection",
+            "competitor-comparison",
+            "timeline-negotiation",
+            "cold-call",
+            "upsell",
+            "customer-return",
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -137,6 +148,19 @@ async def test_create_session_with_unknown_scenario_returns_404(monkeypatch) -> 
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "unknown-scenario"})
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Сценарий не найден."
+
+
+@pytest.mark.asyncio
+async def test_create_session_with_inactive_legacy_scenario_returns_404(monkeypatch) -> None:
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "baseline"})
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["detail"] == "Сценарий не найден."

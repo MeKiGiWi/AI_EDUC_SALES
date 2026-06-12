@@ -7,7 +7,7 @@ from app.core.settings import get_agents_config, get_settings
 from app.reports.report_v2 import adapt_legacy_evaluation_to_report_v2, build_dialogue_turns
 from app.simulator.dialog_logger import append_dialog_log
 from app.simulator.runtime import SESSION_STORE, build_evaluation_agent, build_graph
-from app.simulator.scenario_repository import get_scenario_by_id, list_scenarios
+from app.simulator.scenario_repository import get_active_scenario_by_id, get_scenario_by_id, list_scenarios
 from app.simulator.schemas import (
     CompetencyLevel,
     EvaluationCompetencyRaw,
@@ -142,7 +142,7 @@ async def get_scenarios() -> ScenarioListResponseDto:
 
 @router.post("/sessions", response_model=SessionCreateResponseDto, status_code=201)
 async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
-    scenario = get_scenario_by_id(payload.scenario_id)
+    scenario = get_active_scenario_by_id(payload.scenario_id)
     if scenario is None:
         raise HTTPException(status_code=404, detail="Сценарий не найден.")
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Platform,
@@ -75,7 +75,6 @@ function webBg(gradient: string, fallback: string) {
   return { backgroundColor: fallback };
 }
 
-const trainerFilters = ["Все", "Новые"] as const;
 const chatInputWebReset = {
   outlineStyle: "none",
   scrollbarWidth: "none"
@@ -112,33 +111,14 @@ export function SimulatorScreen({
 }: SimulatorScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
-  const [segment, setSegment] = useState<"B2B" | "B2C">("B2C");
-  const [activeFilter, setActiveFilter] = useState<(typeof trainerFilters)[number]>("Все");
   const [infoSheet, setInfoSheet] = useState<SimulatorInfoSheetState>(null);
 
   const selectedScenario = data.scenarios.find((scenario) => scenario.id === activeScenarioId);
-  const filteredScenarios = useMemo(() => {
-    return data.scenarios.filter((scenario) => {
-      if (scenario.segment !== segment) {
-        return false;
-      }
-
-      if (activeFilter === "Новые") {
-        return scenario.status === "new";
-      }
-
-      return true;
-    });
-  }, [activeFilter, data.scenarios, segment]);
-  const segmentScenarios = useMemo(
-    () => data.scenarios.filter((scenario) => scenario.segment === segment),
-    [data.scenarios, segment]
-  );
+  const filteredScenarios = data.scenarios.filter((scenario) => scenario.segment === "B2C");
   const featuredScenario =
-    selectedScenario && selectedScenario.segment === segment
+    selectedScenario && selectedScenario.segment === "B2C"
       ? selectedScenario
-      : filteredScenarios[0] ?? segmentScenarios[0] ?? null;
-  const isSegmentEmpty = segmentScenarios.length === 0;
+      : filteredScenarios[0] ?? null;
 
   function openProgressInfo() {
     setInfoSheet({
@@ -146,8 +126,8 @@ export function SimulatorScreen({
       description:
         "Каталог показывает тот набор сценариев, который реально доступен в текущем мобильном MVP.",
       lines: [
-        `Активный сегмент: ${segment}.`,
-        `Текущий фильтр: ${activeFilter}.`,
+        "Активный сегмент: B2C.",
+        "Каталог показывает все доступные B2C-сценарии без дополнительных фильтров.",
         "После завершения тренировки отчет сохраняется и открывается автоматически."
       ]
     });
@@ -201,7 +181,7 @@ export function SimulatorScreen({
             Практикуйте навыки продаж в реалистичных сценариях.
           </Text>
           <Text style={[styles.pageSubtitle, { color: LP.textSecondary }]}>
-            Выберите модуль и начните тренировку.
+            Выберите сценарий и начните тренировку.
           </Text>
         </View>
         {!layout.isDesktop ? (
@@ -225,19 +205,7 @@ export function SimulatorScreen({
         />
       ) : null}
 
-      <View style={styles.segmentBlock}>
-        <View
-          style={[
-            styles.segmentedControl,
-            { backgroundColor: "rgba(18,26,104,0.05)", borderColor: "transparent" }
-          ]}
-        >
-          <SegmentButton label="B2C" active={segment === "B2C"} onPress={() => setSegment("B2C")} />
-          <SegmentButton label="B2B" active={segment === "B2B"} onPress={() => setSegment("B2B")} />
-        </View>
-      </View>
-
-      {featuredScenario ? (
+      {layout.isDesktop && featuredScenario ? (
         <View style={[styles.heroPanel, webBg("linear-gradient(135deg, #121a68 0%, #232f9c 100%)", NAVY)]}>
           <View style={[styles.heroDecor, styles.heroDecorTop]} />
           <View style={[styles.heroDecor, styles.heroDecorBottom]} />
@@ -273,40 +241,13 @@ export function SimulatorScreen({
         </View>
       ) : null}
 
-      <View style={[styles.filtersRow, !layout.isDesktop && styles.filtersStack]}>
-        <View style={styles.filterPills}>
-          {trainerFilters.map((label) => (
-            <Pressable
-              key={label}
-              onPress={() => setActiveFilter(label)}
-              style={[
-                styles.filterPill,
-                {
-                  backgroundColor: activeFilter === label ? NAVY : LP.card,
-                  borderColor: activeFilter === label ? NAVY : LP.border
-                }
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  { color: activeFilter === label ? "#ffffff" : LP.textPrimary }
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      {isSegmentEmpty ? (
+      {filteredScenarios.length === 0 ? (
         <View style={styles.emptyStateCard}>
           <Text style={[styles.emptyStateTitle, { color: LP.textPrimary }]}>
-            В B2B пока нет доступных сценариев.
+            Сценарии скоро появятся
           </Text>
           <Text style={[styles.emptyStateText, { color: LP.textSecondary }]}>
-            Legacy-сценарии скрыты, новые сценарии появятся позже.
+            Добавьте B2C-сценарии в mock data, и они сразу появятся в каталоге.
           </Text>
         </View>
       ) : (
@@ -674,10 +615,7 @@ function DialogueView({
                 {dialogue.persona.name}
               </Text>
               <Text style={[styles.personaMeta, { color: LP.textSecondary }]}>
-                Компания: {dialogue.persona.company}
-              </Text>
-              <Text style={[styles.personaMeta, { color: LP.textSecondary }]}>
-                Отдел: {dialogue.persona.department}
+                {dialogue.persona.department}
               </Text>
             </View>
           </View>

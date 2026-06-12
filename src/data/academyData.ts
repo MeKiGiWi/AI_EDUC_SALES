@@ -93,7 +93,7 @@ export const usersByRole: Record<UserRole, AcademyUser> = {
     role: "student",
     title: "Менеджер по продажам",
     accessLevel: "self",
-    teamName: "SMB pipeline",
+    teamName: "",
     avatarLabel: "АМ",
     focusAreas: ["Работа с возражениями", "Финализация договоренностей"],
     completionRate: 74,

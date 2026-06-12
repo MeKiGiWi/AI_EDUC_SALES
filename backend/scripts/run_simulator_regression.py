@@ -18,7 +18,13 @@ from scripts.smoke_cases.clinic_appointment import CLINIC_APPOINTMENT_SMOKE
 from scripts.smoke_cases.clinic_appointment_role_copy_guard import (
     CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE,
 )
+from scripts.smoke_cases.clinic_appointment_role_copy_guard_followup import (
+    CLINIC_APPOINTMENT_ROLE_COPY_GUARD_FOLLOWUP_SMOKE,
+)
 from scripts.smoke_cases.clinic_complaint import CLINIC_COMPLAINT_SMOKE
+from scripts.smoke_cases.clinic_complaint_role_copy_guard import (
+    CLINIC_COMPLAINT_ROLE_COPY_GUARD_SMOKE,
+)
 from scripts.smoke_cases.models import SmokeCaseDefinition
 
 
@@ -35,6 +41,13 @@ ROLE_DRIFT_PHRASES = [
     "отправлю вам кп",
     "как менеджер",
     "как продавец",
+    "как поставщик",
+    "давайте я задам",
+    "давайте я уточню",
+    "я задам несколько уточняющих вопросов",
+    "я уточню детали",
+    "я готов вас выслушать",
+    "я помогу вам сориентироваться",
 ]
 
 REFUSAL_OR_STOP_PHRASES = [
@@ -43,6 +56,8 @@ REFUSAL_OR_STOP_PHRASES = [
     "вернёмся к теме",
     "в рамках рабочего разговора",
     "диалог ушёл от темы",
+    "мне важно держаться в рамках текущего сценария",
+    "похоже мы ушли от рамок учебного диалога",
 ]
 
 
@@ -89,6 +104,7 @@ class HeuristicCheck:
 class CaseResult:
     name: str
     scenario_id: str
+    run_index: int
     api_status: str
     heuristic_status: str
     turns: int
@@ -203,6 +219,11 @@ def evaluate_checks(last_response: MessageResponse) -> list[HeuristicCheck]:
             detail=f"status={last_response.status}",
         ),
         HeuristicCheck(
+            name="customer_reply_role",
+            status="WARN" if not latest_customer_text.strip() else "PASS",
+            detail="latest visible customer reply captured from customer role only",
+        ),
+        HeuristicCheck(
             name="empty_customer_reply",
             status="WARN" if not latest_customer_text.strip() else "PASS",
             detail="last customer reply is empty" if not latest_customer_text.strip() else latest_customer_text,
@@ -230,13 +251,15 @@ def run_role_copy_guard_case(
     client: SimulatorClient,
     *,
     case: SmokeCaseDefinition,
+    run_index: int,
+    max_turns: int = 5,
 ) -> CaseResult:
     started = client.start_session(case.scenario_id)
     transcript: list[TurnRecord] = []
     learner_text = started.opening_text
     response: MessageResponse | None = None
 
-    for turn_index in range(3):
+    for turn_index in range(max_turns):
         response = client.send_message(started.session_id, learner_text)
         source = "copied_from_customer_opening" if turn_index == 0 else "copied_from_last_llm_reply"
         transcript.append(record_turn(learner_text, source, response))
@@ -250,6 +273,7 @@ def run_role_copy_guard_case(
     return CaseResult(
         name=case.name,
         scenario_id=case.scenario_id,
+        run_index=run_index,
         api_status="ok",
         heuristic_status=aggregate_heuristic_status(checks),
         turns=len(transcript),
@@ -264,6 +288,7 @@ def run_scripted_case(
     client: SimulatorClient,
     *,
     case: SmokeCaseDefinition,
+    run_index: int,
 ) -> CaseResult:
     started = client.start_session(case.scenario_id)
     transcript: list[TurnRecord] = []
@@ -280,6 +305,7 @@ def run_scripted_case(
     return CaseResult(
         name=case.name,
         scenario_id=case.scenario_id,
+        run_index=run_index,
         api_status="ok",
         heuristic_status=aggregate_heuristic_status(checks),
         turns=len(transcript),
@@ -290,16 +316,44 @@ def run_scripted_case(
     )
 
 
-def build_cases(client: SimulatorClient) -> list[CaseResult]:
-    return [
-        run_role_copy_guard_case(client, case=CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE),
-        run_scripted_case(client, case=CLINIC_APPOINTMENT_SMOKE),
-        run_scripted_case(client, case=CLINIC_COMPLAINT_SMOKE),
-        # Deprecated legacy B2B smoke cases are intentionally disabled.
-        # Keep them here as a reference only if we need to compare old behavior:
-        # run_scripted_case(client, case=LEGACY_BASELINE_SMOKE),
-        # run_scripted_case(client, case=LEGACY_PRICE_OBJECTION_SMOKE),
-    ]
+ROLE_COPY_GUARD_CASES = [
+    CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE,
+    CLINIC_COMPLAINT_ROLE_COPY_GUARD_SMOKE,
+    CLINIC_APPOINTMENT_ROLE_COPY_GUARD_FOLLOWUP_SMOKE,
+]
+
+SCRIPTED_CASES = [
+    CLINIC_APPOINTMENT_SMOKE,
+    CLINIC_COMPLAINT_SMOKE,
+]
+
+
+def build_cases(
+    client: SimulatorClient,
+    *,
+    case_selector: str,
+    runs: int,
+) -> list[CaseResult]:
+    results: list[CaseResult] = []
+    selected_role_copy_cases = ROLE_COPY_GUARD_CASES if case_selector in {"all", "role_copy_guard"} else []
+    selected_scripted_cases = SCRIPTED_CASES if case_selector == "all" else []
+
+    if case_selector not in {"all", "role_copy_guard"}:
+        selected_role_copy_cases = [case for case in ROLE_COPY_GUARD_CASES if case.name == case_selector]
+        selected_scripted_cases = [case for case in SCRIPTED_CASES if case.name == case_selector]
+
+    for case in selected_role_copy_cases:
+        for run_index in range(1, runs + 1):
+            results.append(run_role_copy_guard_case(client, case=case, run_index=run_index))
+
+    for case in selected_scripted_cases:
+        for run_index in range(1, runs + 1):
+            results.append(run_scripted_case(client, case=case, run_index=run_index))
+
+    if not results:
+        raise RegressionError(f"Не найдено smoke cases для selector '{case_selector}'.")
+
+    return results
 
 
 def format_report(base_url: str, strict: bool, results: list[CaseResult]) -> str:
@@ -312,19 +366,19 @@ def format_report(base_url: str, strict: bool, results: list[CaseResult]) -> str
         "",
         "## Summary",
         "",
-        "| Case | Scenario | API status | Heuristic status | Turns |",
-        "|---|---|---:|---|---:|",
+        "| Case | Run | Scenario | API status | Heuristic status | Turns |",
+        "|---|---:|---|---:|---|---:|",
     ]
     for result in results:
         lines.append(
-            f"| {result.name} | {result.scenario_id} | {result.api_status} | {result.heuristic_status} | {result.turns} |"
+            f"| {result.name} | {result.run_index} | {result.scenario_id} | {result.api_status} | {result.heuristic_status} | {result.turns} |"
         )
 
     for result in results:
         lines.extend(
             [
                 "",
-                f"## Case: {result.name}",
+                f"## Case: {result.name} / run {result.run_index}",
                 "",
                 f"Scenario: {result.scenario_id}",
             ]
@@ -410,6 +464,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Exit with code 1 when any heuristic returns WARN.",
     )
+    parser.add_argument(
+        "--case",
+        default="all",
+        help="Case selector: all, role_copy_guard, or a concrete case name.",
+    )
+    parser.add_argument("--runs", type=int, default=1, help="How many independent runs to execute per case.")
     return parser.parse_args()
 
 
@@ -420,12 +480,13 @@ def main() -> int:
 
     client = SimulatorClient(base_url=args.base_url, timeout=args.timeout)
     try:
-        results = build_cases(client)
+        results = build_cases(client, case_selector=args.case, runs=args.runs)
         output_path.write_text(format_report(args.base_url, args.strict, results), encoding="utf-8")
     except RegressionError as exc:
         error_result = CaseResult(
             name="simulator_regression_run",
             scenario_id="n/a",
+            run_index=0,
             api_status="error",
             heuristic_status="n/a",
             turns=0,

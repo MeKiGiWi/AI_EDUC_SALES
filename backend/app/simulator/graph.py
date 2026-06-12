@@ -4,6 +4,7 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
+from app.simulator.agents import detect_role_copy
 from app.simulator.prompts import (
     BUYER_SCENARIO_CONTEXT_PROMPT,
     BUYER_SYSTEM_PROMPT,
@@ -169,6 +170,21 @@ def _append_customer_left_message(deps: GraphDependencies):
 
 def _classify_sales_topic(deps: GraphDependencies):
     async def node(state: GraphState) -> GraphState:
+        role_copy_detected, copied_customer_message, role_copy_similarity = detect_role_copy(
+            state["sales_message"],
+            state["messages"][:-1],
+        )
+        if role_copy_detected:
+            copied_text = "" if copied_customer_message is None else str(copied_customer_message.content)
+            return {
+                "dialog_route": "continue_with_customer_reply",
+                "topic_confidence": 1.0,
+                "confidence": 1.0,
+                "role_copy_detected": True,
+                "role_copy_similarity": role_copy_similarity,
+                "copied_customer_message": copied_text,
+            }
+
         scenario = get_scenario_by_id(state["session"].scenario_id) or {}
         training_context = str(scenario.get("scenario_info", "")).strip()
         result = await deps.topic_classifier.check(
@@ -247,7 +263,12 @@ def _append_customer_offtopic_refusal_message(deps: GraphDependencies):
 
 def _append_customer_reply_message(deps: GraphDependencies):
     async def node(state: GraphState) -> GraphState:
-        reply = await deps.buyer_agent.reply(state["messages"])
+        reply = await deps.buyer_agent.reply(
+            state["messages"],
+            role_copy_detected=state.get("role_copy_detected", False),
+            copied_customer_message=state.get("copied_customer_message", ""),
+            role_copy_similarity=state.get("role_copy_similarity", 0.0),
+        )
         new_messages = [*state["messages"], AIMessage(content=reply)]
         update_payload = {
             "messages": new_messages,

@@ -7,6 +7,7 @@ from app.simulator.graph import create_graph
 from app.simulator.prompts import (
     BUYER_SCENARIO_CONTEXT_PROMPT,
     BUYER_SYSTEM_PROMPT,
+    OFFTOPIC_WARNING_MESSAGE,
     RUDE_REFUSAL_MESSAGE,
 )
 from app.simulator.scenario_repository import get_scenario_by_id, get_scenario_info
@@ -108,6 +109,119 @@ async def test_graph_returns_buyer_reply_when_user_message_is_on_topic() -> None
     assert result["dialog_route"] == "continue_with_customer_reply"
     assert result["session"].offtopic_messages_count == 0
     assert result["session"].messages[-1].content == "Нам важно не сорвать внедрение."
+
+
+class RecordingBuyerAgent:
+    def __init__(self, reply_text: str = "Вы повторили мою мысль. Что конкретно вы предлагаете дальше?") -> None:
+        self.reply_text = reply_text
+        self.calls: list[dict[str, object]] = []
+
+    async def reply(self, messages, **kwargs) -> str:
+        self.calls.append({"messages": list(messages), "kwargs": kwargs})
+        return self.reply_text
+
+
+@pytest.mark.asyncio
+async def test_graph_repeated_customer_copy_keeps_roles_and_session_active() -> None:
+    buyer_agent = RecordingBuyerAgent()
+    graph = create_graph(
+        GraphDependencies(
+            session_store=InMemorySessionStore(),
+            rude_classifier=RudeClassifierAgent(
+                RunnableLambda(lambda _: AIMessage(content='{"rude":"no","confidence":0.77}'))
+            ),
+            topic_classifier=TopicClassifierAgent(
+                RunnableLambda(lambda _: AIMessage(content='{"on_topic":"no","confidence":0.10}'))
+            ),
+            buyer_agent=buyer_agent,
+        )
+    )
+
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
+    learner_text = started["customer_message"]
+    result = started
+
+    for _ in range(5):
+        result = await graph.ainvoke(
+            {
+                "action": "reply_to_sales",
+                "session_id": started["session_id"],
+                "sales_message": learner_text,
+            }
+        )
+        assert result["status"] == "active"
+        assert result["session"].offtopic_messages_count == 0
+        assert isinstance(result["session"].messages[-2], HumanMessage)
+        assert isinstance(result["session"].messages[-1], AIMessage)
+        learner_text = result["customer_message"]
+
+    assert len(buyer_agent.calls) == 5
+    assert all(call["kwargs"]["role_copy_detected"] is True for call in buyer_agent.calls)
+
+
+@pytest.mark.asyncio
+async def test_buyer_agent_transcript_includes_role_lock_copy_guard_note() -> None:
+    captured = {}
+
+    async def fake_llm(prompt_value):
+        captured["messages"] = prompt_value.to_messages()
+        return AIMessage(content="Понял. Что именно вы предлагаете дальше?")
+
+    agent = BuyerAgent(RunnableLambda(fake_llm))
+    messages = [
+        SystemMessage(content=BUYER_SYSTEM_PROMPT),
+        SystemMessage(content=BUYER_SCENARIO_CONTEXT_PROMPT.format(
+            scenario_info="Контекст сценария",
+            reference_dialogues="Эталон",
+        )),
+        AIMessage(content="Мне нужно понять следующий шаг."),
+        HumanMessage(content="Мне нужно понять следующий шаг."),
+    ]
+
+    await agent.reply(
+        messages,
+        role_copy_detected=True,
+        copied_customer_message="Мне нужно понять следующий шаг.",
+        role_copy_similarity=1.0,
+    )
+
+    serialized = "\n".join(message.content for message in captured["messages"])
+    assert "роли не меняются" in serialized.lower()
+    assert "Покупатель: Мне нужно понять следующий шаг." in serialized
+    assert "дословно или почти дословно повторяет предыдущую реплику покупателя" in serialized
+
+
+@pytest.mark.asyncio
+async def test_buyer_agent_repairs_operator_language_and_skips_guard_messages() -> None:
+    replies = iter(
+        [
+            AIMessage(content=OFFTOPIC_WARNING_MESSAGE),
+            AIMessage(content="Мне всё ещё важно понять, к какому врачу мне лучше обратиться сначала."),
+        ]
+    )
+
+    async def fake_llm(_prompt_value):
+        return next(replies)
+
+    agent = BuyerAgent(RunnableLambda(fake_llm))
+    messages = [
+        SystemMessage(content=BUYER_SYSTEM_PROMPT),
+        SystemMessage(content=BUYER_SCENARIO_CONTEXT_PROMPT.format(
+            scenario_info="Контекст сценария",
+            reference_dialogues="Эталон",
+        )),
+        AIMessage(content="Мне нужно понять следующий шаг."),
+        HumanMessage(content="Мне нужно понять следующий шаг."),
+    ]
+
+    reply = await agent.reply(
+        messages,
+        role_copy_detected=True,
+        copied_customer_message="Мне нужно понять следующий шаг.",
+        role_copy_similarity=1.0,
+    )
+
+    assert reply == "Мне всё ещё важно понять, к какому врачу мне лучше обратиться сначала."
 
 
 @pytest.mark.skip(reason="Topic check is temporarily disabled")

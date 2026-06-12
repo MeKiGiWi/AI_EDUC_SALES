@@ -46,6 +46,9 @@ class GraphState(TypedDict, total=False):
     confidence: float
     topic_confidence: float
     customer_message: str
+    role_copy_detected: bool
+    role_copy_similarity: float
+    copied_customer_message: str
 
 
 @dataclass

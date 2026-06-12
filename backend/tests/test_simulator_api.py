@@ -191,6 +191,36 @@ async def test_send_message_stays_active_even_for_refusal_text(monkeypatch) -> N
 
 
 @pytest.mark.asyncio
+async def test_repeated_customer_copy_keeps_api_roles_fixed(monkeypatch) -> None:
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(
+        simulator_api,
+        "build_graph",
+        lambda: build_fake_graph("Вы повторили мою мысль. Что конкретно вы предлагаете дальше?"),
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "clinic-appointment"})
+        session_id = created.json()["session_id"]
+        learner_text = created.json()["message"]["text"]
+        last_payload = None
+
+        for _ in range(5):
+            response = await client.post(
+                f"/api/v1/simulator/sessions/{session_id}/messages",
+                json={"text": learner_text},
+            )
+            assert response.status_code == status.HTTP_200_OK
+            last_payload = response.json()
+            assert last_payload["status"] == "active"
+            assert [message["role"] for message in last_payload["messages"]] == ["learner", "customer"]
+            learner_text = last_payload["messages"][-1]["text"]
+
+    assert last_payload is not None
+
+
+@pytest.mark.asyncio
 async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None:
     simulator_runtime.SESSION_STORE = InMemorySessionStore()
     monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)

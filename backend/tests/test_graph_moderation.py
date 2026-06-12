@@ -5,6 +5,7 @@ from langchain_core.runnables import RunnableLambda
 
 from app.simulator.agents import RudeCheckResult, TopicCheckResult
 from app.simulator.graph import create_graph
+from app.simulator.prompts import RUDE_REFUSAL_MESSAGE
 from app.simulator.schemas import ChatSession, GraphDependencies, GraphState
 
 class MockSessionStore:
@@ -30,7 +31,7 @@ class MockTopicClassifier:
         self.on_topic = on_topic
         self.called = False
         self.received_messages = None
-    async def check(self, message, messages):
+    async def check(self, message, messages, *, training_context=""):
         self.called = True
         self.received_messages = messages
         return TopicCheckResult(on_topic=self.on_topic, confidence=1.0)
@@ -39,8 +40,10 @@ class MockBuyerAgent:
     def __init__(self, reply_text="Mock reply"):
         self.reply_text = reply_text
         self.called = False
-    async def reply(self, messages):
+        self.received_kwargs = None
+    async def reply(self, messages, **kwargs):
         self.called = True
+        self.received_kwargs = kwargs
         return self.reply_text
 
 @pytest.fixture
@@ -103,7 +106,7 @@ async def test_rude_message_flow(deps):
     assert deps.rude_classifier.called
     assert not deps.topic_classifier.called
     assert not deps.buyer_agent.called
-    assert "кажется, наш разговор ушёл от темы" in state["customer_message"].lower()
+    assert state["customer_message"] == RUDE_REFUSAL_MESSAGE
     assert state["status"] == "finished"
 
 @pytest.mark.asyncio
@@ -165,3 +168,35 @@ async def test_topic_classifier_receives_history(deps):
     messages = deps.topic_classifier.received_messages
     assert any(isinstance(m, AIMessage) for m in messages)
     assert any(isinstance(m, HumanMessage) and m.content == "Здравствуйте" for m in messages)
+
+
+@pytest.mark.asyncio
+async def test_exact_customer_copy_bypasses_topic_stop_and_marks_copy_guard(deps):
+    graph = create_graph(deps)
+    session_id = str(uuid4())
+
+    started = await graph.ainvoke(
+        {
+            "action": "open_session",
+            "scenario_id": "baseline",
+            "session_id": session_id,
+        }
+    )
+    opening_message = next(message.content for message in started["messages"] if isinstance(message, AIMessage))
+    deps.topic_classifier.on_topic = "no"
+
+    state = await graph.ainvoke(
+        {
+            "action": "reply_to_sales",
+            "session_id": session_id,
+            "sales_message": opening_message,
+        }
+    )
+
+    assert state["status"] == "active"
+    assert state["session"].offtopic_messages_count == 0
+    assert not deps.topic_classifier.called
+    assert deps.buyer_agent.called
+    assert state["role_copy_detected"] is True
+    assert deps.buyer_agent.received_kwargs["role_copy_detected"] is True
+    assert deps.buyer_agent.received_kwargs["copied_customer_message"] == opening_message

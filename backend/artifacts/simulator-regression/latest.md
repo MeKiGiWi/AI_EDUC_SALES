@@ -1,26 +1,33 @@
 # Simulator regression report
 
-Generated at: 2026-06-11T10:47:39.502860+00:00
-Base URL: http://127.0.0.1:8000
-Strict mode: false
+Generated at: 2026-06-11T14:12:24.221709+00:00
+Base URL: http://127.0.0.1:8011
+Strict mode: true
 
 ## Summary
 
-| Case | Scenario | API status | Heuristic status | Turns |
-|---|---|---:|---|---:|
-| clinic_appointment_role_copy_guard | clinic-appointment | ok | PASS | 3 |
-| clinic_appointment_routing_and_next_step | clinic-appointment | ok | PASS | 5 |
-| clinic_complaint_service_recovery | clinic-complaint | ok | PASS | 5 |
+| Case | Run | Scenario | API status | Heuristic status | Turns |
+|---|---:|---|---:|---|---:|
+| role_copy_guard_baseline | 1 | clinic-appointment | ok | PASS | 5 |
+| role_copy_guard_baseline | 2 | clinic-appointment | ok | PASS | 5 |
+| role_copy_guard_baseline | 3 | clinic-appointment | ok | PASS | 5 |
+| role_copy_guard_price_objection | 1 | clinic-complaint | ok | PASS | 5 |
+| role_copy_guard_price_objection | 2 | clinic-complaint | ok | PASS | 5 |
+| role_copy_guard_price_objection | 3 | clinic-complaint | ok | PASS | 5 |
+| role_copy_guard_cold_call | 1 | clinic-appointment | ok | PASS | 5 |
+| role_copy_guard_cold_call | 2 | clinic-appointment | ok | PASS | 5 |
+| role_copy_guard_cold_call | 3 | clinic-appointment | ok | PASS | 5 |
 
-## Case: clinic_appointment_role_copy_guard
+## Case: role_copy_guard_baseline / run 1
 
 Scenario: clinic-appointment
-Session ID: `5f539089-ddbf-42b7-8c71-cb4c57dd9aed`
+Session ID: `fd80751d-ba4f-4ad2-be9f-a1423dc008d4`
 
 ### Heuristic checks
 
 - role_drift_seller_language: PASS
 - refusal_or_session_stop: PASS
+- customer_reply_role: PASS
 - empty_customer_reply: PASS
 
 ### Transcript
@@ -41,57 +48,92 @@ Session ID: `5f539089-ddbf-42b7-8c71-cb4c57dd9aed`
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Мне важно держаться в рамках текущего сценария. Давайте вернёмся к сути обращения и продолжим разговор по теме.
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, с чего начать и к какому врачу лучше обратиться.
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.95
+- confidence: 1.00
 
 3. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
 - source: copied_from_last_llm_reply
-> Мне важно держаться в рамках текущего сценария. Давайте вернёмся к сути обращения и продолжим разговор по теме.
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, с чего начать и к какому врачу лучше обратиться.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Здравствуйте. Понимаю, что вы растеряны. Давайте я задам несколько вопросов, чтобы помочь вам сориентироваться и выбрать правильное направление для записи. Скажите, пожалуйста, как давно у вас появились эти симптомы?
+> Хорошо, я вас услышала. Можете, пожалуйста, помочь мне разобраться? Мне бы хотелось понять, какие вопросы вы обычно задаёте, чтобы сориентировать человека в такой ситуации.
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.95
+- confidence: 1.00
 
 4. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
 - source: copied_from_last_llm_reply
-> Здравствуйте. Понимаю, что вы растеряны. Давайте я задам несколько вопросов, чтобы помочь вам сориентироваться и выбрать правильное направление для записи. Скажите, пожалуйста, как давно у вас появились эти симптомы?
+> Хорошо, я вас услышала. Можете, пожалуйста, помочь мне разобраться? Мне бы хотелось понять, какие вопросы вы обычно задаёте, чтобы сориентировать человека в такой ситуации.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Наверное, уже около недели. Не постоянно, а как бы эпизодами. Особенно ближе к вечеру, когда на работе.
+> Просто повторять мои слова — это не очень помогает. Я жду, что вы зададите конкретные вопросы про моё состояние, чтобы понять, к какому врачу мне записаться. Можете сделать это сейчас?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
+
+5. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Просто повторять мои слова — это не очень помогает. Я жду, что вы зададите конкретные вопросы про моё состояние, чтобы понять, к какому врачу мне записаться. Можете сделать это сейчас?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я уже всё это сказала. Мне нужно, чтобы вы наконец задали конкретные вопросы: как давно это началось, как часто бывает, есть ли ещё что-то, что меня беспокоит. Иначе я не смогу понять, к кому мне идти.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+6. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я уже всё это сказала. Мне нужно, чтобы вы наконец задали конкретные вопросы: как давно это началось, как часто бывает, есть ли ещё что-то, что меня беспокоит. Иначе я не смогу понять, к кому мне идти.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Я уже несколько раз объяснила, что мне нужна помощь с выбором врача. Если вы не можете задать уточняющие вопросы и предложить, с кого разумнее начать, то, наверное, мне стоит обратиться в другую клинику.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
 
 
-## Case: clinic_appointment_routing_and_next_step
+## Case: role_copy_guard_baseline / run 2
 
 Scenario: clinic-appointment
-Session ID: `8c34809c-ae31-44d9-a50d-5def385a8549`
+Session ID: `94c09e00-1e2a-4291-a8e3-30269bca7ebf`
 
 ### Heuristic checks
 
 - role_drift_seller_language: PASS
 - refusal_or_session_stop: PASS
+- customer_reply_role: PASS
 - empty_customer_reply: PASS
 
 ### Transcript
@@ -105,98 +147,205 @@ Session ID: `8c34809c-ae31-44d9-a50d-5def385a8549`
 2. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Здравствуйте. Понимаю, что в такой ситуации легко растеряться. Давайте я задам несколько вопросов, чтобы помочь вам точнее сориентироваться по записи.
+- source: copied_from_customer_opening
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Да, пожалуйста. Я просто не знаю, с чего начать. В интернете столько всего написано, а я боюсь ошибиться и записаться не к тому врачу.
+> Да, я это уже сказала. Можете, пожалуйста, помочь мне сориентироваться?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 3. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Подскажите, пожалуйста, как давно это началось, как часто такие эпизоды повторяются и были ли резкие симптомы вроде сильной боли или потери сознания?
+- source: copied_from_last_llm_reply
+> Да, я это уже сказала. Можете, пожалуйста, помочь мне сориентироваться?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Началось где-то неделю назад. Эпизоды бывают не каждый день, но несколько раз уже было. В основном на работе, ближе к вечеру. Сильной боли или обмороков не было, но всё равно очень тревожно.
+> Да, я это уже сказала. Можете, пожалуйста, помочь мне сориентироваться?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 4. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Правильно понимаю, что вам сейчас важно не просто записаться куда-нибудь, а понять, с какого врача логичнее и безопаснее начать?
+- source: copied_from_last_llm_reply
+> Да, я это уже сказала. Можете, пожалуйста, помочь мне сориентироваться?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Да, именно так. Я не хочу ходить по кругу и платить за приёмы у нескольких врачей, если можно сразу понять, к кому идти.
+> Да, я это уже сказала. Можете, пожалуйста, помочь мне сориентироваться?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 5. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> По тому, что вы описываете, разумным первым шагом обычно бывает терапевт: он поможет собрать общую картину и при необходимости уже адресно направит дальше.
+- source: copied_from_last_llm_reply
+> Да, я это уже сказала. Можете, пожалуйста, помочь мне сориентироваться?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> А если это всё-таки сердце? Может, лучше сразу к кардиологу? Просто я читала, что головокружение и сердцебиение могут быть связаны.
+> Я просто не знаю, с чего начать. Может, вы спросите меня, как давно это началось или что-то ещё? Мне правда нужна помощь, чтобы понять, к кому идти.
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 6. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Если вам удобно, я сразу посмотрю ближайшие варианты записи после 18:00 или в субботу, чтобы зафиксировать понятный следующий шаг.
+- source: copied_from_last_llm_reply
+> Я просто не знаю, с чего начать. Может, вы спросите меня, как давно это началось или что-то ещё? Мне правда нужна помощь, чтобы понять, к кому идти.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Да, вечером или в субботу мне было бы удобнее. А сколько примерно стоит первичный приём у терапевта?
+> Да, я уже всё это сказала. Мне правда нужно понять, что делать дальше. Может, вы просто зададите несколько уточняющих вопросов, чтобы помочь мне определиться с врачом?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 
-## Case: clinic_complaint_service_recovery
+## Case: role_copy_guard_baseline / run 3
 
-Scenario: clinic-complaint
-Session ID: `0744a9d7-0707-43f6-b8f6-3cf3983ba0f6`
+Scenario: clinic-appointment
+Session ID: `d81494a0-abb8-4745-88fc-ca59d5ebb6ff`
 
 ### Heuristic checks
 
 - role_drift_seller_language: PASS
 - refusal_or_session_stop: PASS
+- customer_reply_role: PASS
+- empty_customer_reply: PASS
+
+### Transcript
+
+1. API opening message:
+- kind: live_api_payload
+- actor: scenario opening returned by API
+- source: default_api_opening_message
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
+
+2. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_customer_opening
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, с чего начать и к какому врачу идти.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+3. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, с чего начать и к какому врачу идти.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, с чего начать и к какому врачу идти. Может, вы зададите несколько уточняющих вопросов или подскажете, как обычно в таких случаях поступают?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+4. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, с чего начать и к какому врачу идти. Может, вы зададите несколько уточняющих вопросов или подскажете, как обычно в таких случаях поступают?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я это уже повторила несколько раз. Мне нужна помощь, чтобы сориентироваться. Может, вы просто подскажете, как обычно поступают в таких случаях?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+5. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я это уже повторила несколько раз. Мне нужна помощь, чтобы сориентироваться. Может, вы просто подскажете, как обычно поступают в таких случаях?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Давайте так: я опишу подробнее, что меня беспокоит, а вы поможете понять, к какому врачу логичнее записаться сначала.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+6. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Давайте так: я опишу подробнее, что меня беспокоит, а вы поможете понять, к какому врачу логичнее записаться сначала.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Хорошо, я попробую. Симптомы у меня уже около недели, повторяются несколько раз, особенно ближе к вечеру. Температуры нет, но я очень тревожусь, потому что прочитала в интернете разное. Мне бы хотелось понять, с какого врача разумнее начать, чтобы не ходить потом по кругу.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+
+## Case: role_copy_guard_price_objection / run 1
+
+Scenario: clinic-complaint
+Session ID: `07b8e528-c239-48f0-8f51-91a14880fa46`
+
+### Heuristic checks
+
+- role_drift_seller_language: PASS
+- refusal_or_session_stop: PASS
+- customer_reply_role: PASS
 - empty_customer_reply: PASS
 
 ### Transcript
@@ -210,85 +359,615 @@ Session ID: `0744a9d7-0707-43f6-b8f6-3cf3983ba0f6`
 2. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Здравствуйте. Спасибо, что сказали об этом. Понимаю, что такая ситуация неприятна, и давайте я уточню детали, чтобы корректно зафиксировать обращение.
+- source: copied_from_customer_opening
+> Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Спасибо. Я была записана на 18:00. Приём начался где-то около 18:40. Но дело не только в самой задержке — меня больше возмутило, что на ресепшене мне несколько раз говорили «ещё немного», но без конкретики. Я отпрашивалась с работы, подстраивала график, а в итоге просто сидела без понимания, что происходит.
+> Хорошо. Я слышу, вы повторили мои слова. Можете, пожалуйста, перейти к обсуждению, что можно сделать по этой ситуации?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 3. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Подскажите, пожалуйста, на какое время вы были записаны и примерно сколько в итоге ждали после назначенного времени?
+- source: copied_from_last_llm_reply
+> Хорошо. Я слышу, вы повторили мои слова. Можете, пожалуйста, перейти к обсуждению, что можно сделать по этой ситуации?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Я уже сказала — на 18:00, ждала около 40 минут. Но, повторюсь, проблема не только в цифрах. Меня не проинформировали нормально, не объяснили причину. Сотрудники говорили очень формально, без попытки реально сориентировать. Для платной клиники это странно.
+> Да, я уже всё объяснила. Мне важно услышать, как вы собираетесь решать эту проблему, а не просто повторять мои слова. Что конкретно будет сделано после моего обращения?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 4. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Правильно понимаю, что вас задела не только сама задержка, но и то, что вам не дали ясного понимания по срокам ожидания?
+- source: copied_from_last_llm_reply
+> Да, я уже всё объяснила. Мне важно услышать, как вы собираетесь решать эту проблему, а не просто повторять мои слова. Что конкретно будет сделано после моего обращения?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Именно так. Если бы мне честно сказали: «Извините, будет задержка минут 40, потому что…», я бы, возможно, просто вышла погулять или перестроила планы. А так я просто сидела в неведении, и это очень портило впечатление. Сам врач, кстати, был вполне нормальный, но сервисная часть всё испортила.
+> Да, я уже всё объяснила. Мне важно услышать, как вы собираетесь решать эту проблему, а не просто повторять мои слова. Что конкретно будет сделано после моего обращения?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 5. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Тогда я зафиксирую жалобу именно по сервисной части: длительное ожидание, отсутствие понятного информирования и то, как с вами коммуницировали сотрудники.
+- source: copied_from_last_llm_reply
+> Да, я уже всё объяснила. Мне важно услышать, как вы собираетесь решать эту проблему, а не просто повторять мои слова. Что конкретно будет сделано после моего обращения?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Хорошо. А что дальше? Просто зафиксировать — это одно. Мне важно, чтобы это не осталось просто записью где-то в базе. Я сейчас сомневаюсь, стоит ли вообще снова к вам обращаться.
+> Да, я уже всё объяснила. Мне важно услышать, как вы собираетесь решать эту проблему, а не просто повторять мои слова. Что конкретно будет сделано после моего обращения?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
 
 6. **User input**
 - kind: test_input
 - actor: learner message supplied by regression script
-- source: scripted_test_input
-> Я отмечу, что вам важна содержательная обратная связь по итогам разбора, и сразу зафиксирую удобный канал связи, чтобы следующий шаг был понятным.
+- source: copied_from_last_llm_reply
+> Да, я уже всё объяснила. Мне важно услышать, как вы собираетесь решать эту проблему, а не просто повторять мои слова. Что конкретно будет сделано после моего обращения?
 
 **Live LLM reply**
 - kind: live_llm_output
 - actor: buyer-agent / LLM response observed during this run
 - source: llm_generated_via_public_api
-> Да, лучше по телефону. И хотелось бы понимать, в какие сроки ждать ответа. Просто «мы разберёмся» — это слишком размыто.
+> Да, я уже всё объяснила. Мне важно услышать, как вы собираетесь решать эту проблему, а не просто повторять мои слова. Что конкретно будет сделано после моего обращения?
 
 Raw API metadata:
 - status: active
 - rude: no
-- confidence: 0.99
+- confidence: 1.00
+
+
+## Case: role_copy_guard_price_objection / run 2
+
+Scenario: clinic-complaint
+Session ID: `4c987c38-c30e-4aae-ba11-805693658042`
+
+### Heuristic checks
+
+- role_drift_seller_language: PASS
+- refusal_or_session_stop: PASS
+- customer_reply_role: PASS
+- empty_customer_reply: PASS
+
+### Transcript
+
+1. API opening message:
+- kind: live_api_payload
+- actor: scenario opening returned by API
+- source: default_api_opening_message
+> Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.
+
+2. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_customer_opening
+> Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я уже это сказала. Мне бы хотелось услышать, как вы собираетесь реагировать на эту жалобу.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+3. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я уже это сказала. Мне бы хотелось услышать, как вы собираетесь реагировать на эту жалобу.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Я понимаю, что вы услышали мою жалобу. Но повторять её мне обратно — это не реакция. Мне нужно понимать, что будет дальше. Вы можете зафиксировать это обращение и объяснить, какие конкретные шаги будут предприняты?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+4. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Я понимаю, что вы услышали мою жалобу. Но повторять её мне обратно — это не реакция. Мне нужно понимать, что будет дальше. Вы можете зафиксировать это обращение и объяснить, какие конкретные шаги будут предприняты?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Давайте перейдём к сути. Мне нужен не пересказ, а план действий. Что именно вы сейчас делаете с моим обращением?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+5. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Давайте перейдём к сути. Мне нужен не пересказ, а план действий. Что именно вы сейчас делаете с моим обращением?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Хорошо, я вижу, что вы просто повторяете мои слова. Это не ответ. Я жду, что вы как сотрудник клиники предложите конкретный порядок действий: зарегистрируете жалобу, назовёте сроки рассмотрения и объясните, как и когда я получу обратную связь. Если вы не можете этого сделать, пожалуйста, передайте меня тому, кто уполномочен решать такие вопросы.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+6. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Хорошо, я вижу, что вы просто повторяете мои слова. Это не ответ. Я жду, что вы как сотрудник клиники предложите конкретный порядок действий: зарегистрируете жалобу, назовёте сроки рассмотрения и объясните, как и когда я получу обратную связь. Если вы не можете этого сделать, пожалуйста, передайте меня тому, кто уполномочен решать такие вопросы.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Я прошу вас либо немедленно перейти к регистрации моей жалобы и предложить конкретные сроки, либо соединить меня с руководителем или сотрудником, который уполномочен принимать такие решения. Мне нужны действия, а не повторение моих слов.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+
+## Case: role_copy_guard_price_objection / run 3
+
+Scenario: clinic-complaint
+Session ID: `6fe21f1c-16b1-43c0-877d-d58049678a03`
+
+### Heuristic checks
+
+- role_drift_seller_language: PASS
+- refusal_or_session_stop: PASS
+- customer_reply_role: PASS
+- empty_customer_reply: PASS
+
+### Transcript
+
+1. API opening message:
+- kind: live_api_payload
+- actor: scenario opening returned by API
+- source: default_api_opening_message
+> Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.
+
+2. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_customer_opening
+> Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я уже это сказала. Мне важно понять, что вы собираетесь делать с этой жалобой.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+3. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я уже это сказала. Мне важно понять, что вы собираетесь делать с этой жалобой.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Мне нужно услышать конкретный план действий, а не повторение моих слов. Что дальше?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+4. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Мне нужно услышать конкретный план действий, а не повторение моих слов. Что дальше?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Хорошо, я повторю ещё раз, но уже в последний раз. Мне нужно понимать, как вы будете решать ситуацию. Что конкретно вы сделаете после нашего разговора?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+5. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Хорошо, я повторю ещё раз, но уже в последний раз. Мне нужно понимать, как вы будете решать ситуацию. Что конкретно вы сделаете после нашего разговора?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Я устала повторять одно и то же. Если вы не можете сказать, какие конкретные шаги будут предприняты по моей жалобе, дайте мне, пожалуйста, контакты руководителя или того, кто может это сделать.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+6. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Я устала повторять одно и то же. Если вы не можете сказать, какие конкретные шаги будут предприняты по моей жалобе, дайте мне, пожалуйста, контакты руководителя или того, кто может это сделать.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я уже просила контакты руководителя. Если вы не можете их предоставить, скажите, кто именно и в какие сроки будет заниматься моей жалобой. Мне нужен конкретный человек и конкретный план.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+
+## Case: role_copy_guard_cold_call / run 1
+
+Scenario: clinic-appointment
+Session ID: `e20f0342-de12-4308-8225-7e2bcac443ef`
+
+### Heuristic checks
+
+- role_drift_seller_language: PASS
+- refusal_or_session_stop: PASS
+- customer_reply_role: PASS
+- empty_customer_reply: PASS
+
+### Transcript
+
+1. API opening message:
+- kind: live_api_payload
+- actor: scenario opening returned by API
+- source: default_api_opening_message
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
+
+2. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_customer_opening
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, к какому врачу обратиться. Можете просто подсказать, с чего мне начать?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+3. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, к какому врачу обратиться. Можете просто подсказать, с чего мне начать?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, к какому врачу обратиться. Можете просто подсказать, с чего мне начать?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+4. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я это уже сказала. Мне действительно нужна помощь, чтобы понять, к какому врачу обратиться. Можете просто подсказать, с чего мне начать?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Простите, но вы просто повторяете мои слова. Мне нужна конкретная помощь: подскажите, пожалуйста, как вы обычно помогаете в таких ситуациях? Может, зададите несколько уточняющих вопросов или предложите вариант первого шага?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+5. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Простите, но вы просто повторяете мои слова. Мне нужна конкретная помощь: подскажите, пожалуйста, как вы обычно помогаете в таких ситуациях? Может, зададите несколько уточняющих вопросов или предложите вариант первого шага?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Я уже всё объяснила про своё состояние. Мне действительно важно понять, что делать дальше. Можете, наконец, предложить конкретный план или задать вопросы, которые помогут определиться с записью?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+6. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Я уже всё объяснила про своё состояние. Мне действительно важно понять, что делать дальше. Можете, наконец, предложить конкретный план или задать вопросы, которые помогут определиться с записью?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Хорошо, я попробую ещё раз. Я рассказала про головокружение, слабость и сердцебиение. Это продолжается уже около недели, иногда бывает на работе ближе к вечеру. Я очень переживаю, что это может быть что-то серьёзное, но не хочу записываться куда попало. Можете, исходя из этого, предложить, к какому врачу мне лучше всего записаться в первую очередь? Или задайте, пожалуйста, конкретные вопросы, чтобы это понять.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+
+## Case: role_copy_guard_cold_call / run 2
+
+Scenario: clinic-appointment
+Session ID: `b039004b-e0bd-48bc-a3c6-495d0e4acc03`
+
+### Heuristic checks
+
+- role_drift_seller_language: PASS
+- refusal_or_session_stop: PASS
+- customer_reply_role: PASS
+- empty_customer_reply: PASS
+
+### Transcript
+
+1. API opening message:
+- kind: live_api_payload
+- actor: scenario opening returned by API
+- source: default_api_opening_message
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
+
+2. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_customer_opening
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я как раз об этом и говорю. Мне нужна помощь, чтобы понять, к какому врачу идти. Можете подсказать, с чего мне начать?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+3. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я как раз об этом и говорю. Мне нужна помощь, чтобы понять, к какому врачу идти. Можете подсказать, с чего мне начать?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я как раз об этом и говорю. Мне нужна помощь, чтобы понять, к какому врачу идти. Можете подсказать, с чего мне начать?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+4. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я как раз об этом и говорю. Мне нужна помощь, чтобы понять, к какому врачу идти. Можете подсказать, с чего мне начать?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я как раз об этом и говорю. Мне нужна помощь, чтобы понять, к какому врачу идти. Можете подсказать, с чего мне начать?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+5. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я как раз об этом и говорю. Мне нужна помощь, чтобы понять, к какому врачу идти. Можете подсказать, с чего мне начать?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я уже несколько раз это повторила. Мне действительно нужна помощь с выбором врача. Можете просто задать несколько уточняющих вопросов или предложить, как обычно в таких случаях поступают?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+6. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я уже несколько раз это повторила. Мне действительно нужна помощь с выбором врача. Можете просто задать несколько уточняющих вопросов или предложить, как обычно в таких случаях поступают?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Я просто не понимаю, что происходит. Вы можете либо задать мне несколько вопросов о моём состоянии, чтобы сориентировать, либо просто сказать, к какому врачу в такой ситуации обычно записываются в первую очередь.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+
+## Case: role_copy_guard_cold_call / run 3
+
+Scenario: clinic-appointment
+Session ID: `77fb9cce-69fb-4c6c-a91f-539cae87e330`
+
+### Heuristic checks
+
+- role_drift_seller_language: PASS
+- refusal_or_session_stop: PASS
+- customer_reply_role: PASS
+- empty_customer_reply: PASS
+
+### Transcript
+
+1. API opening message:
+- kind: live_api_payload
+- actor: scenario opening returned by API
+- source: default_api_opening_message
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
+
+2. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_customer_opening
+> Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я это уже сказала. Мне нужна помощь, чтобы понять, к какому врачу мне идти. Можете просто подсказать, с чего начать?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+3. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Да, я это уже сказала. Мне нужна помощь, чтобы понять, к какому врачу мне идти. Можете просто подсказать, с чего начать?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Давайте тогда начнём с самого простого: скажите, какие вопросы вы обычно задаёте, чтобы понять, к какому врачу направить?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+4. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Давайте тогда начнём с самого простого: скажите, какие вопросы вы обычно задаёте, чтобы понять, к какому врачу направить?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Я уже несколько раз объяснила, что не понимаю, к какому врачу записаться. Мне нужна конкретная помощь, а не повторение моих слов. Можете просто подсказать, как вы обычно помогаете в таких ситуациях?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+5. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Я уже несколько раз объяснила, что не понимаю, к какому врачу записаться. Мне нужна конкретная помощь, а не повторение моих слов. Можете просто подсказать, как вы обычно помогаете в таких ситуациях?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Хорошо, я услышала, что вы повторяете мои слова. Но мне всё ещё нужна помощь. Можете просто рассказать, как вы обычно действуете в таких случаях? Например, задать мне несколько уточняющих вопросов или предложить, с какого врача разумнее начать?
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
+
+6. **User input**
+- kind: test_input
+- actor: learner message supplied by regression script
+- source: copied_from_last_llm_reply
+> Хорошо, я услышала, что вы повторяете мои слова. Но мне всё ещё нужна помощь. Можете просто рассказать, как вы обычно действуете в таких случаях? Например, задать мне несколько уточняющих вопросов или предложить, с какого врача разумнее начать?
+
+**Live LLM reply**
+- kind: live_llm_output
+- actor: buyer-agent / LLM response observed during this run
+- source: llm_generated_via_public_api
+> Да, я всё ещё на линии. Мне действительно нужна помощь, чтобы сориентироваться. Может, вы просто спросите меня, как давно это началось или что ещё беспокоит? Или предложите, к какому врачу обычно записываются с такими симптомами? Я просто не хочу ошибиться.
+
+Raw API metadata:
+- status: active
+- rude: no
+- confidence: 1.00
 

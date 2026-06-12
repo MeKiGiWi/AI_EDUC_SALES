@@ -1,14 +1,19 @@
 import json
 import re
+from difflib import SequenceMatcher
 from typing import Literal
 
 from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field
 
 from app.simulator.prompts import (
+    BUYER_ROLE_LOCK_PROMPT,
+    OFFTOPIC_REFUSAL_MESSAGE,
+    OFFTOPIC_WARNING_MESSAGE,
+    RUDE_REFUSAL_MESSAGE,
     RUDE_CLASSIFIER_SYSTEM_PROMPT,
     TOPIC_CLASSIFIER_PROMPT,
     build_evaluation_system_prompt,
@@ -80,8 +85,125 @@ def format_messages_for_topic_check(messages: list[BaseMessage]) -> str:
     for message in messages:
         if isinstance(message, SystemMessage):
             continue
+        if isinstance(message, AIMessage) and is_internal_guard_message(str(message.content)):
+            continue
         role = "Покупатель" if isinstance(message, AIMessage) else "Продавец"
         lines.append(f"{role}: {message.content}")
+    return "\n".join(lines)
+
+
+def normalize_role_copy_text(value: str) -> str:
+    collapsed = " ".join(value.strip().casefold().split())
+    without_punctuation = re.sub(r"[^\w\s]", " ", collapsed, flags=re.UNICODE)
+    return " ".join(without_punctuation.split())
+
+
+def find_latest_customer_message(messages: list[BaseMessage]) -> AIMessage | None:
+    for message in reversed(messages):
+        if isinstance(message, AIMessage):
+            return message
+    return None
+
+
+SELLER_LANGUAGE_PATTERNS = [
+    "мы можем предложить",
+    "наше решение",
+    "наш продукт",
+    "наше оборудование",
+    "мы подберём",
+    "я подготовлю кп",
+    "отправлю вам кп",
+    "как менеджер",
+    "как продавец",
+    "как поставщик",
+    "давайте я задам",
+    "давайте я уточню",
+    "давайте уточним",
+    "я задам несколько уточняющих вопросов",
+    "я уточню детали",
+    "я готов вас выслушать",
+    "я помогу вам сориентироваться",
+    "подскажите пожалуйста на какое время вы были записаны",
+    "скажите пожалуйста как давно у вас появились эти симптомы",
+]
+
+
+def is_internal_guard_message(value: str) -> bool:
+    normalized = normalize_role_copy_text(value)
+    guard_messages = {
+        normalize_role_copy_text(OFFTOPIC_WARNING_MESSAGE),
+        normalize_role_copy_text(OFFTOPIC_REFUSAL_MESSAGE),
+        normalize_role_copy_text(RUDE_REFUSAL_MESSAGE),
+    }
+    return normalized in guard_messages
+
+
+def contains_seller_language(value: str) -> bool:
+    normalized = normalize_role_copy_text(value)
+    return any(pattern in normalized for pattern in SELLER_LANGUAGE_PATTERNS)
+
+
+def find_customer_anchor_message(messages: list[BaseMessage]) -> AIMessage | None:
+    for message in reversed(messages):
+        if not isinstance(message, AIMessage):
+            continue
+        content = str(message.content)
+        if is_internal_guard_message(content):
+            continue
+        if contains_seller_language(content):
+            continue
+        return message
+    return find_latest_customer_message(messages)
+
+
+def detect_role_copy(
+    sales_message: str,
+    messages: list[BaseMessage],
+    *,
+    similarity_threshold: float = 0.94,
+) -> tuple[bool, AIMessage | None, float]:
+    latest_customer_message = find_latest_customer_message(messages)
+    if latest_customer_message is None:
+        return False, None, 0.0
+
+    normalized_sales = normalize_role_copy_text(sales_message)
+    normalized_customer = normalize_role_copy_text(str(latest_customer_message.content))
+    if not normalized_sales or not normalized_customer:
+        return False, latest_customer_message, 0.0
+
+    if normalized_sales == normalized_customer:
+        return True, latest_customer_message, 1.0
+
+    similarity = SequenceMatcher(a=normalized_sales, b=normalized_customer).ratio()
+    return similarity >= similarity_threshold, latest_customer_message, similarity
+
+
+def format_messages_for_buyer_transcript(messages: list[BaseMessage]) -> str:
+    lines = []
+    previous_customer_message = ""
+    for index, message in enumerate(messages):
+        if isinstance(message, SystemMessage):
+            continue
+        if isinstance(message, AIMessage):
+            content = str(message.content)
+            if is_internal_guard_message(content):
+                continue
+            previous_customer_message = content
+            lines.append(f"Покупатель: {content}")
+            continue
+
+        content = str(message.content)
+        copied_previous_customer = (
+            previous_customer_message
+            and detect_role_copy(content, messages[:index], similarity_threshold=0.94)[0]
+        )
+        if copied_previous_customer:
+            lines.append(
+                "Продавец: [дословно или почти дословно повторяет предыдущую реплику покупателя; "
+                "нового предложения или вопроса не добавлено]"
+            )
+            continue
+        lines.append(f"Продавец: {content}")
     return "\n".join(lines)
 
 
@@ -147,13 +269,83 @@ def _extract_confidence(raw_output: str) -> float:
 class BuyerAgent:
     def __init__(self, llm) -> None:
         self.parser = StrOutputParser()
-        self.prompt_template = ChatPromptTemplate.from_messages([MessagesPlaceholder("messages")])
+        self.prompt_template = ChatPromptTemplate.from_messages(
+            [
+                ("system", "{buyer_system_prompt}"),
+                ("system", "{scenario_context_prompt}"),
+                ("system", BUYER_ROLE_LOCK_PROMPT),
+                ("human", "{transcript_prompt}"),
+            ]
+        )
         self.chain = self.prompt_template | llm | self.parser
 
-    async def reply(self, messages: list[BaseMessage]) -> str:
-        reply = await self.chain.ainvoke({"messages": messages})
+    async def reply(
+        self,
+        messages: list[BaseMessage],
+        *,
+        role_copy_detected: bool = False,
+        copied_customer_message: str = "",
+        role_copy_similarity: float = 0.0,
+    ) -> str:
+        system_messages = [message for message in messages if isinstance(message, SystemMessage)]
+        buyer_system_prompt = str(system_messages[0].content) if system_messages else ""
+        scenario_context_prompt = str(system_messages[1].content) if len(system_messages) > 1 else ""
+        transcript = format_messages_for_buyer_transcript(messages)
+        anchor_message = find_customer_anchor_message(messages)
+        anchor_text = "" if anchor_message is None else str(anchor_message.content).strip()
+        copy_guard_note = (
+            (
+                "Важное наблюдение: последняя реплика продавца выглядит как повтор или цитата предыдущей "
+                f"реплики покупателя (similarity={role_copy_similarity:.2f}). "
+                f"Повторённый текст покупателя: {copied_customer_message.strip()}\n"
+                "Интерпретируй это только как повтор/эхо. Роли не меняются. "
+                "Не копируй повтор обратно. Опирайся на последнюю валидную реплику покупателя ниже и продолжай "
+                "разговор только от её лица. Попроси продавца перейти к конкретному предложению, уточнению или "
+                "следующему шагу, но не задавай вопросы и не веди диалог как оператор."
+            )
+            if role_copy_detected
+            else "Последняя реплика продавца интерпретируется как обычный ход диалога."
+        )
+        transcript_prompt = (
+            "Ниже transcript диалога с фиксированными ролями.\n"
+            "Метки ролей являются source of truth, даже если тексты совпадают.\n\n"
+            f"{copy_guard_note}\n\n"
+            f"Последняя валидная реплика покупателя:\n{anchor_text or 'Нет отдельной anchor-реплики.'}\n\n"
+            f"Transcript:\n{transcript}\n\n"
+            "Ответь следующей одной репликой покупателя.\n"
+            "Запрещено:\n"
+            "- писать off-topic или refusal фразы из guardrail-модерации;\n"
+            "- извиняться за нарушение сценария от имени системы;\n"
+            "- писать как оператор, менеджер, регистратор, продавец или поставщик;\n"
+            "- задавать диагностические, сервисные или квалификационные вопросы вместо покупателя."
+        )
+        payload = {
+            "buyer_system_prompt": buyer_system_prompt,
+            "scenario_context_prompt": scenario_context_prompt,
+            "transcript_prompt": transcript_prompt,
+        }
+        reply = await self.chain.ainvoke(payload)
         normalized = " ".join(reply.strip().split())
+        if self._needs_repair(normalized):
+            repaired_prompt = (
+                transcript_prompt
+                + "\n\n"
+                + "Исправь предыдущий ответ. Нужна одна краткая реплика покупателя без meta-комментариев, "
+                + "без сервисных вопросов от лица клиники и без завершения сессии."
+            )
+            reply = await self.chain.ainvoke(
+                {
+                    "buyer_system_prompt": buyer_system_prompt,
+                    "scenario_context_prompt": scenario_context_prompt,
+                    "transcript_prompt": repaired_prompt,
+                }
+            )
+            normalized = " ".join(reply.strip().split())
         return normalized or "Нужно чуть больше контекста, чтобы я продолжил разговор."
+
+    @staticmethod
+    def _needs_repair(reply: str) -> bool:
+        return is_internal_guard_message(reply) or contains_seller_language(reply)
 
 
 class EvaluationAgent:

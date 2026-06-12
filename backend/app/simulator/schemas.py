@@ -27,6 +27,7 @@ class ChatSession(BaseModel):
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
     offtopic_messages_count: int = 0
+    opening_message_override: str | None = None
 
 
 class GraphState(TypedDict, total=False):
@@ -53,6 +54,7 @@ class GraphState(TypedDict, total=False):
     moderation_severity: str
     terminate_session: bool
     moderation_reason: str
+    opening_message_override: str
 
 
 @dataclass
@@ -103,6 +105,7 @@ class ScenarioListResponseDto(BaseModel):
 class SessionCreateDto(BaseModel):
     scenario_id: str
     difficulty: str | None = None
+    opening_message_override: str | None = Field(default=None, max_length=4000)
 
 
 class SessionMessageCreateDto(BaseModel):

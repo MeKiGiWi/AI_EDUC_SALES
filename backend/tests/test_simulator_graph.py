@@ -115,6 +115,20 @@ async def test_graph_starts_with_scenario_context_and_opening_message() -> None:
 
 
 @pytest.mark.asyncio
+async def test_graph_uses_opening_override_when_provided() -> None:
+    graph = build_graph_with_reply("Ответ")
+    override = "Здравствуйте. Хочу начать с другой открывающей фразы."
+
+    started = await graph.ainvoke(
+        {"action": "open_session", "scenario_id": "clinic-appointment", "opening_message_override": override}
+    )
+
+    assert started["messages"][2].content == override
+    assert started["customer_message"] == override
+    assert started["session"].opening_message_override == override
+
+
+@pytest.mark.asyncio
 async def test_graph_returns_buyer_reply_when_user_message_is_on_topic() -> None:
     graph = build_graph_with_reply(
         "Нам важно не сорвать внедрение.",

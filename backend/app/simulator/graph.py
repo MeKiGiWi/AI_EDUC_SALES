@@ -80,7 +80,8 @@ def _open_new_session(deps: GraphDependencies):
     def node(state: GraphState) -> GraphState:
         scenario_id = state["scenario_id"]
         scenario = get_scenario_by_id(scenario_id)
-        opening_message = (
+        opening_override = str(state.get("opening_message_override", "") or "").strip()
+        opening_message = opening_override or (
             scenario["opening_message"] if scenario is not None else DEFAULT_OPENING_MESSAGE
         )
         scenario_info = get_scenario_info(scenario_id)
@@ -104,6 +105,7 @@ def _open_new_session(deps: GraphDependencies):
             id=state.get("session_id", str(uuid4())),
             scenario_id=scenario_id,
             messages=messages,
+            opening_message_override=opening_override or None,
         )
         deps.session_store.create(session)
         return {

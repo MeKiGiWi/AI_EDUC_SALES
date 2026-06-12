@@ -172,6 +172,24 @@ async def test_create_session_returns_opening_message(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_create_session_returns_opening_override_when_provided(monkeypatch) -> None:
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
+    override = "Здравствуйте. У меня новая стартовая фраза для smoke теста."
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/simulator/sessions",
+            json={"scenario_id": "clinic-appointment", "opening_message_override": override},
+        )
+
+    payload = response.json()
+    assert response.status_code == status.HTTP_201_CREATED
+    assert payload["message"]["text"] == override
+
+
+@pytest.mark.asyncio
 async def test_get_scenarios_returns_only_active_clinic_scenarios() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.get("/api/v1/simulator/scenarios")

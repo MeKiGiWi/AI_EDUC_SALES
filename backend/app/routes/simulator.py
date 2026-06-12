@@ -147,7 +147,11 @@ async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
         raise HTTPException(status_code=404, detail="Сценарий не найден.")
 
     graph = build_graph()
-    initial_state = {"action": "open_session", "scenario_id": payload.scenario_id}
+    initial_state = {
+        "action": "open_session",
+        "scenario_id": payload.scenario_id,
+        "opening_message_override": payload.opening_message_override,
+    }
     result = await graph.ainvoke(initial_state)
     return SessionCreateResponseDto(
         session_id=result["session_id"],

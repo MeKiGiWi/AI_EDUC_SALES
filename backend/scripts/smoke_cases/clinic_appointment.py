@@ -9,6 +9,7 @@ CLINIC_APPOINTMENT_SMOKE = SmokeCaseDefinition(
     name="clinic_appointment_routing_and_next_step",
     scenario_id="clinic-appointment",
     reference_note="Derived from Middle/Senior reference dialogue for primary routing.",
+    kind="scripted_reference",
     learner_messages=[
         "Здравствуйте. Понимаю, что в такой ситуации легко растеряться. Давайте я задам несколько вопросов, чтобы помочь вам точнее сориентироваться по записи.",
         "Подскажите, пожалуйста, как давно это началось, как часто такие эпизоды повторяются и были ли резкие симптомы вроде сильной боли или потери сознания?",

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppBottomSheet } from "../../components/ui/AppBottomSheet";
@@ -15,8 +15,6 @@ interface StudentHomeScreenProps {
   onOpenReport: (reportId: string) => void;
   onOpenTrainer: (scenarioId: string) => void;
 }
-
-const filterLabels = ["Все", "Новые"] as const;
 
 type HomeInfoSheetState =
   | {
@@ -36,7 +34,6 @@ export function StudentHomeScreen({
 }: StudentHomeScreenProps) {
   const theme = useTheme();
   const layout = useResponsiveLayout();
-  const [activeFilter, setActiveFilter] = useState<(typeof filterLabels)[number]>("Все");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [infoSheet, setInfoSheet] = useState<HomeInfoSheetState>(null);
   const [historyExportSheet, setHistoryExportSheet] = useState<HistoryExportSheetState>(null);
@@ -44,17 +41,7 @@ export function StudentHomeScreen({
   const isCompact = !layout.isDesktop;
   const isMobile = layout.isMobile;
   const latestReport = reports[0];
-  const filteredHistory = useMemo(() => {
-    if (activeFilter === "Все") {
-      return reports;
-    }
-
-    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
-    return reports.filter((report) => {
-      const createdAt = new Date(report.createdAt).getTime();
-      return !Number.isNaN(createdAt) && createdAt >= dayAgo;
-    });
-  }, [activeFilter, reports]);
+  const filteredHistory = reports;
 
   const latestReportStrengths = latestReport
     ? getSectionLines(latestReport, ["Сильные стороны"]).slice(0, 3)
@@ -80,7 +67,7 @@ export function StudentHomeScreen({
       description: "Главная показывает реальный последний отчет и историю после завершения тренировки.",
       lines: [
         "Новый отчет появляется сверху автоматически после сохранения.",
-        "Фильтр «Новые» показывает отчеты за последние 24 часа.",
+        "История ниже показывает все доступные отчеты без дополнительных фильтров.",
         "PDF и CSV можно выгрузить прямо из карточек отчетов."
       ]
     });
@@ -260,41 +247,6 @@ export function StudentHomeScreen({
                   <Text style={[styles.recommendationText, { color: theme.semantic.textSecondary }]}>{item.description}</Text>
                 </View>
               </View>
-            ))}
-          </View>
-        </View>
-      </View>
-
-      <View style={[styles.filtersLayout, !layout.isDesktop && styles.filtersLayoutStack]}>
-        <View style={[styles.filtersControls, !layout.isDesktop && styles.filtersControlsStack]}>
-          <View style={styles.filterPills}>
-            {filterLabels.map((label) => (
-              <Pressable
-                key={label}
-                onPress={() => setActiveFilter(label)}
-                style={[
-                  styles.filterPill,
-                  {
-                    backgroundColor:
-                      activeFilter === label ? theme.colors.primaryPale : theme.semantic.card,
-                    borderColor: theme.semantic.border
-                  }
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    {
-                      color:
-                        activeFilter === label
-                          ? theme.semantic.actionPrimary
-                          : theme.semantic.textPrimary
-                    }
-                  ]}
-                >
-                  {label}
-                </Text>
-              </Pressable>
             ))}
           </View>
         </View>

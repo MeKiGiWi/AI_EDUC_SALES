@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.database import initialize_database, reset_database_state
 from app.main import app
+from app.reports.report_v2 import adapt_legacy_evaluation_to_report_v2
 from app.simulator.schemas import CompetencyLevel, EvaluationCompetencyRaw, EvaluationResultRaw
 
 
@@ -147,6 +148,120 @@ async def test_create_list_and_get_report(sqlite_database: Path) -> None:
     assert fetched_payload["sourceLabel"] == "simulator"
     assert fetched_payload["sessionId"] == "session-123"
     assert fetched_payload["reportV2"]["summary"]["title"].startswith("Отчет по диалогу")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("scenario_id", "scenario_title"),
+    [
+        ("clinic-appointment", "Первичная запись: тревожный пациент с симптомами"),
+        ("clinic-complaint", "Жалоба на сервис клиники и длительное ожидание"),
+    ],
+)
+async def test_report_v2_is_preserved_on_create_and_fetch(sqlite_database: Path, scenario_id: str, scenario_title: str) -> None:
+    evaluation_payload = build_evaluation_payload()
+    expected_titles = {
+        "clinic-appointment": [
+            "Умение установить спокойный контакт",
+            "Умение задавать уточняющие вопросы по симптомам без постановки диагноза",
+            "Первичная маршрутизация пациента к подходящему врачу",
+            "Работа с тревогой и сомнениями пациента",
+            "Фиксация следующего шага",
+        ],
+        "clinic-complaint": [
+            "Контакт в жалобной коммуникации",
+            "Сбор фактов по жалобе",
+            "Эмпатия без обороны",
+            "Предложение решения по обращению",
+            "Фиксация следующего шага",
+        ],
+    }
+    expected_ids = {
+        "clinic-appointment": [
+            "calm_contact",
+            "symptom_questions_without_diagnosis",
+            "patient_routing",
+            "anxiety_handling",
+            "next_step",
+        ],
+        "clinic-complaint": [
+            "complaint_contact",
+            "complaint_fact_gathering",
+            "empathy_without_defensiveness",
+            "complaint_solution",
+            "next_step",
+        ],
+    }
+    report_v2 = {
+        "reportVersion": "2.0",
+        "case": {
+            "id": scenario_id,
+            "title": scenario_title,
+            "scenarioTitle": scenario_title,
+            "createdAt": "2026-05-05T12:30:00Z",
+        },
+        "participant": {"role": "student", "displayName": "Ученик"},
+        "summary": {
+            "title": f"Отчет по диалогу: {scenario_title}",
+            "headline": "Тестовый отчёт V2",
+            "overallLevel": "Middle",
+            "overallScore": 68,
+            "shortResume": [f"Кейс: {scenario_title}", "Общий уровень: Middle", "dialogueAnalysis должен сохраниться."],
+        },
+        "competencies": [
+            {
+                "id": expected_ids[scenario_id][index],
+                "title": title,
+                "level": "Middle",
+                "score": 68,
+                "comment": f"{title}: тестовый комментарий",
+                "evidence": [],
+            }
+            for index, title in enumerate(expected_titles[scenario_id])
+        ],
+        "dialogueAnalysis": [
+        {
+            "turnIndex": 1,
+            "speaker": "manager",
+            "speakerLabel": "Менеджер",
+            "timestamp": "12:00",
+            "text": "Тестовая реплика",
+            "analysis": {
+                "status": "good",
+                "comment": "Тестовый комментарий",
+                "recommendation": None,
+                "competencyIds": [expected_ids[scenario_id][0]],
+            },
+        }
+        ],
+        "strengths": [{"title": expected_titles[scenario_id][0], "comment": "Сильная сторона", "evidence": []}],
+        "developmentAreas": [{"title": expected_titles[scenario_id][-1], "comment": "Зона роста", "actions": ["Конкретизировать следующий шаг."]}],
+        "nextSteps": ["Сохранить dialogueAnalysis.", "Сохранить competency ids."],
+        "meta": {"generatedBy": "AI Sales Academy", "source": "dialogue_simulation", "language": "ru"},
+    }
+    payload = {
+        "role": "student",
+        "scenario_id": scenario_id,
+        "scenario_title": scenario_title,
+        "source_label": "simulator",
+        "session_id": f"session-{scenario_id}",
+        "evaluation": evaluation_payload,
+        "report_v2": report_v2,
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        created = await client.post("/api/v1/reports", json=payload)
+        listed = await client.get("/api/v1/reports", params={"role": "student"})
+        fetched = await client.get(f"/api/v1/reports/{created.json()['id']}")
+
+    created_payload = created.json()
+    listed_item = listed.json()["items"][0]
+    fetched_payload = fetched.json()
+    assert created.status_code == status.HTTP_201_CREATED
+    assert created_payload["reportV2"]["dialogueAnalysis"][0]["analysis"]["comment"] == "Тестовый комментарий"
+    assert created_payload["reportV2"]["competencies"][0]["id"]
+    assert listed_item["reportV2"]["dialogueAnalysis"][0]["analysis"]["comment"] == "Тестовый комментарий"
+    assert fetched_payload["reportV2"]["dialogueAnalysis"][0]["analysis"]["comment"] == "Тестовый комментарий"
 
 
 @pytest.mark.asyncio

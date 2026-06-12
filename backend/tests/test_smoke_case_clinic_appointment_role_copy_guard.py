@@ -13,4 +13,5 @@ from scripts.smoke_cases.clinic_appointment_role_copy_guard import (
 def test_clinic_appointment_role_copy_guard_case_is_wired() -> None:
     assert CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE.scenario_id == "clinic-appointment"
     assert CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE.name == "role_copy_guard_baseline"
+    assert CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE.kind == "role_copy_guard"
     assert CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE.learner_messages == []

@@ -93,6 +93,58 @@ class FakeEvaluationAgent:
         )
 
 
+class FakeComplaintEvaluationAgent(FakeEvaluationAgent):
+    async def evaluate(self, dialogue: str, manager_replies: int, *, min_replies: int = 10) -> EvaluationResultRaw:
+        assert dialogue
+        assert manager_replies >= 1
+        assert min_replies == self.expected_min_replies
+        return EvaluationResultRaw(
+            overall_level=CompetencyLevel.MIDDLE,
+            overall_comment="Жалоба обработана конструктивно, но следующий шаг можно закрепить точнее.",
+            overall_recommendations=[
+                "Сначала признавать неудобство.",
+                "Фиксировать срок обратной связи.",
+            ],
+            competencies=[
+                EvaluationCompetencyRaw(
+                    name="Контакт в жалобной коммуникации",
+                    level=CompetencyLevel.MIDDLE,
+                    argument="Контакт спокойный и без эскалации.",
+                    quote=["Понимаю ваше недовольство."],
+                    recommendations=["Сохранять признание неудобства в начале ответа."],
+                ),
+                EvaluationCompetencyRaw(
+                    name="Сбор фактов по жалобе",
+                    level=CompetencyLevel.MIDDLE,
+                    argument="Факты собираются по делу.",
+                    quote=["Подскажите, пожалуйста, сколько вы ожидали?"],
+                    recommendations=["Уточнять дату, время и участников."],
+                ),
+                EvaluationCompetencyRaw(
+                    name="Эмпатия без обороны",
+                    level=CompetencyLevel.JUNIOR,
+                    argument="Можно меньше формальности и защиты.",
+                    quote=["Сожалею, что вам пришлось ждать."],
+                    recommendations=["Не оправдываться до разбора ситуации."],
+                ),
+                EvaluationCompetencyRaw(
+                    name="Предложение решения по обращению",
+                    level=CompetencyLevel.MIDDLE,
+                    argument="Решение обозначено.",
+                    quote=["Я передам обращение старшему администратору."],
+                    recommendations=["Добавлять канал и срок ответа."],
+                ),
+                EvaluationCompetencyRaw(
+                    name="Фиксация следующего шага",
+                    level=CompetencyLevel.JUNIOR,
+                    argument="Нужен более конкретный срок.",
+                    quote=["Мы свяжемся с вами после проверки."],
+                    recommendations=["Называть срок и ответственного."],
+                ),
+            ],
+        )
+
+
 @pytest.mark.asyncio
 async def test_health_endpoint_returns_ok() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
@@ -117,6 +169,24 @@ async def test_create_session_returns_opening_message(monkeypatch) -> None:
     assert "session_id" in payload
     assert payload["message"]["role"] == "customer"
     assert payload["message"]["text"] == get_scenario_by_id("clinic-appointment")["opening_message"]
+
+
+@pytest.mark.asyncio
+async def test_create_session_returns_opening_override_when_provided(monkeypatch) -> None:
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph())
+    override = "Здравствуйте. У меня новая стартовая фраза для smoke теста."
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/simulator/sessions",
+            json={"scenario_id": "clinic-appointment", "opening_message_override": override},
+        )
+
+    payload = response.json()
+    assert response.status_code == status.HTTP_201_CREATED
+    assert payload["message"]["text"] == override
 
 
 @pytest.mark.asyncio
@@ -187,6 +257,8 @@ async def test_send_message_returns_buyer_reply(monkeypatch) -> None:
     payload = response.json()
     assert response.status_code == status.HTTP_200_OK
     assert payload["rude"] == "no"
+    assert payload["moderation_label"] in {"allowed", None}
+    assert payload["terminate_session"] is False
     assert payload["status"] == "active"
     assert payload["messages"][-1]["text"] == "Давайте ближе к выгоде для нас."
 
@@ -291,4 +363,42 @@ async def test_close_session_returns_raw_evaluation_payload(monkeypatch) -> None
     assert log_calls[0]["model_name"] == get_agents_config().buyer_agent_llm_settings.LLM_MODEL
     assert log_calls[0]["scenario_name"] == "clinic-appointment"
     assert "Менеджер:" in log_calls[0]["dialogue"]
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_close_session_returns_report_v2_for_clinic_complaint(monkeypatch) -> None:
+    simulator_runtime.SESSION_STORE = InMemorySessionStore()
+    monkeypatch.setattr(simulator_api, "SESSION_STORE", simulator_runtime.SESSION_STORE)
+    monkeypatch.setattr(simulator_api, "build_graph", lambda: build_fake_graph("Я передам обращение старшему администратору."))
+    monkeypatch.setattr(
+        simulator_api,
+        "build_evaluation_agent",
+        lambda scenario_id: FakeComplaintEvaluationAgent(expected_min_replies=1),
+    )
+    monkeypatch.setenv("MIN_MANAGER_TURNS", "1")
+    get_settings.cache_clear()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        created = await client.post("/api/v1/simulator/sessions", json={"scenario_id": "clinic-complaint"})
+        session_id = created.json()["session_id"]
+        await client.post(
+            f"/api/v1/simulator/sessions/{session_id}/messages",
+            json={"text": "Понимаю ваше недовольство. Подскажите, пожалуйста, сколько вы ожидали?"},
+        )
+        response = await client.post(f"/api/v1/simulator/sessions/{session_id}/finish")
+
+    payload = response.json()
+    assert response.status_code == status.HTTP_200_OK
+    assert payload["report_v2"]["case"]["id"] == "clinic-complaint"
+    assert len(payload["report_v2"]["competencies"]) == 5
+    assert all(item["id"] for item in payload["report_v2"]["competencies"])
+    assert payload["report_v2"]["dialogueAnalysis"]
+    assert [item["title"] for item in payload["report_v2"]["competencies"]] == [
+        "Контакт в жалобной коммуникации",
+        "Сбор фактов по жалобе",
+        "Эмпатия без обороны",
+        "Предложение решения по обращению",
+        "Фиксация следующего шага",
+    ]
     get_settings.cache_clear()

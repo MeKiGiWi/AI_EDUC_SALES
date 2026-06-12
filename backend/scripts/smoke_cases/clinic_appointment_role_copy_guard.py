@@ -9,4 +9,6 @@ CLINIC_APPOINTMENT_ROLE_COPY_GUARD_SMOKE = SmokeCaseDefinition(
     scenario_id="clinic-appointment",
     reference_note="Role-copy guard for the new B2C appointment scenario.",
     learner_messages=[],
+    kind="role_copy_guard",
+    max_turns=5,
 )

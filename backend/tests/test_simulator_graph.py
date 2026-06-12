@@ -32,7 +32,10 @@ def build_graph_with_reply(
 
 @pytest.mark.asyncio
 async def test_graph_finishes_dialogue_when_user_is_rude() -> None:
-    graph = build_graph_with_reply("Не должно вызваться", rude_json='{"rude":"yes","confidence":0.95}')
+    graph = build_graph_with_reply(
+        "Не должно вызваться",
+        rude_json='{"rude":"yes","label":"abusive","severity":"high","terminate_session":true,"reason":"Оскорбление","confidence":0.95}',
+    )
     started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
     result = await graph.ainvoke(
         {"action": "reply_to_sales", "session_id": started["session_id"], "sales_message": "Иди ты нахер"}
@@ -62,6 +65,27 @@ async def test_graph_returns_buyer_reply_when_user_is_not_rude() -> None:
 
 
 @pytest.mark.asyncio
+async def test_graph_keeps_dialogue_active_for_tactless_but_not_abusive_message() -> None:
+    graph = build_graph_with_reply(
+        "Давайте спокойно уточним симптомы.",
+        rude_json='{"rude":"no","label":"tactless","severity":"low","terminate_session":false,"reason":"Неловкая формулировка без оскорбления","confidence":0.79}',
+    )
+    started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
+    result = await graph.ainvoke(
+        {
+            "action": "reply_to_sales",
+            "session_id": started["session_id"],
+            "sales_message": "Здравствуйте, вы уже что-то предпринимали? Может пили таблетки?",
+        }
+    )
+
+    assert result["status"] == "active"
+    assert result["dialog_route"] == "continue_with_customer_reply"
+    assert result["moderation_label"] == "tactless"
+    assert result["terminate_session"] is False
+
+
+@pytest.mark.asyncio
 async def test_graph_think_reply_keeps_dialogue_active() -> None:
     graph = build_graph_with_reply("Я пока подумаю и вернусь позже.")
     started = await graph.ainvoke({"action": "open_session", "scenario_id": "clinic-appointment"})
@@ -88,6 +112,20 @@ async def test_graph_starts_with_scenario_context_and_opening_message() -> None:
     assert isinstance(started["messages"][2], AIMessage)
     assert started["messages"][2].content == get_scenario_by_id("clinic-appointment")["opening_message"]
     assert started["customer_message"] == started["messages"][2].content
+
+
+@pytest.mark.asyncio
+async def test_graph_uses_opening_override_when_provided() -> None:
+    graph = build_graph_with_reply("Ответ")
+    override = "Здравствуйте. Хочу начать с другой открывающей фразы."
+
+    started = await graph.ainvoke(
+        {"action": "open_session", "scenario_id": "clinic-appointment", "opening_message_override": override}
+    )
+
+    assert started["messages"][2].content == override
+    assert started["customer_message"] == override
+    assert started["session"].opening_message_override == override
 
 
 @pytest.mark.asyncio

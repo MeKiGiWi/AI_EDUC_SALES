@@ -27,6 +27,7 @@ class ChatSession(BaseModel):
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
     offtopic_messages_count: int = 0
+    opening_message_override: str | None = None
 
 
 class GraphState(TypedDict, total=False):
@@ -49,6 +50,11 @@ class GraphState(TypedDict, total=False):
     role_copy_detected: bool
     role_copy_similarity: float
     copied_customer_message: str
+    moderation_label: str
+    moderation_severity: str
+    terminate_session: bool
+    moderation_reason: str
+    opening_message_override: str
 
 
 @dataclass
@@ -99,6 +105,7 @@ class ScenarioListResponseDto(BaseModel):
 class SessionCreateDto(BaseModel):
     scenario_id: str
     difficulty: str | None = None
+    opening_message_override: str | None = Field(default=None, max_length=4000)
 
 
 class SessionMessageCreateDto(BaseModel):
@@ -122,6 +129,10 @@ class SessionMessageResponseDto(BaseModel):
     session_id: str
     status: SessionStatus
     rude: str
+    moderation_label: str | None = None
+    moderation_severity: str | None = None
+    terminate_session: bool = False
+    moderation_reason: str | None = None
     confidence: float
     messages: list[SessionMessageDto]
 

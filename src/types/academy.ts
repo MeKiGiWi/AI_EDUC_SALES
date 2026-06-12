@@ -257,10 +257,74 @@ export interface SimulatorEvaluationPayloadDto {
   }[];
 }
 
+export interface SalesDialogueReportV2 {
+  reportVersion: "2.0";
+  case: {
+    id: string;
+    title: string;
+    scenarioTitle: string;
+    createdAt: string;
+  };
+  participant?: {
+    role: string;
+    displayName: string;
+  } | null;
+  summary: {
+    title: string;
+    headline: string;
+    overallLevel: "Trainee" | "Junior" | "Middle" | "Senior";
+    overallScore: number;
+    shortResume: string[];
+  };
+  competencies: {
+    id: string;
+    title: string;
+    level: "Trainee" | "Junior" | "Middle" | "Senior";
+    score: number;
+    comment: string;
+    evidence: {
+      quote: string;
+      speaker: "manager" | "client" | "assistant" | "system";
+      turnIndex: number;
+    }[];
+  }[];
+  dialogueAnalysis: {
+    turnIndex: number;
+    speaker: "manager" | "client" | "assistant" | "system";
+    speakerLabel: string;
+    timestamp?: string | null;
+    text: string;
+    analysis: {
+      status: "good" | "neutral" | "needs_improvement" | "critical";
+      comment: string;
+      recommendation?: string | null;
+      competencyIds: string[];
+    };
+  }[];
+  strengths: {
+    title: string;
+    comment: string;
+    evidence: string[];
+  }[];
+  developmentAreas: {
+    title: string;
+    comment: string;
+    actions: string[];
+  }[];
+  nextSteps: string[];
+  meta: {
+    generatedBy: string;
+    source: string;
+    language: string;
+    fallback?: boolean;
+  };
+}
+
 export interface SimulatorFinishResponseDto {
   session_id: string;
   status: "finished";
   evaluation?: SimulatorEvaluationPayloadDto;
+  report_v2?: SalesDialogueReportV2;
 }
 
 export interface TeamMember {
@@ -509,6 +573,7 @@ export interface SavedSimulatorReport {
   sourceLabel?: string;
   sessionId?: string;
   evaluation: SimulatorEvaluationPayloadDto;
+  reportV2?: SalesDialogueReportV2;
 }
 
 export interface ReportCard {
@@ -529,6 +594,7 @@ export interface ReportCard {
   availableFormats: ExportFormat[];
   previewSections: ReportPreviewSection[];
   evaluation?: SimulatorEvaluationPayloadDto;
+  reportV2?: SalesDialogueReportV2;
 }
 
 export interface RoleWorkspaceOption {

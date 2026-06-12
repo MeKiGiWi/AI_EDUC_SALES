@@ -40,6 +40,7 @@ export function DesktopSidebar({
   reportActions
 }: DesktopSidebarProps) {
   const theme = useTheme();
+  const hasMultipleRoutes = routes.length > 1;
   const routeIcons: Partial<Record<RouteName, string>> = {
     StudentHome: "⌂",
     Simulator: "◉"
@@ -107,58 +108,75 @@ export function DesktopSidebar({
             <View style={styles.userMetaBlock}>
               <Text style={[styles.userName, { color: theme.semantic.textPrimary }]}>{user.fullName}</Text>
               <Text style={[styles.userMeta, { color: theme.semantic.textSecondary }]}>{user.title}</Text>
-              <Text style={[styles.userMeta, { color: theme.semantic.textSecondary }]}>{user.teamName}</Text>
+              {user.teamName ? (
+                <Text style={[styles.userMeta, { color: theme.semantic.textSecondary }]}>
+                  {user.teamName}
+                </Text>
+              ) : null}
             </View>
           </View>
 
         </View>
 
-        <View style={styles.block}>
-          <Text style={[styles.blockLabel, { color: theme.semantic.textMuted }]}>РАЗДЕЛЫ</Text>
-          {routes.map((route) => (
-            <Pressable
-              key={route}
-              onPress={() => onNavigate(route)}
-              style={[
-                styles.navItem,
-                {
-                  backgroundColor:
-                    route === activeRoute ? "#dbe6f7" : theme.semantic.card,
-                  borderColor:
-                    route === activeRoute ? "#c4d4ee" : theme.semantic.border
-                }
-              ]}
-            >
-              <View style={styles.navInner}>
-                <Text
-                  style={[
-                    styles.navLabel,
-                    {
-                      color: theme.semantic.textPrimary
-                    }
-                  ]}
-                >
-                  {routeLabels[route]}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+        {activeRoute === "Simulator" && simulatorActions ? (
+          <Pressable
+            onPress={simulatorActions.onChangeScenario}
+            style={[
+              styles.scenarioAction,
+              {
+                backgroundColor: theme.semantic.card,
+                borderColor: theme.semantic.border,
+                shadowColor: theme.shadows.soft.shadowColor,
+                shadowOpacity: theme.shadows.soft.shadowOpacity,
+                shadowRadius: theme.shadows.soft.shadowRadius,
+                shadowOffset: theme.shadows.soft.shadowOffset,
+                elevation: theme.shadows.soft.elevation
+              }
+            ]}
+          >
+            <Text style={[styles.scenarioActionIcon, { color: theme.semantic.textSecondary }]}>⇄</Text>
+            <Text style={[styles.scenarioActionText, { color: theme.semantic.textPrimary }]}>
+              Сменить сценарий
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {hasMultipleRoutes ? (
+          <View style={styles.block}>
+            <Text style={[styles.blockLabel, { color: theme.semantic.textMuted }]}>РАЗДЕЛЫ</Text>
+            {routes.map((route) => (
+              <Pressable
+                key={route}
+                onPress={() => onNavigate(route)}
+                style={[
+                  styles.navItem,
+                  {
+                    backgroundColor:
+                      route === activeRoute ? "#dbe6f7" : theme.semantic.card,
+                    borderColor:
+                      route === activeRoute ? "#c4d4ee" : theme.semantic.border
+                  }
+                ]}
+              >
+                <View style={styles.navInner}>
+                  <Text
+                    style={[
+                      styles.navLabel,
+                      {
+                        color: theme.semantic.textPrimary
+                      }
+                    ]}
+                  >
+                    {routeLabels[route]}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         {activeRoute === "Simulator" && simulatorActions ? (
           <View style={styles.sidebarActions}>
-            <Pressable
-              onPress={simulatorActions.onChangeScenario}
-              style={[
-                styles.secondaryAction,
-                { backgroundColor: theme.semantic.card, borderColor: theme.semantic.border }
-              ]}
-            >
-              <Text style={[styles.secondaryActionIcon, { color: theme.semantic.textSecondary }]}>⇄</Text>
-              <Text style={[styles.secondaryActionText, { color: theme.semantic.textPrimary }]}>
-                Сменить сценарий
-              </Text>
-            </Pressable>
             <Pressable
               onPress={simulatorActions.onFinishScenario}
               disabled={simulatorActions.isFinishing}
@@ -306,6 +324,29 @@ const styles = StyleSheet.create({
   },
   block: {
     gap: 8
+  },
+  scenarioAction: {
+    minHeight: 58,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  scenarioActionIcon: {
+    width: 24,
+    fontSize: 22,
+    lineHeight: 22,
+    marginTop: -4,
+    fontWeight: "800",
+    textAlign: "center"
+  },
+  scenarioActionText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "800"
   },
   sidebarActions: {
     marginTop: "auto",

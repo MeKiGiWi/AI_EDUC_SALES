@@ -10,5 +10,6 @@ from scripts.smoke_cases.clinic_complaint import CLINIC_COMPLAINT_SMOKE
 
 def test_clinic_complaint_smoke_case_is_wired_to_new_scenario() -> None:
     assert CLINIC_COMPLAINT_SMOKE.scenario_id == "clinic-complaint"
+    assert CLINIC_COMPLAINT_SMOKE.kind == "scripted_reference"
     assert len(CLINIC_COMPLAINT_SMOKE.learner_messages) == 5
     assert all(message.strip() for message in CLINIC_COMPLAINT_SMOKE.learner_messages)

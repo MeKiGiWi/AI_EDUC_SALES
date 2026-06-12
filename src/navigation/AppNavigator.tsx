@@ -35,6 +35,8 @@ import type {
   ReportCard,
   SalesAcademyMock,
   SimulatorEvaluationPayloadDto,
+  SimulatorFinishResponseDto,
+  SalesDialogueReportV2,
   UserRole
 } from "../types/academy";
 import {
@@ -446,7 +448,7 @@ export function AppNavigator() {
     scenarioTitle: string;
   }) {
     const session = activeDialogueSession;
-    if (!session) {
+    if (!session || session.isFinishing) {
       return;
     }
 
@@ -472,7 +474,7 @@ export function AppNavigator() {
       sessionId: session.sessionId
     });
 
-    updateSession((current) => ({ ...current, isFinishing: false, status: "finished", errorText: null }));
+    updateSession((current) => ({ ...current, isFinishing: true, status: "finished", errorText: null }));
     setReports((current) => [generatingReport, ...current]);
     openReportViewer(generatingReport.id);
 
@@ -492,11 +494,18 @@ export function AppNavigator() {
   }) {
     try {
       let evaluation: SimulatorEvaluationPayloadDto | undefined;
+      let reportV2: SalesDialogueReportV2 | undefined;
 
       if (params.session.mode === "api") {
-        evaluation = await finishApiSession(params.session.sessionId);
+        const finishResult = await finishApiSession(params.session.sessionId);
+        evaluation = finishResult.evaluation;
+        reportV2 = finishResult.report_v2;
       } else {
         evaluation = buildMockEvaluation(params.scenarioTitle, params.scenarioId);
+        reportV2 = buildMockReportV2(params.scenarioTitle, params.scenarioId, params.session.sessionId, evaluation);
+      }
+      if (!evaluation) {
+        throw new Error("Не удалось получить evaluation для сохранения отчёта.");
       }
 
       const syncedReports = await academyDataService.saveLatestSimulatorReport({
@@ -504,7 +513,8 @@ export function AppNavigator() {
         scenarioId: params.scenarioId,
         scenarioTitle: params.scenarioTitle,
         sessionId: params.session.sessionId,
-        evaluation
+        evaluation,
+        reportV2
       });
 
       const createdReport =
@@ -538,10 +548,12 @@ export function AppNavigator() {
             : report
         )
       );
+    } finally {
+      updateSession((current) => (current.sessionId === params.session.sessionId ? { ...current, isFinishing: false } : current));
     }
   }
 
-  async function finishApiSession(sessionId: string): Promise<SimulatorEvaluationPayloadDto> {
+  async function finishApiSession(sessionId: string): Promise<SimulatorFinishResponseDto> {
     // Никаких заглушек: дожидаемся реальной оценки от LLM. Если бэкенд завершил
     // сессию, но оценки нет — это ошибка, а не повод подставить mock-отчёт.
     const response = await simulatorApiService.finishDialogueSession(sessionId);
@@ -550,7 +562,7 @@ export function AppNavigator() {
         "Бэкенд завершил сессию, но не вернул оценку диалога. Отчёт не сформирован."
       );
     }
-    return response.evaluation;
+    return response;
   }
 
   const visibleRoutes = useMemo(() => visibleRoutesForRole(activeRole), [activeRole]);
@@ -754,6 +766,100 @@ function buildMockEvaluation(
   scenarioId: string
 ): SimulatorEvaluationPayloadDto {
   const scenarioPresets: Record<string, SimulatorEvaluationPayloadDto> = {
+    "clinic-appointment": {
+      overall_level: "Middle",
+      overall_comment:
+        "Контакт с тревожным пациентом выстроен спокойно, но часть формулировок можно сделать мягче и точнее фиксировать следующий шаг.",
+      overall_recommendations: [
+        "Начинайте с короткого признания тревоги пациента.",
+        "Уточняйте симптомы и длительность без намёка на постановку диагноза.",
+        "Фиксируйте врача, формат записи и следующий контакт."
+      ],
+      competencies: [
+        {
+          name: "Умение установить спокойный контакт",
+          level: "Middle",
+          argument: "Есть спокойное начало диалога, но эмпатию можно делать более явной.",
+          quote: ["Здравствуйте, понимаю, что ситуация может тревожить."],
+          recommendations: ["Добавляйте короткое признание эмоции пациента перед уточняющими вопросами."]
+        },
+        {
+          name: "Умение задавать уточняющие вопросы по симптомам без постановки диагноза",
+          level: "Middle",
+          argument: "Уточняющие вопросы есть, и они в основном держатся в рамках сбора симптомов.",
+          quote: ["Подскажите, пожалуйста, как давно у вас появились эти симптомы?"],
+          recommendations: ["Избегайте формулировок, которые звучат как самодиагностика."]
+        },
+        {
+          name: "Первичная маршрутизация пациента к подходящему врачу",
+          level: "Middle",
+          argument: "Маршрутизация присутствует, но можно быстрее подводить к подходящему специалисту.",
+          quote: ["По описанию лучше начать с терапевта, и при необходимости вас направят дальше."],
+          recommendations: ["Связывайте симптомы с понятным маршрутом записи."]
+        },
+        {
+          name: "Работа с тревогой и сомнениями пациента",
+          level: "Junior",
+          argument: "Поддержка пациента есть не во всех репликах, поэтому тревога снижается не полностью.",
+          quote: ["Давайте спокойно разберёмся и подберём ближайший следующий шаг."],
+          recommendations: ["Чаще отзеркаливайте тревогу и объясняйте, что произойдёт дальше."]
+        },
+        {
+          name: "Фиксация следующего шага",
+          level: "Junior",
+          argument: "Следующий шаг обозначен, но не всегда закреплён временем и подтверждением записи.",
+          quote: ["Я могу предложить вам ближайшее окно к врачу."],
+          recommendations: ["Фиксируйте дату, время и формат следующего действия."]
+        }
+      ]
+    },
+    "clinic-complaint": {
+      overall_level: "Middle",
+      overall_comment:
+        "Жалоба обработана конструктивно: есть сбор фактов и движение к решению, но эмпатию без обороны ещё стоит усилить.",
+      overall_recommendations: [
+        "Сначала признавайте неудобство, потом переходите к фактам.",
+        "Собирайте дату, время ожидания и участников ситуации.",
+        "Фиксируйте конкретный срок обратной связи по обращению."
+      ],
+      competencies: [
+        {
+          name: "Контакт в жалобной коммуникации",
+          level: "Middle",
+          argument: "Контакт удерживается спокойно, без эскалации конфликта.",
+          quote: ["Понимаю ваше недовольство, спасибо, что сказали об этом."],
+          recommendations: ["Начинайте ответ с признания неудобства клиента."]
+        },
+        {
+          name: "Сбор фактов по жалобе",
+          level: "Middle",
+          argument: "Фактура собирается по делу: время, ожидание и детали ситуации.",
+          quote: ["Пожалуйста, уточните, сколько по времени вы ожидали и кто вас оформлял."],
+          recommendations: ["Проверяйте, что зафиксированы дата, время и ключевое событие."]
+        },
+        {
+          name: "Эмпатия без обороны",
+          level: "Junior",
+          argument: "Эмпатия есть, но местами ответ звучит слишком формально и может считываться как защита клиники.",
+          quote: ["Сожалею, что вам пришлось столкнуться с таким ожиданием."],
+          recommendations: ["Избегайте оправданий до того, как собраны факты."]
+        },
+        {
+          name: "Предложение решения по обращению",
+          level: "Middle",
+          argument: "Решение предложено в рабочем формате: разбор обращения и обратная связь.",
+          quote: ["Я передам обращение старшему администратору и вернусь к вам с результатом."],
+          recommendations: ["Добавляйте срок и канал обратной связи."]
+        },
+        {
+          name: "Фиксация следующего шага",
+          level: "Junior",
+          argument: "Следующий шаг есть, но его ещё стоит делать более конкретным по времени.",
+          quote: ["Мы свяжемся с вами после проверки обращения."],
+          recommendations: ["Фиксируйте конкретный срок и ответственного."]
+        }
+      ]
+    },
     "price-objection": {
       overall_level: "Middle",
       overall_comment:
@@ -876,5 +982,110 @@ function buildMockEvaluation(
         recommendations: ["Сразу предлагайте дату, формат и цель следующего контакта."]
       }
     ]
+  };
+}
+
+function buildMockReportV2(
+  scenarioTitle: string,
+  scenarioId: string,
+  sessionId: string,
+  evaluation: SimulatorEvaluationPayloadDto
+): SalesDialogueReportV2 {
+  const competencyIdsByTitle: Record<string, string> = {
+    "Умение установить спокойный контакт": "calm_contact",
+    "Умение задавать уточняющие вопросы по симптомам без постановки диагноза": "symptom_questions_without_diagnosis",
+    "Первичная маршрутизация пациента к подходящему врачу": "patient_routing",
+    "Работа с тревогой и сомнениями пациента": "anxiety_handling",
+    "Фиксация следующего шага": "next_step",
+    "Контакт в жалобной коммуникации": "complaint_contact",
+    "Сбор фактов по жалобе": "complaint_fact_gathering",
+    "Эмпатия без обороны": "empathy_without_defensiveness",
+    "Предложение решения по обращению": "complaint_solution"
+  };
+  const createdAt = new Date().toISOString();
+  return {
+    reportVersion: "2.0",
+    case: {
+      id: scenarioId,
+      title: scenarioTitle,
+      scenarioTitle,
+      createdAt
+    },
+    participant: {
+      role: "student",
+      displayName: "Ученик"
+    },
+    summary: {
+      title: `Отчет по диалогу: ${scenarioTitle}`,
+      headline: evaluation.overall_comment,
+      overallLevel: evaluation.overall_level,
+      overallScore: evaluation.overall_level === "Senior" ? 90 : evaluation.overall_level === "Middle" ? 68 : 40,
+      shortResume: [`Кейс: ${scenarioTitle}`, `Общий уровень: ${evaluation.overall_level}`, evaluation.overall_comment]
+    },
+    competencies: evaluation.competencies.map((competency, index) => ({
+      id: competencyIdsByTitle[competency.name] ?? `competency_${index + 1}`,
+      title: competency.name,
+      level: competency.level,
+      score: competency.level === "Senior" ? 90 : competency.level === "Middle" ? 68 : 40,
+      comment: competency.argument,
+      evidence: competency.quote.map((quote, quoteIndex) => ({
+        quote,
+        speaker: "manager",
+        turnIndex: quoteIndex + 1
+      }))
+    })),
+    dialogueAnalysis: [
+      {
+        turnIndex: 1,
+        speaker: "manager",
+        speakerLabel: "Менеджер",
+        timestamp: "10:00",
+        text: evaluation.competencies[0]?.quote[0] ?? "Реплика менеджера.",
+        analysis: {
+          status: "good",
+          comment: evaluation.competencies[0]?.argument ?? "Реплика поддерживает сценарий.",
+          recommendation: evaluation.competencies[0]?.recommendations[0] ?? null,
+          competencyIds: [competencyIdsByTitle[evaluation.competencies[0]?.name ?? ""] ?? "competency_1"]
+        }
+      },
+      {
+        turnIndex: 2,
+        speaker: "client",
+        speakerLabel: "Клиент",
+        timestamp: "10:01",
+        text:
+          scenarioId === "clinic-complaint"
+            ? "Я ждала слишком долго и никто ничего не объяснил."
+            : "Мне тревожно, я не понимаю, к кому лучше записаться.",
+        analysis: {
+          status: "neutral",
+          comment:
+            scenarioId === "clinic-complaint"
+              ? "Пациент описывает неудобство и дает фактуру для разбора жалобы."
+              : "Пациент проявляет тревогу и ожидает спокойного сопровождения.",
+          recommendation:
+            scenarioId === "clinic-complaint"
+              ? "Подтвердите неудобство и уточните детали ожидания."
+              : "Отзеркальте тревогу и уточните симптомы или длительность.",
+          competencyIds: []
+        }
+      }
+    ],
+    strengths: evaluation.competencies.slice(0, 2).map((item) => ({
+      title: item.name,
+      comment: item.argument,
+      evidence: item.quote.slice(0, 2)
+    })),
+    developmentAreas: evaluation.competencies.slice(-2).map((item) => ({
+      title: item.name,
+      comment: item.argument,
+      actions: item.recommendations.slice(0, 2)
+    })),
+    nextSteps: evaluation.overall_recommendations.slice(0, 3),
+    meta: {
+      generatedBy: "AI Sales Academy",
+      source: "dialogue_simulation",
+      language: "ru"
+    }
   };
 }

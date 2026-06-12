@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from difflib import SequenceMatcher
 from typing import Literal
@@ -24,6 +25,22 @@ from app.simulator.schemas import EvaluationResultRaw
 class RudeCheckResult(BaseModel):
     rude: Literal["yes", "no"] = Field(
         description="Whether the sales message is rude. Use 'yes' for rude tone and 'no' otherwise."
+    )
+    label: Literal["allowed", "tactless", "rude", "abusive"] = Field(
+        default="allowed",
+        description="Explainable moderation label for the current sales message.",
+    )
+    severity: Literal["none", "low", "medium", "high"] = Field(
+        default="none",
+        description="Moderation severity for the message.",
+    )
+    terminate_session: bool = Field(
+        default=False,
+        description="Whether the current message should trigger a hard stop of the session.",
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Short explanation of the moderation decision.",
     )
     confidence: float = Field(
         ge=0.0,
@@ -64,20 +81,49 @@ class RudeClassifierAgent:
     async def check(self, message: str) -> RudeCheckResult:
         try:
             result = await self.chain.ainvoke({"message": message})
-            return RudeCheckResult.model_validate(result)
+            parsed = RudeCheckResult.model_validate(result)
         except (OutputParserException, ValueError, TypeError):
             raw_output = await (self.prompt_template | self.llm | StrOutputParser()).ainvoke({"message": message})
-            return self._fallback_parse(raw_output)
+            parsed = self._fallback_parse(raw_output)
+        LOGGER.info(
+            "moderation_result text=%r label=%s severity=%s terminate_session=%s reason=%s confidence=%.2f",
+            message,
+            parsed.label,
+            parsed.severity,
+            parsed.terminate_session,
+            parsed.reason,
+            parsed.confidence,
+        )
+        return parsed
 
     @staticmethod
     def _fallback_parse(raw_output: str) -> RudeCheckResult:
         normalized = raw_output.strip()
         rude_match = re.search(r'"rude"\s*:\s*"(yes|no)"', normalized, flags=re.IGNORECASE)
+        label_match = re.search(r'"label"\s*:\s*"(allowed|tactless|rude|abusive)"', normalized, flags=re.IGNORECASE)
+        severity_match = re.search(r'"severity"\s*:\s*"(none|low|medium|high)"', normalized, flags=re.IGNORECASE)
+        terminate_match = re.search(r'"terminate_session"\s*:\s*(true|false)', normalized, flags=re.IGNORECASE)
+        reason_match = re.search(r'"reason"\s*:\s*"([^"]*)"', normalized, flags=re.IGNORECASE)
         confidence = _extract_confidence(normalized)
+        rude = (rude_match.group(1).lower() if rude_match else "no")
+        label = (label_match.group(1).lower() if label_match else ("abusive" if rude == "yes" else "allowed"))
+        severity = severity_match.group(1).lower() if severity_match else ("high" if rude == "yes" else "none")
+        terminate_session = (
+            terminate_match.group(1).lower() == "true"
+            if terminate_match
+            else rude == "yes" or label == "abusive" or severity == "high"
+        )
         return RudeCheckResult(
-            rude=(rude_match.group(1).lower() if rude_match else "no"),
+            rude="yes" if terminate_session else "no",
+            label=label,  # type: ignore[arg-type]
+            severity=severity,  # type: ignore[arg-type]
+            terminate_session=terminate_session,
+            reason=reason_match.group(1).strip() if reason_match and reason_match.group(1).strip() else None,
             confidence=confidence,
         )
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def format_messages_for_topic_check(messages: list[BaseMessage]) -> str:

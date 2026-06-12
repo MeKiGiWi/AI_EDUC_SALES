@@ -7,7 +7,7 @@ export const salesAcademyMock: SalesAcademyMock = {
     role: "student",
     title: "Менеджер по продажам",
     accessLevel: "self",
-    teamName: "SMB pipeline",
+    teamName: "",
     avatarLabel: "АМ",
     focusAreas: ["Работа с возражениями", "Аргументация ценности"],
     completionRate: 74,

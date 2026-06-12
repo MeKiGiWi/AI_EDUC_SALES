@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.core.settings import get_agents_config, get_settings
-from app.reports.report_v2 import adapt_legacy_evaluation_to_report_v2, build_dialogue_turns
+from app.reports.report_v2 import adapt_legacy_evaluation_to_report_v2, build_dialogue_turns, validate_report_v2_content
 from app.simulator.dialog_logger import append_dialog_log
 from app.simulator.runtime import SESSION_STORE, build_evaluation_agent, build_graph
 from app.simulator.scenario_repository import get_active_scenario_by_id, get_scenario_by_id, list_scenarios
@@ -147,7 +147,11 @@ async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
         raise HTTPException(status_code=404, detail="Сценарий не найден.")
 
     graph = build_graph()
-    initial_state = {"action": "open_session", "scenario_id": payload.scenario_id}
+    initial_state = {
+        "action": "open_session",
+        "scenario_id": payload.scenario_id,
+        "opening_message_override": payload.opening_message_override,
+    }
     result = await graph.ainvoke(initial_state)
     return SessionCreateResponseDto(
         session_id=result["session_id"],
@@ -176,6 +180,10 @@ async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> S
         session_id=session_id,
         status=SessionStatus(result["status"]),
         rude="yes" if result["dialog_route"] == "stop_after_rudeness" else "no",
+        moderation_label=result.get("moderation_label"),
+        moderation_severity=result.get("moderation_severity"),
+        terminate_session=bool(result.get("terminate_session", False)),
+        moderation_reason=result.get("moderation_reason"),
         confidence=result["confidence"],
         messages=[map_message(item) for item in filter_visible_messages(result["messages"])[-2:]],
     )
@@ -229,6 +237,11 @@ async def close_session(session_id: str) -> SessionFinishResponseDto:
         scenario_id=session.scenario_id,
         scenario_title=get_scenario_by_id(session.scenario_id)["title"] if get_scenario_by_id(session.scenario_id) else session.scenario_id,
         created_at=created_at,
+    )
+    validate_report_v2_content(
+        report_v2,
+        expected_dialogue_turns=len(build_dialogue_turns(visible_messages)),
+        expected_scenario_id=session.scenario_id,
     )
 
     return SessionFinishResponseDto(

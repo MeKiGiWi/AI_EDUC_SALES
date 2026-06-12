@@ -19,12 +19,21 @@ class MockSessionStore:
         self.sessions[session.id] = session
 
 class MockRudeClassifier:
-    def __init__(self, is_rude="no"):
+    def __init__(self, is_rude="no", label="allowed", terminate_session=False):
         self.is_rude = is_rude
+        self.label = label
+        self.terminate_session = terminate_session
         self.called = False
     async def check(self, message):
         self.called = True
-        return RudeCheckResult(rude=self.is_rude, confidence=1.0)
+        return RudeCheckResult(
+            rude=self.is_rude,
+            label=self.label,  # type: ignore[arg-type]
+            severity="high" if self.terminate_session else "none",
+            terminate_session=self.terminate_session,
+            reason=message,
+            confidence=1.0,
+        )
 
 class MockTopicClassifier:
     def __init__(self, on_topic="yes"):
@@ -96,6 +105,8 @@ async def test_rude_message_flow(deps):
     })
     
     deps.rude_classifier.is_rude = "yes"
+    deps.rude_classifier.label = "abusive"
+    deps.rude_classifier.terminate_session = True
     
     state = await graph.ainvoke({
         "action": "reply_to_sales",
@@ -108,6 +119,7 @@ async def test_rude_message_flow(deps):
     assert not deps.buyer_agent.called
     assert state["customer_message"] == RUDE_REFUSAL_MESSAGE
     assert state["status"] == "finished"
+    assert state["moderation_label"] == "abusive"
 
 @pytest.mark.asyncio
 async def test_offtopic_flow_limit(deps):

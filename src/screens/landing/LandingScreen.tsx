@@ -1424,7 +1424,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                   <Text style={[styles.planDesc, compareColumns === 4 && styles.planDescGrid, dark && styles.planSubLight]}>{card.desc}</Text>
 
                   <Text style={[styles.planSection, dark && styles.planSectionLight]}>Что входит</Text>
-                  <View style={styles.planList}>
+                  <View style={[styles.planList, compareColumns === 4 && styles.planListGrid]}>
                     {card.includes.map((item) => (
                       <View key={item} style={styles.planRow}>
                         <Text style={styles.planCheck}>✓</Text>
@@ -1433,10 +1433,9 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                     ))}
                   </View>
 
-                  {compareColumns === 4 ? <View style={styles.planFill} /> : null}
                   <View style={[styles.planMeta, dark && styles.planMetaDark]}>
                     <Text style={[styles.planSection, dark && styles.planSectionLight]}>Подходит для</Text>
-                    <Text style={[styles.planMetaText, dark && styles.planSubLight]}>{card.audience}</Text>
+                    <Text style={[styles.planMetaText, compareColumns === 4 && styles.planAudienceGrid, dark && styles.planSubLight]}>{card.audience}</Text>
                   </View>
                   <View style={[styles.planMeta, dark && styles.planMetaDark]}>
                     <Text style={[styles.planSection, dark && styles.planSectionLight]}>Эффект</Text>
@@ -2174,8 +2173,9 @@ const styles = StyleSheet.create({
   planNameGrid: { minHeight: 80 },
   planSub: { color: MUTED, fontSize: 14, lineHeight: 19, fontWeight: "700", marginBottom: 18 },
   planSubGrid: { minHeight: 96 },
-  planDescGrid: { minHeight: 108 },
-  planFill: { flexGrow: 1, minHeight: 10 },
+  planDescGrid: { minHeight: 150 },
+  planListGrid: { minHeight: 388 },
+  planAudienceGrid: { minHeight: 80 },
   planSubLight: { color: "rgba(255,255,255,.75)" },
   planPriceBox: { backgroundColor: SOFT, borderRadius: 18, padding: 18, marginBottom: 18 },
   planPriceBoxDark: { backgroundColor: "rgba(255,255,255,.08)" },

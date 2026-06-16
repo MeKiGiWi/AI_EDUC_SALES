@@ -29,6 +29,7 @@ def build_chat_model(
         default_headers={
             "HTTP-Referer": llm_settings.OPENROUTER_SITE_URL,
             "X-Title": llm_settings.OPENROUTER_APP_NAME,
+            "X-OpenRouter-Metadata": "enabled",
         },
     )
 

@@ -11,6 +11,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from typing_extensions import TypedDict
 
 from app.reports.schemas_v2 import SalesDialogueReportV2
+from app.simulator.llm_guard import is_empty_llm_text, normalize_llm_text
 
 if TYPE_CHECKING:
     from app.simulator.agents import BuyerAgent, RudeClassifierAgent, TopicClassifierAgent
@@ -115,8 +116,16 @@ class SessionMessageCreateDto(BaseModel):
 class SessionMessageDto(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     role: MessageRole
-    text: str
+    text: str = Field(min_length=1)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        normalized = normalize_llm_text(value)
+        if is_empty_llm_text(normalized):
+            raise ValueError("Session message text must not be empty.")
+        return normalized
 
 
 class SessionCreateResponseDto(BaseModel):

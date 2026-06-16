@@ -197,15 +197,30 @@ def extract_latest_customer_text(response_json: dict[str, Any]) -> str:
     return ""
 
 
+def classify_customer_reply_state(response_json: dict[str, Any]) -> Literal["present", "empty_live_llm_response", "missing_customer_message"]:
+    has_customer_message = False
+    for message in reversed(response_json.get("messages", [])):
+        if str(message.get("role", "")).lower() != "customer":
+            continue
+        has_customer_message = True
+        return "present" if str(message.get("text", "")).strip() else "empty_live_llm_response"
+    return "missing_customer_message" if not has_customer_message else "empty_live_llm_response"
+
+
 def build_turn_checks(response: MessageResponse, *, strict: bool, case_kind: str) -> list[HeuristicCheck]:
     latest_customer_text = extract_latest_customer_text(response.raw_json)
+    reply_state = classify_customer_reply_state(response.raw_json)
     normalized = latest_customer_text.casefold()
     checks: list[HeuristicCheck] = []
     checks.append(
-        HeuristicCheck("customer_reply_role", "PASS" if latest_customer_text.strip() else "ERROR", "customer reply captured")
+        HeuristicCheck("customer_reply_role", "PASS" if reply_state == "present" else "ERROR", "customer reply captured")
     )
     checks.append(
-        HeuristicCheck("empty_customer_reply", "ERROR" if not latest_customer_text.strip() else "PASS", "empty live reply")
+        HeuristicCheck(
+            "empty_customer_reply",
+            "ERROR" if reply_state != "present" else "PASS",
+            "empty live reply" if reply_state == "empty_live_llm_response" else "missing customer message in API payload",
+        )
     )
     checks.append(
         HeuristicCheck(
@@ -393,7 +408,7 @@ def scenario_report_filename(scenario_id: str) -> str:
 
 
 def format_text_block(text: str) -> str:
-    value = text.strip() or "[empty reply]"
+    value = text.strip() or "[empty live LLM reply]"
     return f"```text\n{value}\n```"
 
 

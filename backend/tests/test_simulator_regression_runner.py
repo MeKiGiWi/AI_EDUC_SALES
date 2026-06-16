@@ -15,6 +15,8 @@ from scripts.run_simulator_regression import (
     DEFAULT_SCRIPTED_RUNS,
     HeuristicCheck,
     TurnRecord,
+    build_turn_checks,
+    classify_customer_reply_state,
     format_scenario_report,
     resolve_case_runs,
     resolve_opening_runs,
@@ -136,3 +138,19 @@ def test_cli_selector_and_opening_runs_behavior() -> None:
     assert len(select_cases(suite="scripted", case_name=None)) >= 4
     selected = select_cases(suite="all", case_name="clinic_complaint_service_recovery")
     assert [case.name for case in selected] == ["clinic_complaint_service_recovery"]
+
+
+def test_true_empty_customer_reply_is_flagged_as_error() -> None:
+    response = type(
+        "Response",
+        (),
+        {
+            "raw_json": {"messages": [{"role": "learner", "text": "Здравствуйте"}, {"role": "customer", "text": ""}]},
+            "status": "active",
+            "rude": "no",
+        },
+    )()
+
+    assert classify_customer_reply_state(response.raw_json) == "empty_live_llm_response"
+    checks = build_turn_checks(response, strict=True, case_kind="scripted_reference")
+    assert any(check.name == "empty_customer_reply" and check.status == "ERROR" for check in checks)

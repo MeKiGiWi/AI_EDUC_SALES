@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+import logging
+import os
+
+from fastapi import APIRouter, HTTPException, Query, status
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.core.settings import get_agents_config, get_settings
@@ -24,8 +27,15 @@ from app.simulator.schemas import (
     SessionMessageResponseDto,
     SessionStatus,
 )
+from app.simulator.agents import BuyerAgent
+from app.simulator.llm_guard import is_empty_llm_text, normalize_llm_text
 
 router = APIRouter(prefix="/api/v1/simulator", tags=["simulator"])
+LOGGER = logging.getLogger(__name__)
+
+
+def is_debug_enabled(debug: bool) -> bool:
+    return debug and os.getenv("EXPO_PUBLIC_SIMULATOR_DEBUG", "").strip().lower() == "true"
 
 
 def map_message(message) -> SessionMessageDto:
@@ -36,9 +46,13 @@ def map_message(message) -> SessionMessageDto:
     else:
         raise ValueError("Unsupported message type for API response.")
 
+    normalized_text = normalize_llm_text(str(message.content))
+    if role == MessageRole.CUSTOMER and is_empty_llm_text(normalized_text):
+        raise ValueError("empty_customer_reply")
+
     return SessionMessageDto(
         role=role,
-        text=str(message.content),
+        text=normalized_text,
         created_at=datetime.now(timezone.utc),
     )
 
@@ -141,7 +155,7 @@ async def get_scenarios() -> ScenarioListResponseDto:
 
 
 @router.post("/sessions", response_model=SessionCreateResponseDto, status_code=201)
-async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
+async def open_session(payload: SessionCreateDto, debug: bool = Query(default=False)) -> SessionCreateResponseDto:
     scenario = get_active_scenario_by_id(payload.scenario_id)
     if scenario is None:
         raise HTTPException(status_code=404, detail="Сценарий не найден.")
@@ -161,7 +175,11 @@ async def open_session(payload: SessionCreateDto) -> SessionCreateResponseDto:
 
 
 @router.post("/sessions/{session_id}/messages", response_model=SessionMessageResponseDto)
-async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> SessionMessageResponseDto:
+async def reply_to_sales(
+    session_id: str,
+    payload: SessionMessageCreateDto,
+    debug: bool = Query(default=False),
+) -> SessionMessageResponseDto:
     session = SESSION_STORE.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Сессия не найдена.")
@@ -175,6 +193,26 @@ async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> S
         "sales_message": payload.text,
     }
     result = await graph.ainvoke(initial_state)
+    visible_messages = filter_visible_messages(result["messages"])[-2:]
+    mapped_messages: list[SessionMessageDto] = []
+    for item in visible_messages:
+        if isinstance(item, AIMessage):
+            normalized = normalize_llm_text(str(item.content))
+            if is_empty_llm_text(normalized):
+                LOGGER.critical(
+                    "empty_customer_reply_blocked session_id=%s route=%s debug_enabled=%s",
+                    session_id,
+                    result.get("dialog_route"),
+                    is_debug_enabled(debug),
+                )
+                if result.get("dialog_route") == "continue_with_customer_reply":
+                    item = AIMessage(content=BuyerAgent.SAFE_FALLBACK_REPLY)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail={"code": "empty_customer_reply", "message": "Backend вернул пустой ответ клиента."},
+                    )
+        mapped_messages.append(map_message(item))
 
     return SessionMessageResponseDto(
         session_id=session_id,
@@ -185,12 +223,12 @@ async def reply_to_sales(session_id: str, payload: SessionMessageCreateDto) -> S
         terminate_session=bool(result.get("terminate_session", False)),
         moderation_reason=result.get("moderation_reason"),
         confidence=result["confidence"],
-        messages=[map_message(item) for item in filter_visible_messages(result["messages"])[-2:]],
+        messages=mapped_messages,
     )
 
 
 @router.post("/sessions/{session_id}/finish", response_model=SessionFinishResponseDto)
-async def close_session(session_id: str) -> SessionFinishResponseDto:
+async def close_session(session_id: str, debug: bool = Query(default=False)) -> SessionFinishResponseDto:
     session = SESSION_STORE.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Сессия не найдена.")

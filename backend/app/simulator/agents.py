@@ -2,11 +2,11 @@ import json
 import logging
 import re
 from difflib import SequenceMatcher
-from typing import Literal
+from typing import Any, Literal
 
 from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
-from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,14 @@ from app.simulator.prompts import (
     RUDE_CLASSIFIER_SYSTEM_PROMPT,
     TOPIC_CLASSIFIER_PROMPT,
     build_evaluation_system_prompt,
+)
+from app.simulator.llm_guard import (
+    EmptyLLMResponseError,
+    ainvoke_non_empty,
+    extract_llm_debug,
+    extract_message_text,
+    is_empty_llm_text,
+    normalize_llm_text,
 )
 from app.simulator.schemas import EvaluationResultRaw
 
@@ -58,6 +66,7 @@ class TopicCheckResult(BaseModel):
         le=1.0,
         description="Model confidence for the topic relevance decision, from 0 to 1.",
     )
+    reason: str | None = Field(default=None, description="Reason for fallback or model decision.")
 
 
 class RudeClassifierAgent:
@@ -82,9 +91,14 @@ class RudeClassifierAgent:
         try:
             result = await self.chain.ainvoke({"message": message})
             parsed = RudeCheckResult.model_validate(result)
-        except (OutputParserException, ValueError, TypeError):
-            raw_output = await (self.prompt_template | self.llm | StrOutputParser()).ainvoke({"message": message})
-            parsed = self._fallback_parse(raw_output)
+        except (OutputParserException, ValueError, TypeError) as exc:
+            raw_message = await self.llm.ainvoke(self.prompt_template.format_prompt(message=message).to_messages())
+            raw_output = extract_message_text(raw_message)
+            debug = extract_llm_debug(raw_message)
+            if is_empty_llm_text(raw_output):
+                LOGGER.warning("empty_classifier_output agent=rude_classifier debug=%s", debug)
+            parsed = self._fallback_parse(raw_output, reason="empty_llm_response_fallback" if is_empty_llm_text(raw_output) else None)
+            LOGGER.info("rude_classifier_parse_fallback error=%s debug=%s", exc.__class__.__name__, debug)
         LOGGER.info(
             "moderation_result text=%r label=%s severity=%s terminate_session=%s reason=%s confidence=%.2f",
             message,
@@ -97,8 +111,8 @@ class RudeClassifierAgent:
         return parsed
 
     @staticmethod
-    def _fallback_parse(raw_output: str) -> RudeCheckResult:
-        normalized = raw_output.strip()
+    def _fallback_parse(raw_output: str, *, reason: str | None = None) -> RudeCheckResult:
+        normalized = normalize_llm_text(raw_output)
         rude_match = re.search(r'"rude"\s*:\s*"(yes|no)"', normalized, flags=re.IGNORECASE)
         label_match = re.search(r'"label"\s*:\s*"(allowed|tactless|rude|abusive)"', normalized, flags=re.IGNORECASE)
         severity_match = re.search(r'"severity"\s*:\s*"(none|low|medium|high)"', normalized, flags=re.IGNORECASE)
@@ -118,7 +132,7 @@ class RudeClassifierAgent:
             label=label,  # type: ignore[arg-type]
             severity=severity,  # type: ignore[arg-type]
             terminate_session=terminate_session,
-            reason=reason_match.group(1).strip() if reason_match and reason_match.group(1).strip() else None,
+            reason=(reason_match.group(1).strip() if reason_match and reason_match.group(1).strip() else None) or reason,
             confidence=confidence,
         )
 
@@ -286,18 +300,24 @@ class TopicClassifierAgent:
         try:
             result = await self.chain.ainvoke(payload)
             return TopicCheckResult.model_validate(result)
-        except (OutputParserException, ValueError, TypeError):
-            raw_output = await (self.prompt_template | self.llm | StrOutputParser()).ainvoke(payload)
-            return self._fallback_parse(raw_output)
+        except (OutputParserException, ValueError, TypeError) as exc:
+            raw_message = await self.llm.ainvoke(self.prompt_template.format_prompt(**payload).to_messages())
+            raw_output = extract_message_text(raw_message)
+            debug = extract_llm_debug(raw_message)
+            if is_empty_llm_text(raw_output):
+                LOGGER.warning("empty_classifier_output agent=topic_classifier debug=%s", debug)
+            LOGGER.info("topic_classifier_parse_fallback error=%s debug=%s", exc.__class__.__name__, debug)
+            return self._fallback_parse(raw_output, reason="empty_llm_response_fallback" if is_empty_llm_text(raw_output) else None)
 
     @staticmethod
-    def _fallback_parse(raw_output: str) -> TopicCheckResult:
-        normalized = raw_output.strip()
+    def _fallback_parse(raw_output: str, *, reason: str | None = None) -> TopicCheckResult:
+        normalized = normalize_llm_text(raw_output)
         topic_match = re.search(r'"on_topic"\s*:\s*"(yes|no)"', normalized, flags=re.IGNORECASE)
         confidence = _extract_confidence(normalized)
         return TopicCheckResult(
             on_topic=(topic_match.group(1).lower() if topic_match else "yes"),
             confidence=confidence,
+            reason=reason,
         )
 
 
@@ -313,18 +333,20 @@ def _extract_confidence(raw_output: str) -> float:
 
 
 class BuyerAgent:
+    SAFE_FALLBACK_REPLY = (
+        "Мне важно понять следующий шаг. Можете, пожалуйста, уточнить и предложить, как лучше поступить дальше?"
+    )
+
     def __init__(self, llm) -> None:
-        self.parser = StrOutputParser()
+        self.llm = llm
         self.prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", "{buyer_system_prompt}"),
                 ("system", "{scenario_context_prompt}"),
                 ("system", BUYER_ROLE_LOCK_PROMPT),
-                ("human", "{transcript_prompt}"),
+                ("human", "{transcript_prompt}\n\n{retry_instruction}"),
             ]
         )
-        self.chain = self.prompt_template | llm | self.parser
-
     async def reply(
         self,
         messages: list[BaseMessage],
@@ -369,9 +391,27 @@ class BuyerAgent:
             "buyer_system_prompt": buyer_system_prompt,
             "scenario_context_prompt": scenario_context_prompt,
             "transcript_prompt": transcript_prompt,
+            "retry_instruction": "",
         }
-        reply = await self.chain.ainvoke(payload)
-        normalized = " ".join(reply.strip().split())
+        invoke_chain = self.prompt_template | self.llm
+        try:
+            result = await ainvoke_non_empty(
+                invoke_chain,
+                payload,
+                agent_name="buyer_agent",
+                attempts=3,
+                repair_instruction="Предыдущий ответ был пустым. Верни одну непустую реплику покупателя.",
+            )
+            normalized = result.text
+        except EmptyLLMResponseError as exc:
+            LOGGER.exception(
+                "buyer_agent_empty_response_exhausted agent=%s attempt=%s debug=%s",
+                exc.agent_name,
+                exc.attempt,
+                exc.debug,
+            )
+            return self.SAFE_FALLBACK_REPLY
+
         if self._needs_repair(normalized):
             repaired_prompt = (
                 transcript_prompt
@@ -379,15 +419,29 @@ class BuyerAgent:
                 + "Исправь предыдущий ответ. Нужна одна краткая реплика покупателя без meta-комментариев, "
                 + "без сервисных вопросов от лица клиники и без завершения сессии."
             )
-            reply = await self.chain.ainvoke(
-                {
-                    "buyer_system_prompt": buyer_system_prompt,
-                    "scenario_context_prompt": scenario_context_prompt,
-                    "transcript_prompt": repaired_prompt,
-                }
-            )
-            normalized = " ".join(reply.strip().split())
-        return normalized or "Нужно чуть больше контекста, чтобы я продолжил разговор."
+            try:
+                repaired = await ainvoke_non_empty(
+                    invoke_chain,
+                    {
+                        "buyer_system_prompt": buyer_system_prompt,
+                        "scenario_context_prompt": scenario_context_prompt,
+                        "transcript_prompt": repaired_prompt,
+                        "retry_instruction": "Предыдущий ответ был пустым. Верни одну непустую реплику покупателя.",
+                    },
+                    agent_name="buyer_agent_repair",
+                    attempts=3,
+                    repair_instruction="Предыдущий ответ был пустым. Верни одну непустую реплику покупателя.",
+                )
+                normalized = repaired.text
+            except EmptyLLMResponseError as exc:
+                LOGGER.exception(
+                    "buyer_agent_repair_empty_response_exhausted agent=%s attempt=%s debug=%s",
+                    exc.agent_name,
+                    exc.attempt,
+                    exc.debug,
+                )
+                return self.SAFE_FALLBACK_REPLY
+        return normalized
 
     @staticmethod
     def _needs_repair(reply: str) -> bool:
@@ -396,7 +450,7 @@ class BuyerAgent:
 
 class EvaluationAgent:
     def __init__(self, llm, *, scenario_title: str, segment: str, competency_catalog: list[str]) -> None:
-        self.parser = StrOutputParser()
+        self.llm = llm
         self.prompt_template = PromptTemplate(
             template=(
                 "{system_prompt}\n\n"
@@ -416,7 +470,6 @@ class EvaluationAgent:
                 "retry_instruction",
             ],
         )
-        self.chain = self.prompt_template | llm | self.parser
         self.system_prompt = build_evaluation_system_prompt(
             scenario_title=scenario_title,
             segment=segment,
@@ -437,13 +490,14 @@ class EvaluationAgent:
         )
 
         last_error: Exception | None = None
+        last_debug: dict[str, Any] = {}
         for attempt in range(3):
             retry_instruction = (
                 ""
                 if attempt == 0
-                else "ВАЖНО: предыдущий ответ был невалидным JSON. Верни только валидный JSON без лишнего текста."
+                else "ВАЖНО: предыдущий ответ был пустым или невалидным. Верни только валидный JSON без лишнего текста."
             )
-            raw_output = await self.chain.ainvoke(
+            raw_message = await (self.prompt_template | self.llm).ainvoke(
                 {
                     "system_prompt": self.system_prompt,
                     "dialogue": dialogue,
@@ -453,14 +507,30 @@ class EvaluationAgent:
                     "retry_instruction": retry_instruction,
                 }
             )
+            raw_output = normalize_llm_text(extract_message_text(raw_message))
+            last_debug = extract_llm_debug(raw_message)
 
             try:
+                if not raw_output:
+                    raise EmptyLLMResponseError(
+                        agent_name="evaluation_agent",
+                        attempt=attempt + 1,
+                        debug=last_debug,
+                    )
                 payload = self._parse_json(raw_output)
                 return EvaluationResultRaw.model_validate(payload)
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
+                LOGGER.warning(
+                    "evaluation_retry attempt=%s error=%s debug=%s",
+                    attempt + 1,
+                    exc.__class__.__name__,
+                    last_debug,
+                )
 
-        raise ValueError(f"Evaluation JSON parse failed after retries: {last_error}")
+        raise ValueError(
+            f"Evaluation empty/invalid LLM response after retries: error={last_error} debug={last_debug}"
+        )
 
     @staticmethod
     def _parse_json(raw_output: str) -> dict:

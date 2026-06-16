@@ -1,0 +1,1301 @@
+{
+  "generated_at": "2026-06-12T22:27:26.187591+00:00",
+  "results": [
+    {
+      "name": "clinic_appointment_routing_and_next_step",
+      "scenario_id": "clinic-appointment",
+      "case_kind": "scripted_reference",
+      "run_index": 1,
+      "result": "PASS",
+      "transcript": [
+        {
+          "learner_text": "Здравствуйте. Понимаю, что в такой ситуации легко растеряться. Давайте я задам несколько вопросов, чтобы помочь вам точнее сориентироваться по записи.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Да, пожалуйста, задавайте. Мне правда нужна помощь, чтобы понять, с чего начать.",
+          "rude": "no",
+          "moderation_reason": "Вежливый, эмпатичный ввод, допустимый в диалоге.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "76be6175-0afa-4699-9dcb-8b30d732fea5",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Вежливый, эмпатичный ввод, допустимый в диалоге.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "0fbf1772-198b-43c3-a9ad-19f3bc41fcb1",
+                  "role": "learner",
+                  "text": "Здравствуйте. Понимаю, что в такой ситуации легко растеряться. Давайте я задам несколько вопросов, чтобы помочь вам точнее сориентироваться по записи.",
+                  "created_at": "2026-06-12T22:23:14.216942Z"
+                },
+                {
+                  "id": "7ca8eb05-8c22-4920-9c15-b685cec6f52d",
+                  "role": "customer",
+                  "text": "Да, пожалуйста, задавайте. Мне правда нужна помощь, чтобы понять, с чего начать.",
+                  "created_at": "2026-06-12T22:23:14.217040Z"
+                }
+              ]
+            },
+            "request_text": "Здравствуйте. Понимаю, что в такой ситуации легко растеряться. Давайте я задам несколько вопросов, чтобы помочь вам точнее сориентироваться по записи.",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Подскажите, пожалуйста, как давно это началось, как часто такие эпизоды повторяются и были ли резкие симптомы вроде сильной боли или потери сознания?",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Началось, наверное, около недели назад. Повторялось несколько раз за это время, не каждый день. Резкой боли или обмороков не было, но всё равно очень тревожно.",
+          "rude": "no",
+          "moderation_reason": "Корректный уточняющий вопрос по симптомам.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "76be6175-0afa-4699-9dcb-8b30d732fea5",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректный уточняющий вопрос по симптомам.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "772fc2b7-fce9-43f0-8a5d-a2ed22fa6823",
+                  "role": "learner",
+                  "text": "Подскажите, пожалуйста, как давно это началось, как часто такие эпизоды повторяются и были ли резкие симптомы вроде сильной боли или потери сознания?",
+                  "created_at": "2026-06-12T22:23:37.480664Z"
+                },
+                {
+                  "id": "0d22d385-2a06-4252-9ab4-2b7b2b027a52",
+                  "role": "customer",
+                  "text": "Началось, наверное, около недели назад. Повторялось несколько раз за это время, не каждый день. Резкой боли или обмороков не было, но всё равно очень тревожно.",
+                  "created_at": "2026-06-12T22:23:37.480707Z"
+                }
+              ]
+            },
+            "request_text": "Подскажите, пожалуйста, как давно это началось, как часто такие эпизоды повторяются и были ли резкие симптомы вроде сильной боли или потери сознания?",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Правильно понимаю, что вам сейчас важно не просто записаться куда-нибудь, а понять, с какого врача логичнее и безопаснее начать?",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Да, именно так. Я боюсь сразу выбрать узкого специалиста и ошибиться.",
+          "rude": "no",
+          "moderation_reason": "Корректный уточняющий вопрос, нейтральный и вежливый тон.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "76be6175-0afa-4699-9dcb-8b30d732fea5",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректный уточняющий вопрос, нейтральный и вежливый тон.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "b402d1d8-7dfe-42c6-8c00-0bdf89fe71d9",
+                  "role": "learner",
+                  "text": "Правильно понимаю, что вам сейчас важно не просто записаться куда-нибудь, а понять, с какого врача логичнее и безопаснее начать?",
+                  "created_at": "2026-06-12T22:23:49.974344Z"
+                },
+                {
+                  "id": "0ea0aea7-ff0c-441e-8791-dbc356829b8e",
+                  "role": "customer",
+                  "text": "Да, именно так. Я боюсь сразу выбрать узкого специалиста и ошибиться.",
+                  "created_at": "2026-06-12T22:23:49.974403Z"
+                }
+              ]
+            },
+            "request_text": "Правильно понимаю, что вам сейчас важно не просто записаться куда-нибудь, а понять, с какого врача логичнее и безопаснее начать?",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "По тому, что вы описываете, разумным первым шагом обычно бывает терапевт: он поможет собрать общую картину и при необходимости уже адресно направит дальше.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Понятно. А если я запишусь к терапевту, а он потом скажет, что мне сразу нужно было к кардиологу, например? Я просто не хочу терять время и платить дважды.",
+          "rude": "no",
+          "moderation_reason": "Корректный и вежливый совет о дальнейшем обращении к терапевту.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "76be6175-0afa-4699-9dcb-8b30d732fea5",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректный и вежливый совет о дальнейшем обращении к терапевту.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "fe5d1fc9-6829-4428-911f-cd0935fe14f0",
+                  "role": "learner",
+                  "text": "По тому, что вы описываете, разумным первым шагом обычно бывает терапевт: он поможет собрать общую картину и при необходимости уже адресно направит дальше.",
+                  "created_at": "2026-06-12T22:23:59.403050Z"
+                },
+                {
+                  "id": "cd0f2de3-0d29-4293-b105-9696ff5f367b",
+                  "role": "customer",
+                  "text": "Понятно. А если я запишусь к терапевту, а он потом скажет, что мне сразу нужно было к кардиологу, например? Я просто не хочу терять время и платить дважды.",
+                  "created_at": "2026-06-12T22:23:59.403135Z"
+                }
+              ]
+            },
+            "request_text": "По тому, что вы описываете, разумным первым шагом обычно бывает терапевт: он поможет собрать общую картину и при необходимости уже адресно направит дальше.",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Если вам удобно, я сразу посмотрю ближайшие варианты записи после 18:00 или в субботу, чтобы зафиксировать понятный следующий шаг.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Да, посмотреть варианты вечером или в субботу — это хорошо. Но я всё же хочу понять, действительно ли терапевт — это правильный первый шаг, или я просто зря потрачу время и деньги. Может, лучше сразу к кардиологу, если сердце беспокоит?",
+          "rude": "no",
+          "moderation_reason": "Вежливое предложение о записи, без оскорблений.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "76be6175-0afa-4699-9dcb-8b30d732fea5",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Вежливое предложение о записи, без оскорблений.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "e5768f90-06d6-47dc-a127-b5c954a34094",
+                  "role": "learner",
+                  "text": "Если вам удобно, я сразу посмотрю ближайшие варианты записи после 18:00 или в субботу, чтобы зафиксировать понятный следующий шаг.",
+                  "created_at": "2026-06-12T22:24:29.508821Z"
+                },
+                {
+                  "id": "51431776-2b60-483a-b5f5-eb03754c7b8e",
+                  "role": "customer",
+                  "text": "Да, посмотреть варианты вечером или в субботу — это хорошо. Но я всё же хочу понять, действительно ли терапевт — это правильный первый шаг, или я просто зря потрачу время и деньги. Может, лучше сразу к кардиологу, если сердце беспокоит?",
+                  "created_at": "2026-06-12T22:24:29.509025Z"
+                }
+              ]
+            },
+            "request_text": "Если вам удобно, я сразу посмотрю ближайшие варианты записи после 18:00 или в субботу, чтобы зафиксировать понятный следующий шаг.",
+            "source": "scripted_test_input"
+          }
+        }
+      ],
+      "customer_opening": "Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.",
+      "session_id": "76be6175-0afa-4699-9dcb-8b30d732fea5",
+      "error_message": null,
+      "debug": {
+        "session_id": "76be6175-0afa-4699-9dcb-8b30d732fea5",
+        "scenario_id": "clinic-appointment",
+        "case_name": "clinic_appointment_routing_and_next_step",
+        "case_kind": "scripted_reference",
+        "opening_message_override": null,
+        "session_create_response": {
+          "session_id": "76be6175-0afa-4699-9dcb-8b30d732fea5",
+          "status": "active",
+          "message": {
+            "id": "6da78348-b372-49d9-ada3-e29ccf41be9d",
+            "role": "customer",
+            "text": "Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.",
+            "created_at": "2026-06-12T22:22:49.897167Z"
+          }
+        }
+      }
+    },
+    {
+      "name": "clinic_appointment_symptom_triage_alt",
+      "scenario_id": "clinic-appointment",
+      "case_kind": "scripted_reference",
+      "run_index": 1,
+      "result": "PASS",
+      "transcript": [
+        {
+          "learner_text": "Здравствуйте. Постараюсь помочь спокойно разобраться, с какого специалиста удобнее и безопаснее начать запись.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Спасибо. Да, мне действительно важно понять, с кого начать, чтобы не ошибиться.",
+          "rude": "no",
+          "moderation_reason": "Вежливое и корректное предложение помощи.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "62f4fbe1-822d-4a9d-85f4-1b226997db5d",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Вежливое и корректное предложение помощи.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "3a87544c-39a4-468b-93f7-b610509ce2e4",
+                  "role": "learner",
+                  "text": "Здравствуйте. Постараюсь помочь спокойно разобраться, с какого специалиста удобнее и безопаснее начать запись.",
+                  "created_at": "2026-06-12T22:24:38.606124Z"
+                },
+                {
+                  "id": "deec317a-aa3b-425b-a8e5-ea64511ecebe",
+                  "role": "customer",
+                  "text": "Спасибо. Да, мне действительно важно понять, с кого начать, чтобы не ошибиться.",
+                  "created_at": "2026-06-12T22:24:38.606185Z"
+                }
+              ]
+            },
+            "request_text": "Здравствуйте. Постараюсь помочь спокойно разобраться, с какого специалиста удобнее и безопаснее начать запись.",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Скажите, пожалуйста, эти ощущения возникают только после нагрузки или бывают и в покое, и были ли у вас обмороки, сильная боль или выраженная одышка?",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Нет, обмороков и сильной боли не было. Одышки тоже вроде нет. Но вот эти приступы слабости и головокружения бывают просто так, когда я сижу за компьютером на работе.",
+          "rude": "no",
+          "moderation_reason": "Корректный уточняющий вопрос о симптомах и обстоятельствах их появления.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "62f4fbe1-822d-4a9d-85f4-1b226997db5d",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректный уточняющий вопрос о симптомах и обстоятельствах их появления.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "6580c51f-4e48-4fe4-a07d-32eceea867c2",
+                  "role": "learner",
+                  "text": "Скажите, пожалуйста, эти ощущения возникают только после нагрузки или бывают и в покое, и были ли у вас обмороки, сильная боль или выраженная одышка?",
+                  "created_at": "2026-06-12T22:24:47.212503Z"
+                },
+                {
+                  "id": "2f617114-7b90-4773-8689-3debaff7e1c3",
+                  "role": "customer",
+                  "text": "Нет, обмороков и сильной боли не было. Одышки тоже вроде нет. Но вот эти приступы слабости и головокружения бывают просто так, когда я сижу за компьютером на работе.",
+                  "created_at": "2026-06-12T22:24:47.212605Z"
+                }
+              ]
+            },
+            "request_text": "Скажите, пожалуйста, эти ощущения возникают только после нагрузки или бывают и в покое, и были ли у вас обмороки, сильная боль или выраженная одышка?",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Я правильно понимаю, что вам сейчас важно не только записаться, но и не ошибиться с первым врачом, чтобы не терять время?",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Да, именно так. Я боюсь, что запишусь не к тому врачу, потрачу деньги, а потом окажется, что нужно было идти к другому специалисту.",
+          "rude": "no",
+          "moderation_reason": "Корректный уточняющий вопрос, нейтральный тон.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "62f4fbe1-822d-4a9d-85f4-1b226997db5d",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректный уточняющий вопрос, нейтральный тон.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "e10d38d0-48aa-43a1-b738-303c712320c9",
+                  "role": "learner",
+                  "text": "Я правильно понимаю, что вам сейчас важно не только записаться, но и не ошибиться с первым врачом, чтобы не терять время?",
+                  "created_at": "2026-06-12T22:24:56.327756Z"
+                },
+                {
+                  "id": "bca67dd7-94c7-4d16-b4cd-fc8de39bd71d",
+                  "role": "customer",
+                  "text": "Да, именно так. Я боюсь, что запишусь не к тому врачу, потрачу деньги, а потом окажется, что нужно было идти к другому специалисту.",
+                  "created_at": "2026-06-12T22:24:56.327870Z"
+                }
+              ]
+            },
+            "request_text": "Я правильно понимаю, что вам сейчас важно не только записаться, но и не ошибиться с первым врачом, чтобы не терять время?",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "В такой ситуации обычно разумно начать с терапевта, чтобы он оценил общую картину и при необходимости быстро направил к профильному специалисту.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "То есть терапевт — это как бы отправная точка, чтобы он уже решил, к кому дальше?",
+          "rude": "no",
+          "moderation_reason": "Корректный совет, нейтральный и вежливый тон.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "62f4fbe1-822d-4a9d-85f4-1b226997db5d",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректный совет, нейтральный и вежливый тон.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "155d2947-f5fc-40d9-92e6-10abf511ce79",
+                  "role": "learner",
+                  "text": "В такой ситуации обычно разумно начать с терапевта, чтобы он оценил общую картину и при необходимости быстро направил к профильному специалисту.",
+                  "created_at": "2026-06-12T22:25:09.390945Z"
+                },
+                {
+                  "id": "86063776-b993-4aae-8de4-e511b8b35bf3",
+                  "role": "customer",
+                  "text": "То есть терапевт — это как бы отправная точка, чтобы он уже решил, к кому дальше?",
+                  "created_at": "2026-06-12T22:25:09.390981Z"
+                }
+              ]
+            },
+            "request_text": "В такой ситуации обычно разумно начать с терапевта, чтобы он оценил общую картину и при необходимости быстро направил к профильному специалисту.",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Если хотите, я сразу помогу подобрать ближайшее время к терапевту и посмотрю варианты, где запись будет удобнее по времени.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Да, именно так. Мне бы хотелось, чтобы это действительно помогло не ходить по кругу. А вечером или в субботу есть возможность записаться?",
+          "rude": "no",
+          "moderation_reason": "Вежливое предложение помощи, без оскорблений.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "62f4fbe1-822d-4a9d-85f4-1b226997db5d",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Вежливое предложение помощи, без оскорблений.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "c1abb49f-2ede-428b-a0aa-0d94b77d1c72",
+                  "role": "learner",
+                  "text": "Если хотите, я сразу помогу подобрать ближайшее время к терапевту и посмотрю варианты, где запись будет удобнее по времени.",
+                  "created_at": "2026-06-12T22:25:22.093967Z"
+                },
+                {
+                  "id": "7b38d19e-01b5-4ace-96be-21fedf73b578",
+                  "role": "customer",
+                  "text": "Да, именно так. Мне бы хотелось, чтобы это действительно помогло не ходить по кругу. А вечером или в субботу есть возможность записаться?",
+                  "created_at": "2026-06-12T22:25:22.094054Z"
+                }
+              ]
+            },
+            "request_text": "Если хотите, я сразу помогу подобрать ближайшее время к терапевту и посмотрю варианты, где запись будет удобнее по времени.",
+            "source": "scripted_test_input"
+          }
+        }
+      ],
+      "customer_opening": "Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.",
+      "session_id": "62f4fbe1-822d-4a9d-85f4-1b226997db5d",
+      "error_message": null,
+      "debug": {
+        "session_id": "62f4fbe1-822d-4a9d-85f4-1b226997db5d",
+        "scenario_id": "clinic-appointment",
+        "case_name": "clinic_appointment_symptom_triage_alt",
+        "case_kind": "scripted_reference",
+        "opening_message_override": null,
+        "session_create_response": {
+          "session_id": "62f4fbe1-822d-4a9d-85f4-1b226997db5d",
+          "status": "active",
+          "message": {
+            "id": "a25f6eb8-70fe-4b14-9ce2-2d06ef53dfa3",
+            "role": "customer",
+            "text": "Здравствуйте. Я впервые к вам обращаюсь. У меня уже несколько дней какое-то странное состояние: периодически кружится голова, бывает слабость, иногда как будто сердце бьётся сильнее обычного. Я не понимаю, к кому мне вообще надо записаться.",
+            "created_at": "2026-06-12T22:24:29.531792Z"
+          }
+        }
+      }
+    },
+    {
+      "name": "clinic_complaint_service_recovery",
+      "scenario_id": "clinic-complaint",
+      "case_kind": "scripted_reference",
+      "run_index": 1,
+      "result": "PASS",
+      "transcript": [
+        {
+          "learner_text": "Здравствуйте. Спасибо, что сказали об этом. Понимаю, что такая ситуация неприятна, и давайте я уточню детали, чтобы корректно зафиксировать обращение.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Да, хорошо. Я была записана на 18:00.",
+          "rude": "no",
+          "moderation_reason": "Вежливый, эмпатичный ответ без оскорблений.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "1abb362d-9957-4d01-b43b-27eb00b4fffa",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Вежливый, эмпатичный ответ без оскорблений.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "57be401a-9d44-473c-98b7-68dd58eb5701",
+                  "role": "learner",
+                  "text": "Здравствуйте. Спасибо, что сказали об этом. Понимаю, что такая ситуация неприятна, и давайте я уточню детали, чтобы корректно зафиксировать обращение.",
+                  "created_at": "2026-06-12T22:25:41.378334Z"
+                },
+                {
+                  "id": "59046247-d3b9-493a-9094-d1f963974572",
+                  "role": "customer",
+                  "text": "Да, хорошо. Я была записана на 18:00.",
+                  "created_at": "2026-06-12T22:25:41.378360Z"
+                }
+              ]
+            },
+            "request_text": "Здравствуйте. Спасибо, что сказали об этом. Понимаю, что такая ситуация неприятна, и давайте я уточню детали, чтобы корректно зафиксировать обращение.",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Подскажите, пожалуйста, на какое время вы были записаны и примерно сколько в итоге ждали после назначенного времени?",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Примерно сорок минут. И всё это время я просто сидела в ожидании без какой-либо конкретной информации.",
+          "rude": "no",
+          "moderation_reason": "Вежливый уточняющий вопрос о времени записи и ожидании.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "1abb362d-9957-4d01-b43b-27eb00b4fffa",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Вежливый уточняющий вопрос о времени записи и ожидании.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "e0b197e5-3204-4dda-8979-6ddbb1a71b12",
+                  "role": "learner",
+                  "text": "Подскажите, пожалуйста, на какое время вы были записаны и примерно сколько в итоге ждали после назначенного времени?",
+                  "created_at": "2026-06-12T22:25:51.352518Z"
+                },
+                {
+                  "id": "3074b8f5-60e9-4946-af7d-325d18f42eac",
+                  "role": "customer",
+                  "text": "Примерно сорок минут. И всё это время я просто сидела в ожидании без какой-либо конкретной информации.",
+                  "created_at": "2026-06-12T22:25:51.352555Z"
+                }
+              ]
+            },
+            "request_text": "Подскажите, пожалуйста, на какое время вы были записаны и примерно сколько в итоге ждали после назначенного времени?",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Правильно понимаю, что вас задела не только сама задержка, но и то, что вам не дали ясного понимания по срокам ожидания?",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Да, именно так. Если бы мне хотя бы объяснили, что происходит и сколько примерно ждать, я бы могла как-то спланировать это время. А так я просто сидела и не понимала, что происходит.",
+          "rude": "no",
+          "moderation_reason": "Корректный уточняющий вопрос, нейтральный тон",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "1abb362d-9957-4d01-b43b-27eb00b4fffa",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректный уточняющий вопрос, нейтральный тон",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "5d4d7485-b5ce-4b6f-9598-a1d5bf276ef0",
+                  "role": "learner",
+                  "text": "Правильно понимаю, что вас задела не только сама задержка, но и то, что вам не дали ясного понимания по срокам ожидания?",
+                  "created_at": "2026-06-12T22:26:01.653502Z"
+                },
+                {
+                  "id": "a7177e58-c542-4883-97a1-57a9d1cbf939",
+                  "role": "customer",
+                  "text": "Да, именно так. Если бы мне хотя бы объяснили, что происходит и сколько примерно ждать, я бы могла как-то спланировать это время. А так я просто сидела и не понимала, что происходит.",
+                  "created_at": "2026-06-12T22:26:01.653567Z"
+                }
+              ]
+            },
+            "request_text": "Правильно понимаю, что вас задела не только сама задержка, но и то, что вам не дали ясного понимания по срокам ожидания?",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Тогда я зафиксирую жалобу именно по сервисной части: длительное ожидание, отсутствие понятного информирования и то, как с вами коммуницировали сотрудники.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Хорошо, вы зафиксировали. А что дальше? Мне важно понимать, что с этим обращением будет происходить и как клиника планирует реагировать на такие ситуации.",
+          "rude": "no",
+          "moderation_reason": "Корректная жалоба на сервис без оскорблений.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "1abb362d-9957-4d01-b43b-27eb00b4fffa",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректная жалоба на сервис без оскорблений.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "a2a1e17b-8bad-4342-a7ff-6de0738dce8e",
+                  "role": "learner",
+                  "text": "Тогда я зафиксирую жалобу именно по сервисной части: длительное ожидание, отсутствие понятного информирования и то, как с вами коммуницировали сотрудники.",
+                  "created_at": "2026-06-12T22:26:18.017429Z"
+                },
+                {
+                  "id": "540444ec-943d-4135-8e7c-5aa5a9de71c5",
+                  "role": "customer",
+                  "text": "Хорошо, вы зафиксировали. А что дальше? Мне важно понимать, что с этим обращением будет происходить и как клиника планирует реагировать на такие ситуации.",
+                  "created_at": "2026-06-12T22:26:18.017612Z"
+                }
+              ]
+            },
+            "request_text": "Тогда я зафиксирую жалобу именно по сервисной части: длительное ожидание, отсутствие понятного информирования и то, как с вами коммуницировали сотрудники.",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Я отмечу, что вам важна содержательная обратная связь по итогам разбора, и сразу зафиксирую удобный канал связи, чтобы следующий шаг был понятным.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Хорошо, я понимаю, что вы зафиксируете канал связи. Но меня всё же волнует, что будет дальше. Вы передадите это обращение ответственному лицу? И в какие сроки я могу ожидать обратной связи? Мне важно не просто оставить жалобу, а увидеть, что клиника действительно собирается что-то с этим делать.",
+          "rude": "no",
+          "moderation_reason": "Корректное профессиональное сообщение без грубости.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "1abb362d-9957-4d01-b43b-27eb00b4fffa",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректное профессиональное сообщение без грубости.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "580ee021-6605-42b4-9249-f18b0040c31c",
+                  "role": "learner",
+                  "text": "Я отмечу, что вам важна содержательная обратная связь по итогам разбора, и сразу зафиксирую удобный канал связи, чтобы следующий шаг был понятным.",
+                  "created_at": "2026-06-12T22:26:36.677028Z"
+                },
+                {
+                  "id": "2d7ccf2c-6099-4883-96ce-48a21cab5812",
+                  "role": "customer",
+                  "text": "Хорошо, я понимаю, что вы зафиксируете канал связи. Но меня всё же волнует, что будет дальше. Вы передадите это обращение ответственному лицу? И в какие сроки я могу ожидать обратной связи? Мне важно не просто оставить жалобу, а увидеть, что клиника действительно собирается что-то с этим делать.",
+                  "created_at": "2026-06-12T22:26:36.677523Z"
+                }
+              ]
+            },
+            "request_text": "Я отмечу, что вам важна содержательная обратная связь по итогам разбора, и сразу зафиксирую удобный канал связи, чтобы следующий шаг был понятным.",
+            "source": "scripted_test_input"
+          }
+        }
+      ],
+      "customer_opening": "Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.",
+      "session_id": "1abb362d-9957-4d01-b43b-27eb00b4fffa",
+      "error_message": null,
+      "debug": {
+        "session_id": "1abb362d-9957-4d01-b43b-27eb00b4fffa",
+        "scenario_id": "clinic-complaint",
+        "case_name": "clinic_complaint_service_recovery",
+        "case_kind": "scripted_reference",
+        "opening_message_override": null,
+        "session_create_response": {
+          "session_id": "1abb362d-9957-4d01-b43b-27eb00b4fffa",
+          "status": "active",
+          "message": {
+            "id": "34457841-cd90-4c77-97b5-1e7539c43326",
+            "role": "customer",
+            "text": "Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.",
+            "created_at": "2026-06-12T22:25:22.115971Z"
+          }
+        }
+      }
+    },
+    {
+      "name": "clinic_complaint_callback_recovery_alt",
+      "scenario_id": "clinic-complaint",
+      "case_kind": "scripted_reference",
+      "run_index": 1,
+      "result": "PASS",
+      "transcript": [
+        {
+          "learner_text": "Здравствуйте. Спасибо, что сразу сказали о проблеме. Мне важно аккуратно зафиксировать ситуацию и понять, какой обратной связи вы ожидаете от клиники.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Да, я ожидаю, что мою жалобу не просто выслушают, а действительно разберутся. Мне важно понять, почему так произошло и что клиника собирается делать, чтобы такое не повторялось.",
+          "rude": "no",
+          "moderation_reason": "Вежливое приветствие и уточнение, без оскорблений.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "265e6230-b58e-4338-9bd3-1e3a0a2e630c",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Вежливое приветствие и уточнение, без оскорблений.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "d7ae2055-0f65-42fd-8e04-75bed72c318a",
+                  "role": "learner",
+                  "text": "Здравствуйте. Спасибо, что сразу сказали о проблеме. Мне важно аккуратно зафиксировать ситуацию и понять, какой обратной связи вы ожидаете от клиники.",
+                  "created_at": "2026-06-12T22:26:43.183183Z"
+                },
+                {
+                  "id": "bef0bccc-e988-4118-9faa-858454baff30",
+                  "role": "customer",
+                  "text": "Да, я ожидаю, что мою жалобу не просто выслушают, а действительно разберутся. Мне важно понять, почему так произошло и что клиника собирается делать, чтобы такое не повторялось.",
+                  "created_at": "2026-06-12T22:26:43.183258Z"
+                }
+              ]
+            },
+            "request_text": "Здравствуйте. Спасибо, что сразу сказали о проблеме. Мне важно аккуратно зафиксировать ситуацию и понять, какой обратной связи вы ожидаете от клиники.",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Подскажите, пожалуйста, когда именно был визит, что произошло после приёма и каким способом вы пытались связаться с клиникой после этого?",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Визит был вчера, около шести вечера. После приёма я сразу решила обратиться, потому что впечатление от сервиса осталось очень неприятным. С клиникой я не связывалась после этого — просто решила позвонить сейчас.",
+          "rude": "no",
+          "moderation_reason": "Вежливый уточняющий вопрос о визите и последующих действиях.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "265e6230-b58e-4338-9bd3-1e3a0a2e630c",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Вежливый уточняющий вопрос о визите и последующих действиях.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "011591db-3345-42df-beae-cc48810a8787",
+                  "role": "learner",
+                  "text": "Подскажите, пожалуйста, когда именно был визит, что произошло после приёма и каким способом вы пытались связаться с клиникой после этого?",
+                  "created_at": "2026-06-12T22:26:50.395298Z"
+                },
+                {
+                  "id": "dfdd795d-e4bd-44f3-93da-4cd7940f2625",
+                  "role": "customer",
+                  "text": "Визит был вчера, около шести вечера. После приёма я сразу решила обратиться, потому что впечатление от сервиса осталось очень неприятным. С клиникой я не связывалась после этого — просто решила позвонить сейчас.",
+                  "created_at": "2026-06-12T22:26:50.395332Z"
+                }
+              ]
+            },
+            "request_text": "Подскажите, пожалуйста, когда именно был визит, что произошло после приёма и каким способом вы пытались связаться с клиникой после этого?",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Правильно понимаю, что для вас сейчас важно не только получить ответ на вопросы по назначению, но и чтобы с вами связались без повторных попыток дозвониться?",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Нет, вы меня не совсем поняли. Мне не нужна помощь с назначением или дозвоном. Мне важно, чтобы разобрались именно в сервисной проблеме: я ждала приёма почти сорок минут, и меня никто не информировал нормально. Это то, что я хочу обсудить.",
+          "rude": "no",
+          "moderation_reason": "Корректный уточняющий вопрос, без грубости.",
+          "status": "active",
+          "confidence": 0.99,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "265e6230-b58e-4338-9bd3-1e3a0a2e630c",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректный уточняющий вопрос, без грубости.",
+              "confidence": 0.99,
+              "messages": [
+                {
+                  "id": "1a22f233-ce64-47be-9ea4-f66e1df8cd1d",
+                  "role": "learner",
+                  "text": "Правильно понимаю, что для вас сейчас важно не только получить ответ на вопросы по назначению, но и чтобы с вами связались без повторных попыток дозвониться?",
+                  "created_at": "2026-06-12T22:26:58.574970Z"
+                },
+                {
+                  "id": "7dc9a7dc-c6a0-4f5d-99f9-d574a321191f",
+                  "role": "customer",
+                  "text": "Нет, вы меня не совсем поняли. Мне не нужна помощь с назначением или дозвоном. Мне важно, чтобы разобрались именно в сервисной проблеме: я ждала приёма почти сорок минут, и меня никто не информировал нормально. Это то, что я хочу обсудить.",
+                  "created_at": "2026-06-12T22:26:58.575015Z"
+                }
+              ]
+            },
+            "request_text": "Правильно понимаю, что для вас сейчас важно не только получить ответ на вопросы по назначению, но и чтобы с вами связались без повторных попыток дозвониться?",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Я зафиксирую обращение так, чтобы коллеги увидели и вопросы по назначению, и саму проблему с тем, что связаться с клиникой оказалось сложно.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Хорошо, я вижу, что вы всё ещё не уловили суть. Я не жалуюсь на то, что мне сложно дозвониться или что у меня проблемы с назначением. Я жалуюсь на то, что вчера, будучи записанной на конкретное время, я просидела в вашей клинике почти сорок минут в ожидании, и никто из сотрудников не мог или не хотел мне внятно объяснить, сколько ещё ждать и почему такая задержка. Меня интересует именно это — как вы собираетесь разбираться с качеством сервиса в самой клинике, а не с моими дальнейшими звонками.",
+          "rude": "no",
+          "moderation_reason": "Корректное информативное сообщение без оскорблений.",
+          "status": "active",
+          "confidence": 0.95,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "265e6230-b58e-4338-9bd3-1e3a0a2e630c",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректное информативное сообщение без оскорблений.",
+              "confidence": 0.95,
+              "messages": [
+                {
+                  "id": "87ef6e44-344c-4900-ba11-64ace53f2289",
+                  "role": "learner",
+                  "text": "Я зафиксирую обращение так, чтобы коллеги увидели и вопросы по назначению, и саму проблему с тем, что связаться с клиникой оказалось сложно.",
+                  "created_at": "2026-06-12T22:27:15.189939Z"
+                },
+                {
+                  "id": "bf314e67-826f-44fc-92cc-ee57d7374d5b",
+                  "role": "customer",
+                  "text": "Хорошо, я вижу, что вы всё ещё не уловили суть. Я не жалуюсь на то, что мне сложно дозвониться или что у меня проблемы с назначением. Я жалуюсь на то, что вчера, будучи записанной на конкретное время, я просидела в вашей клинике почти сорок минут в ожидании, и никто из сотрудников не мог или не хотел мне внятно объяснить, сколько ещё ждать и почему такая задержка. Меня интересует именно это — как вы собираетесь разбираться с качеством сервиса в самой клинике, а не с моими дальнейшими звонками.",
+                  "created_at": "2026-06-12T22:27:15.190019Z"
+                }
+              ]
+            },
+            "request_text": "Я зафиксирую обращение так, чтобы коллеги увидели и вопросы по назначению, и саму проблему с тем, что связаться с клиникой оказалось сложно.",
+            "source": "scripted_test_input"
+          }
+        },
+        {
+          "learner_text": "Давайте сразу уточним удобный номер и время для обратного звонка, чтобы следующий шаг был понятен и вам не пришлось снова всё повторять.",
+          "learner_source": "scripted_test_input",
+          "customer_text": "Нет, номер и время для звонка — это не то, что мне сейчас нужно. Мне нужно понять, как вы будете разбираться с конкретной ситуацией: сорок минут ожидания и отсутствие информации от сотрудников клиники. Если вы не можете ответить на это прямо сейчас, то хотя бы объясните, кто и как будет рассматривать мою жалобу.",
+          "rude": "no",
+          "moderation_reason": "Корректное предложение уточнить номер и время звонка, без оскорблений.",
+          "status": "active",
+          "confidence": 0.96,
+          "checks": [
+            {
+              "name": "customer_reply_role",
+              "status": "PASS",
+              "detail": "customer reply captured"
+            },
+            {
+              "name": "empty_customer_reply",
+              "status": "PASS",
+              "detail": "missing customer message in API payload"
+            },
+            {
+              "name": "role_drift_seller_language",
+              "status": "PASS",
+              "detail": "possible seller/admin language drift"
+            },
+            {
+              "name": "refusal_or_session_stop",
+              "status": "PASS",
+              "detail": "possible refusal or unexpected stop"
+            }
+          ],
+          "debug": {
+            "response_payload": {
+              "session_id": "265e6230-b58e-4338-9bd3-1e3a0a2e630c",
+              "status": "active",
+              "rude": "no",
+              "moderation_label": "allowed",
+              "moderation_severity": "none",
+              "terminate_session": false,
+              "moderation_reason": "Корректное предложение уточнить номер и время звонка, без оскорблений.",
+              "confidence": 0.96,
+              "messages": [
+                {
+                  "id": "7e2b121e-48e4-4bf1-ae43-7ee3c79b5fe4",
+                  "role": "learner",
+                  "text": "Давайте сразу уточним удобный номер и время для обратного звонка, чтобы следующий шаг был понятен и вам не пришлось снова всё повторять.",
+                  "created_at": "2026-06-12T22:27:26.182097Z"
+                },
+                {
+                  "id": "5ed3f636-3198-4bf5-b577-45103461258a",
+                  "role": "customer",
+                  "text": "Нет, номер и время для звонка — это не то, что мне сейчас нужно. Мне нужно понять, как вы будете разбираться с конкретной ситуацией: сорок минут ожидания и отсутствие информации от сотрудников клиники. Если вы не можете ответить на это прямо сейчас, то хотя бы объясните, кто и как будет рассматривать мою жалобу.",
+                  "created_at": "2026-06-12T22:27:26.182153Z"
+                }
+              ]
+            },
+            "request_text": "Давайте сразу уточним удобный номер и время для обратного звонка, чтобы следующий шаг был понятен и вам не пришлось снова всё повторять.",
+            "source": "scripted_test_input"
+          }
+        }
+      ],
+      "customer_opening": "Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.",
+      "session_id": "265e6230-b58e-4338-9bd3-1e3a0a2e630c",
+      "error_message": null,
+      "debug": {
+        "session_id": "265e6230-b58e-4338-9bd3-1e3a0a2e630c",
+        "scenario_id": "clinic-complaint",
+        "case_name": "clinic_complaint_callback_recovery_alt",
+        "case_kind": "scripted_reference",
+        "opening_message_override": null,
+        "session_create_response": {
+          "session_id": "265e6230-b58e-4338-9bd3-1e3a0a2e630c",
+          "status": "active",
+          "message": {
+            "id": "f65ca2d8-0841-4f69-8b8d-d092eca16511",
+            "role": "customer",
+            "text": "Здравствуйте. Хотела бы оставить жалобу по поводу вчерашнего визита. Я была записана на конкретное время, приехала заранее, а в итоге очень долго ждала, и при этом мне никто толком не мог сказать, сколько ещё ждать. Для частной клиники это, честно говоря, очень странный сервис.",
+            "created_at": "2026-06-12T22:26:36.722537Z"
+          }
+        }
+      }
+    }
+  ]
+}

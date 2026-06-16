@@ -209,3 +209,22 @@ def test_strict_logic_converts_level_mismatch_from_warn_to_error() -> None:
     assert error_check.status == "ERROR"
     assert aggregate_check_status([warn_check]) == "WARN"
     assert aggregate_check_status([error_check]) == "ERROR"
+
+
+def test_report_formatter_does_not_emit_fake_empty_reply_for_first_unpaired_turn() -> None:
+    result = make_result(
+        name="clinic_appointment_report_middle",
+        scenario_id="clinic-appointment",
+        level="Middle",
+        pdf_filename="middle.pdf",
+    )
+    result.dialogue_turns = [
+        type("Turn", (), {"speaker": "learner", "text": "Здравствуйте, помогите разобраться."})(),
+        type("Turn", (), {"speaker": "customer", "text": "Да, расскажите подробнее."})(),
+        type("Turn", (), {"speaker": "learner", "text": "Мне важно понять следующий шаг."})(),
+    ]
+
+    report = format_scenario_report("clinic-appointment", [result])
+
+    assert "[empty reply]" not in report
+    assert "[formatter artifact: no paired customer reply]" in report

@@ -1,4 +1,5 @@
 import { salesAcademyMock } from "../data/salesAcademyMock";
+import { SimulatorApiError } from "./simulatorApiService";
 import type {
   DialogueMessage,
   ScenarioCardItem,
@@ -23,6 +24,14 @@ export function formatApiMessageTime(createdAt: string): string {
 
 export function mapApiMessageToDialogueMessage(dto: SimulatorApiMessageDto): DialogueMessage {
   const normalizedText = dto.text.trim();
+  if (!normalizedText) {
+    throw new SimulatorApiError("Backend вернул пустой ответ клиента", {
+      detail: {
+        code: "empty_customer_reply",
+        role: dto.role
+      }
+    });
+  }
   const id =
     dto.id?.trim() ||
     `api-${dto.role}-${dto.created_at}-${normalizedText
@@ -63,7 +72,16 @@ export function mergeApiMessages(
   apiMessages: SimulatorApiMessageDto[],
   optimisticMessageId?: string
 ): DialogueMessage[] {
-  const mappedMessages = apiMessages.map(mapApiMessageToDialogueMessage);
+  const mappedMessages = apiMessages.flatMap((message) => {
+    try {
+      return [mapApiMessageToDialogueMessage(message)];
+    } catch (error) {
+      if (error instanceof SimulatorApiError && message.role === "customer") {
+        return [];
+      }
+      throw error;
+    }
+  });
   let nextMessages = [...currentMessages];
 
   for (const mappedMessage of mappedMessages) {

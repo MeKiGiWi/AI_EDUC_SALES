@@ -158,7 +158,7 @@ def markdown_escape(text: str) -> str:
 
 
 def format_text_block(text: str) -> str:
-    value = text.strip() or "[empty reply]"
+    value = text.strip() or "[no paired customer reply]"
     return f"```text\n{value}\n```"
 
 
@@ -550,7 +550,7 @@ def format_scenario_report(scenario_id: str, results: list[ReportGenerationCaseR
                     "",
                     "**Ответ клиента / LLM**",
                     "",
-                    format_text_block(buffered_customer_reply or ""),
+                    format_text_block(buffered_customer_reply or "[formatter artifact: no paired customer reply]"),
                 ]
             )
             buffered_customer_reply = None

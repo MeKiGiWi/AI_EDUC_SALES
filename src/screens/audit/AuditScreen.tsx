@@ -618,10 +618,10 @@ export function AuditScreen({ onGoToSimulator, lead }: AuditScreenProps) {
                   Внедрение Aithera окупается за 2–4 недели за счёт роста конверсии. Покажем, как это сработает у вас.
                 </Text>
                 <View style={styles.ctaBtnRow}>
-                  <Pressable onPress={() => setLeadModal("discuss")} style={({ pressed }) => [styles.btn, styles.btnLime, styles.ctaBtn, pressed && styles.pressed]}>
+                  <Pressable onPress={() => {}} style={({ pressed }) => [styles.btn, styles.btnLime, styles.ctaBtn, pressed && styles.pressed]}>
                     <Text style={[styles.btnText, styles.btnTextNavy]}>Обсудить внедрение</Text>
                   </Pressable>
-                  <Pressable onPress={() => setLeadModal("demo")} style={({ pressed }) => [styles.btn, styles.ctaBtnGhost, pressed && styles.pressed]}>
+                  <Pressable onPress={() => {}} style={({ pressed }) => [styles.btn, styles.ctaBtnGhost, pressed && styles.pressed]}>
                     <Text style={[styles.btnText, styles.btnTextLight]}>Записаться на демо</Text>
                   </Pressable>
                 </View>
@@ -719,10 +719,10 @@ function AuditLeadModal({
             </>
           ) : (
             <>
-              <TextInput value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.modalInput} />
-              <TextInput value={form.clinic} onChangeText={(clinic) => setForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.modalInput} />
-              <TextInput value={form.contact} onChangeText={(contact) => setForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.modalInput} />
-              <Pressable onPress={submit} disabled={status === "sending"} style={({ pressed }) => [styles.btn, styles.btnLime, pressed && styles.pressed]}>
+              <TextInput editable={false} value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <TextInput editable={false} value={form.clinic} onChangeText={(clinic) => setForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <TextInput editable={false} value={form.contact} onChangeText={(contact) => setForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <Pressable onPress={() => {}} disabled={status === "sending"} style={({ pressed }) => [styles.btn, styles.btnLime, pressed && styles.pressed]}>
                 <Text style={[styles.btnText, styles.btnTextNavy]}>{status === "sending" ? "Отправляем…" : "Отправить заявку"}</Text>
               </Pressable>
               {status === "error" && error ? <Text style={styles.modalErr}>{error}</Text> : null}

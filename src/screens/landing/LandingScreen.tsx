@@ -1127,7 +1127,7 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 ))}
               </View>
             ) : null}
-            <AnchorButton onPress={() => setDiscussOpen(true)}>Обсудить внедрение</AnchorButton>
+            <AnchorButton onPress={() => {}}>Обсудить внедрение</AnchorButton>
           </View>
         </View>
 
@@ -1153,11 +1153,11 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                     Повышаем конверсию и LTV за счёт внедрения комплексной системы изменения действий администраторов
                   </Text>
                   <View style={styles.heroActions}>
-                    <AnchorButton onPress={() => setDiscussOpen(true)}>Обсудить внедрение</AnchorButton>
-                    <AnchorButton tone="lime" onPress={() => scrollTo("contact")}>
+                    <AnchorButton onPress={() => {}}>Обсудить внедрение</AnchorButton>
+                    <AnchorButton tone="lime" onPress={() => onOpenAudit()}>
                       Пройти бесплатный аудит
                     </AnchorButton>
-                    <AnchorButton tone="ghost" onPress={() => setDemoOpen(true)}>
+                    <AnchorButton tone="ghost" onPress={() => {}}>
                       Записаться на демо
                     </AnchorButton>
                   </View>
@@ -1522,10 +1522,10 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
               </View>
               <View style={[styles.auditFormCol, !isTablet && styles.auditFormColDesktop, isTablet && styles.stackChild]}>
                 <View style={[styles.form, isMobile && styles.formMobile]}>
-                  <TextInput value={auditForm.name} onChangeText={(name) => setAuditForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.input} />
-                  <TextInput value={auditForm.clinic} onChangeText={(clinic) => setAuditForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.input} />
-                  <TextInput value={auditForm.contact} onChangeText={(contact) => setAuditForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.input} />
-                  <AnchorButton tone="lime" fullWidth onPress={handleAuditSubmit}>
+                  <TextInput editable={false} value={auditForm.name} onChangeText={(name) => setAuditForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.input} />
+                  <TextInput editable={false} value={auditForm.clinic} onChangeText={(clinic) => setAuditForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.input} />
+                  <TextInput editable={false} value={auditForm.contact} onChangeText={(contact) => setAuditForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.input} />
+                  <AnchorButton tone="lime" fullWidth onPress={() => onOpenAudit()}>
                     Пройти аудит
                   </AnchorButton>
                   <LegalConsentNotice tone="dark" />
@@ -1793,10 +1793,10 @@ function DiscussModal({
           ) : (
             <>
               <View style={styles.discussForm}>
-                <TextInput value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.discussInput} />
-                <TextInput value={form.clinic} onChangeText={(clinic) => setForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.discussInput} />
-                <TextInput value={form.contact} onChangeText={(contact) => setForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.discussInput} />
-                <AnchorButton tone="lime" fullWidth disabled={status === "sending"} onPress={submit}>
+                <TextInput editable={false} value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.discussInput} />
+                <TextInput editable={false} value={form.clinic} onChangeText={(clinic) => setForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.discussInput} />
+                <TextInput editable={false} value={form.contact} onChangeText={(contact) => setForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.discussInput} />
+                <AnchorButton tone="lime" fullWidth disabled={status === "sending"} onPress={() => {}}>
                   {status === "sending" ? "Отправляем…" : "Отправить заявку"}
                 </AnchorButton>
                 <LegalConsentNotice tone="light" />

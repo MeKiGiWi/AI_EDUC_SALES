@@ -795,17 +795,11 @@ function DialogueView({
                 value={draftMessage}
                 onChangeText={setDraftMessage}
                 onKeyPress={handleInputKeyPress}
-                onSubmitEditing={
-                  layout.isDesktop
-                    ? () => {
-                        void handleSendMessage();
-                      }
-                    : undefined
-                }
+                onSubmitEditing={undefined}
                 blurOnSubmit={false}
                 multiline
                 textAlignVertical="center"
-                editable={!isSending && isSessionActive && !isFinishing}
+                editable={false}
                 scrollEnabled
                 numberOfLines={2}
                 maxLength={4000}
@@ -813,9 +807,7 @@ function DialogueView({
               <Pressable
                 testID="simulator-send-button"
                 accessibilityLabel="Отправить сообщение"
-                onPress={() => {
-                  void handleSendMessage();
-                }}
+                onPress={() => {}}
                 disabled={!draftMessage.trim() || isSending || !isSessionActive || isFinishing}
                 style={[
                   styles.sendButton,

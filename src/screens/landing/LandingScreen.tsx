@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { LeadConsentCheckboxes } from "../../components/legal/LeadConsentCheckboxes";
 import { legalContent } from "../../data/legal";
 import { useResponsiveLayout } from "../../hooks/useResponsiveLayout";
 import { leadService } from "../../services/leadService";
@@ -973,27 +974,6 @@ function LegalLink({
   );
 }
 
-function LegalConsentNotice({ tone = "dark" }: { tone?: "dark" | "light" }) {
-  return (
-    <Text style={tone === "dark" ? styles.legalConsentTextDark : styles.legalConsentTextLight}>
-      Нажимая на кнопку, вы даете{" "}
-      <LegalLink
-        href={legalContent.pages.personalDataAgreement}
-        docxHref={legalContent.documents.personalDataAgreement.href}
-      >
-        согласие на обработку персональных данных
-      </LegalLink>{" "}
-      и соглашаетесь с{" "}
-      <LegalLink
-        href={legalContent.pages.privacyPolicy}
-        docxHref={legalContent.documents.privacyPolicy.href}
-      >
-        политикой конфиденциальности
-      </LegalLink>
-    </Text>
-  );
-}
-
 export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
   const layout = useResponsiveLayout();
   const scrollRef = useRef<ScrollView>(null);
@@ -1006,21 +986,13 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
   const [articleOpen, setArticleOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<Record<number, boolean>>({ 0: true });
   const [auditForm, setAuditForm] = useState({ name: "", clinic: "", contact: "" });
+  const [auditConsents, setAuditConsents] = useState({ marketing: false, personalData: false });
   const [auditStatus, setAuditStatus] = useState<"idle" | "sending" | "error">("idle");
   const [auditError, setAuditError] = useState<string | null>(null);
   function handleAuditSubmit() {
-    const name = auditForm.name.trim();
-    const contact = auditForm.contact.trim();
-    if (!name || !contact) {
-      setAuditError("Укажите имя и контакт, чтобы мы могли связаться.");
-      setAuditStatus("error");
-      return;
-    }
-    // Заявку НЕ отправляем сразу: данные уходят в сам аудит и записываются в БД
-    // только после прохождения (или если человек его бросил / не допрошёл).
     setAuditStatus("idle");
     setAuditError(null);
-    onOpenAudit({ name, clinic: auditForm.clinic.trim() || null, contact });
+    onOpenAudit();
   }
 
   const isMobile = layout.width <= 760;
@@ -1522,13 +1494,19 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
               </View>
               <View style={[styles.auditFormCol, !isTablet && styles.auditFormColDesktop, isTablet && styles.stackChild]}>
                 <View style={[styles.form, isMobile && styles.formMobile]}>
-                  <TextInput editable={false} value={auditForm.name} onChangeText={(name) => setAuditForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.input} />
-                  <TextInput editable={false} value={auditForm.clinic} onChangeText={(clinic) => setAuditForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.input} />
-                  <TextInput editable={false} value={auditForm.contact} onChangeText={(contact) => setAuditForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.input} />
-                  <AnchorButton tone="lime" fullWidth onPress={() => onOpenAudit()}>
+                  <TextInput value={auditForm.name} editable={false} placeholder="Имя" placeholderTextColor="#60688d" style={styles.input} />
+                  <TextInput value={auditForm.clinic} editable={false} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.input} />
+                  <TextInput value={auditForm.contact} editable={false} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.input} />
+                  <LeadConsentCheckboxes
+                    marketingAccepted={auditConsents.marketing}
+                    personalDataAccepted={auditConsents.personalData}
+                    onMarketingChange={() => undefined}
+                    onPersonalDataChange={() => undefined}
+                    tone="dark"
+                  />
+                  <AnchorButton tone="lime" fullWidth onPress={handleAuditSubmit}>
                     Пройти аудит
                   </AnchorButton>
-                  <LegalConsentNotice tone="dark" />
                   {auditStatus === "error" && auditError ? (
                     <Text style={styles.auditFormError}>{auditError}</Text>
                   ) : null}
@@ -1616,84 +1594,81 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
         </Section>
 
         <View style={styles.footer} onLayout={register("footer")}>
-          <View style={[containerStyle, styles.footerMain, styles.footerMainTop, layout.width <= 900 && styles.oneColumn]}>
-            <View style={styles.footerBrand}>
-              <FooterBrandLogo />
-              <Text style={styles.footerText}>
-                Помогаем премиальным клиникам расти через системную аналитику коммуникаций, ИИ‑тренажер для
-                администраторов и управленческие решения, связанные с выручкой
-              </Text>
-              <View style={styles.footerCompanyInfo} testID="footer-company-info">
-                <Text style={styles.footerColTitle}>Информация о компании</Text>
-                <Text style={styles.footerLegal}>{legalContent.company.legalName}</Text>
-                <Text style={styles.footerLegal}>
-                  Юридическая и регистрационная информация доступна ниже, вместе с реквизитами для официальных документов
+          <View style={[containerStyle, styles.footerMain, styles.footerMainTop]}>
+            <View style={[styles.footerTopRow, layout.width <= 900 && styles.oneColumn]}>
+              <View style={styles.footerBrand}>
+                <FooterBrandLogo />
+                <Text style={styles.footerText}>
+                  Помогаем премиальным клиникам расти через системную аналитику коммуникаций, ИИ‑тренажер для
+                  администраторов и управленческие решения, связанные с выручкой
                 </Text>
+              </View>
+              <View style={styles.footerNavCol}>
+                <Text style={styles.footerColTitle}>Разделы</Text>
+                {([["О нас", "trainer"], ["Точки потерь", "about"], ["Кейсы", "case"], ["Тарифы", "pricing"], ["FAQ", "faq"], ["Контакты", "footer"]] as Array<[string, SectionId]>).map(([label, id]) => (
+                  <Pressable key={label} onPress={() => scrollTo(id)}>
+                    <Text style={styles.footerColLink}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.footerContactCol}>
+                <Text style={styles.footerColTitle}>Контакты</Text>
+                <Pressable onPress={() => openExternal("https://t.me/AItheraDM")} style={styles.contactRow}>
+                  <View style={styles.contactIcon}><Image source={{ uri: ICON_TELEGRAM }} style={styles.contactIconImg} /></View>
+                  <Text style={[styles.footerAccent, styles.contactText]}>AItheraDM</Text>
+                </Pressable>
+                <Pressable onPress={() => openExternal("tel:+79916394358")} style={styles.contactRow}>
+                  <View style={styles.contactIcon}><Image source={{ uri: ICON_PHONE }} style={styles.contactIconImg} /></View>
+                  <Text style={[styles.footerAccent, styles.contactText]}>+7 (991) 639-43-58</Text>
+                </Pressable>
+                <Pressable onPress={() => openExternal("mailto:digital-methodology@ya.ru")} style={styles.contactRow}>
+                  <View style={styles.contactIcon}><Image source={{ uri: ICON_MAIL }} style={styles.contactIconImg} /></View>
+                  <Text style={[styles.footerAccent, styles.contactText]}>digital-methodology@ya.ru</Text>
+                </Pressable>
+              </View>
+            </View>
+            <View style={styles.footerCompanyInfo} testID="footer-company-info">
+              <Text style={styles.footerColTitle}>Информация о компании</Text>
+              <Text style={styles.footerLegal}>{legalContent.company.legalName}</Text>
+              <Text style={styles.footerLegal}>
+                Юридическая и регистрационная информация доступна ниже, вместе с реквизитами для официальных документов
+              </Text>
+              <View style={[styles.footerCompanyRow, layout.width <= 760 && styles.oneColumn]}>
                 <View style={styles.footerRequisites} testID="footer-requisites">
                   <Text style={styles.footerColText}>{legalContent.company.legalName}</Text>
                   <Text style={styles.footerColText}>ИНН: {legalContent.company.inn}</Text>
                   <Text style={styles.footerColText}>КПП: {legalContent.company.kpp}</Text>
                   <Text style={styles.footerColText}>ОГРН: {legalContent.company.ogrn}</Text>
                 </View>
+                <View style={styles.footerLegalList}>
+                  <LegalLink
+                    href={legalContent.pages.personalDataPolicy}
+                    docxHref={legalContent.documents.personalDataPolicy.href}
+                    variant="footer"
+                  >
+                    Политика обработки персональных данных
+                  </LegalLink>
+                  <LegalLink
+                    href={legalContent.pages.personalDataConsent}
+                    docxHref={legalContent.documents.personalDataConsent.href}
+                    variant="footer"
+                  >
+                    {legalContent.documents.personalDataConsent.label}
+                  </LegalLink>
+                  <LegalLink
+                    href={legalContent.pages.cookiesConsent}
+                    docxHref={legalContent.documents.cookiesConsent.href}
+                    variant="footer"
+                  >
+                    {legalContent.documents.cookiesConsent.label}
+                  </LegalLink>
+                </View>
               </View>
-            </View>
-            <View>
-              <Text style={styles.footerColTitle}>Разделы</Text>
-              {([["О нас", "trainer"], ["Точки потерь", "about"], ["Кейсы", "case"], ["Тарифы", "pricing"], ["FAQ", "faq"], ["Контакты", "footer"]] as Array<[string, SectionId]>).map(([label, id]) => (
-                <Pressable key={label} onPress={() => scrollTo(id)}>
-                  <Text style={styles.footerColLink}>{label}</Text>
-                </Pressable>
-              ))}
-              <LegalLink
-                href={legalContent.pages.privacyPolicy}
-                docxHref={legalContent.documents.privacyPolicy.href}
-                variant="footer"
-              >
-                {legalContent.documents.privacyPolicy.label}
-              </LegalLink>
-              <LegalLink
-                href={legalContent.pages.personalDataAgreement}
-                docxHref={legalContent.documents.personalDataAgreement.href}
-                variant="footer"
-              >
-                Обработка персональных данных
-              </LegalLink>
-            </View>
-            <View>
-              <Text style={styles.footerColTitle}>Контакты</Text>
-              <Pressable onPress={() => openExternal("https://t.me/AItheraDM")} style={styles.contactRow}>
-                <View style={styles.contactIcon}><Image source={{ uri: ICON_TELEGRAM }} style={styles.contactIconImg} /></View>
-                <Text style={[styles.footerAccent, styles.contactText]}>AItheraDM</Text>
-              </Pressable>
-              <Pressable onPress={() => openExternal("tel:+79916394358")} style={styles.contactRow}>
-                <View style={styles.contactIcon}><Image source={{ uri: ICON_PHONE }} style={styles.contactIconImg} /></View>
-                <Text style={[styles.footerAccent, styles.contactText]}>+7 (991) 639-43-58</Text>
-              </Pressable>
-              <Pressable onPress={() => openExternal("mailto:digital-methodology@ya.ru")} style={styles.contactRow}>
-                <View style={styles.contactIcon}><Image source={{ uri: ICON_MAIL }} style={styles.contactIconImg} /></View>
-                <Text style={[styles.footerAccent, styles.contactText]}>digital-methodology@ya.ru</Text>
-              </Pressable>
             </View>
           </View>
           <View style={styles.footerDivider} />
           <View style={[containerStyle, styles.footerBottom, isMobile && styles.footerBottomMobile]}>
             <Text style={styles.footerBottomText}>© 2026 {legalContent.company.shortName}. Все права защищены.</Text>
-            <View style={[styles.footerBottomLinks, isMobile && styles.footerBottomLinksMobile]}>
-              <LegalLink
-                href={legalContent.pages.privacyPolicy}
-                docxHref={legalContent.documents.privacyPolicy.href}
-                variant="footer"
-              >
-                {legalContent.documents.privacyPolicy.label}
-              </LegalLink>
-              <LegalLink
-                href={legalContent.pages.personalDataAgreement}
-                docxHref={legalContent.documents.personalDataAgreement.href}
-                variant="footer"
-              >
-                {legalContent.documents.personalDataAgreement.label}
-              </LegalLink>
-            </View>
           </View>
         </View>
       </ScrollView>
@@ -1730,6 +1705,7 @@ function DiscussModal({
   source?: string;
 }) {
   const [form, setForm] = useState({ name: "", clinic: "", contact: "" });
+  const [consents, setConsents] = useState({ marketing: false, personalData: false });
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -1748,27 +1724,8 @@ function DiscussModal({
     if (status === "sending") {
       return;
     }
-    const name = form.name.trim();
-    const contact = form.contact.trim();
-    if (!name || !contact) {
-      setError("Укажите имя и контакт, чтобы мы могли связаться.");
-      setStatus("error");
-      return;
-    }
-    setStatus("sending");
+    setStatus("idle");
     setError(null);
-    try {
-      await leadService.submitAuditLead({
-        name,
-        clinic: form.clinic.trim() || null,
-        contact,
-        source
-      });
-      setStatus("success");
-    } catch {
-      setStatus("error");
-      setError("Не удалось отправить. Проверьте соединение и попробуйте ещё раз.");
-    }
   }
 
   return (
@@ -1793,13 +1750,19 @@ function DiscussModal({
           ) : (
             <>
               <View style={styles.discussForm}>
-                <TextInput editable={false} value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.discussInput} />
-                <TextInput editable={false} value={form.clinic} onChangeText={(clinic) => setForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.discussInput} />
-                <TextInput editable={false} value={form.contact} onChangeText={(contact) => setForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.discussInput} />
-                <AnchorButton tone="lime" fullWidth disabled={status === "sending"} onPress={() => {}}>
-                  {status === "sending" ? "Отправляем…" : "Отправить заявку"}
+                <TextInput value={form.name} editable={false} placeholder="Имя" placeholderTextColor="#60688d" style={styles.discussInput} />
+                <TextInput value={form.clinic} editable={false} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.discussInput} />
+                <TextInput value={form.contact} editable={false} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.discussInput} />
+                <LeadConsentCheckboxes
+                  marketingAccepted={consents.marketing}
+                  personalDataAccepted={consents.personalData}
+                  onMarketingChange={() => undefined}
+                  onPersonalDataChange={() => undefined}
+                  tone="light"
+                />
+                <AnchorButton tone="lime" fullWidth disabled onPress={submit}>
+                  Отправить заявку
                 </AnchorButton>
-                <LegalConsentNotice tone="light" />
                 {status === "error" && error ? <Text style={styles.discussError}>{error}</Text> : null}
               </View>
             </>
@@ -2312,8 +2275,6 @@ const styles = StyleSheet.create({
   formMobile: { padding: 14, borderRadius: 22 },
   input: { width: "100%", minHeight: 56, borderRadius: 14, backgroundColor: "#fff", paddingHorizontal: 18, color: TEXT, fontSize: 16 },
   auditFormError: { color: "#ffb4b4", fontWeight: "700", fontSize: 14, lineHeight: 20 },
-  legalConsentTextDark: { color: "rgba(255,255,255,.72)", fontSize: 12, lineHeight: 18 },
-  legalConsentTextLight: { color: MUTED, fontSize: 12, lineHeight: 18 },
   legalInlineLink: { color: LIME_2, fontSize: 12, lineHeight: 18, textDecorationLine: "underline" },
   formResult: { color: LIME_2, fontWeight: "800", fontSize: 14, lineHeight: 20 },
   blogGrid: { flexDirection: "row", gap: 20, alignItems: "flex-start" },
@@ -2432,19 +2393,27 @@ const styles = StyleSheet.create({
   footerButtonText: { color: NAVY, fontSize: 16, fontWeight: "900" },
   footerNote: { color: "rgba(255,255,255,.55)", fontSize: 13, lineHeight: 20 },
   footerDivider: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,.08)" },
-  footerMain: { flexDirection: "row", gap: 32, paddingVertical: 36 },
-  footerBrand: { flex: 1.5, gap: 14 },
+  footerMain: { gap: 28, paddingVertical: 36 },
+  footerTopRow: { flexDirection: "row", gap: 32, alignItems: "flex-start" },
+  footerBrand: { flex: 1.5, minWidth: 0, gap: 14 },
+  footerNavCol: { flex: 0.72, minWidth: 170 },
+  footerContactCol: { flex: 0.9, minWidth: 240 },
   footerCompanyInfo: {
-    marginTop: 10,
-    paddingTop: 18,
+    width: "100%",
+    paddingTop: 22,
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,.08)",
-    gap: 10
+    gap: 10,
+    alignSelf: "stretch"
   },
   footerRequisites: {
+    flex: 1,
+    minWidth: 0,
     gap: 2,
     paddingTop: 4
   },
+  footerCompanyRow: { flexDirection: "row", gap: 48, alignItems: "flex-start", marginTop: 8 },
+  footerLegalList: { flex: 1, minWidth: 0, gap: 9 },
   footerText: { color: "rgba(255,255,255,.78)", fontSize: 15, lineHeight: 24 },
   footerLegal: { color: "rgba(255,255,255,.45)", fontSize: 13, lineHeight: 20 },
   contactRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
@@ -2454,14 +2423,16 @@ const styles = StyleSheet.create({
   contactText: { flex: 1, minWidth: 0, marginBottom: 0 },
   footerColTitle: { color: "#fff", fontSize: 15, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 },
   footerColLink: { color: "rgba(255,255,255,.78)", fontSize: 15, marginBottom: 9 },
-  footerLegalLink: { color: LIME_2, fontSize: 15, lineHeight: 22 },
+  footerLegalLink: {
+    color: LIME_2,
+    fontSize: 15,
+    lineHeight: 22
+  },
   footerColText: { color: "rgba(255,255,255,.6)", fontSize: 15, lineHeight: 22, marginBottom: 9 },
   footerAccent: { color: LIME, fontSize: 15, fontWeight: "700", marginBottom: 9 },
   hiddenWorkspace: { color: "rgba(255,255,255,.35)", fontSize: 13, marginTop: 10 },
   footerBottom: { flexDirection: "row", justifyContent: "space-between", gap: 16, paddingVertical: 18 },
   footerBottomMobile: { flexDirection: "column" },
-  footerBottomLinks: { flexDirection: "row", flexWrap: "wrap", gap: 18 },
-  footerBottomLinksMobile: { gap: 10 },
   footerBottomText: { color: "rgba(255,255,255,.55)", fontSize: 13 },
   footerBottomLink: { color: "rgba(255,255,255,.75)", fontSize: 13 },
   footerMainTop: { paddingTop: 8 },

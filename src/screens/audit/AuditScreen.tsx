@@ -11,6 +11,7 @@ import {
   type TextStyle
 } from "react-native";
 
+import { LeadConsentCheckboxes } from "../../components/legal/LeadConsentCheckboxes";
 import { leadService } from "../../services/leadService";
 import type { AuditLeadHandoff } from "../landing/LandingScreen";
 
@@ -653,6 +654,7 @@ function AuditLeadModal({
 }) {
   const isDemo = variant === "demo";
   const [form, setForm] = useState({ name: "", clinic: "", contact: "" });
+  const [consents, setConsents] = useState({ marketing: false, personalData: false });
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -671,27 +673,8 @@ function AuditLeadModal({
     if (status === "sending") {
       return;
     }
-    const name = form.name.trim();
-    const contact = form.contact.trim();
-    if (!name || !contact) {
-      setError("Укажите имя и контакт, чтобы мы могли связаться.");
-      setStatus("error");
-      return;
-    }
-    setStatus("sending");
+    setStatus("idle");
     setError(null);
-    try {
-      await leadService.submitAuditLead({
-        name,
-        clinic: form.clinic.trim() || null,
-        contact,
-        source: isDemo ? "demo_request" : "discuss_implementation"
-      });
-      setStatus("success");
-    } catch {
-      setStatus("error");
-      setError("Не удалось отправить. Проверьте соединение и попробуйте ещё раз.");
-    }
   }
 
   return (
@@ -719,11 +702,18 @@ function AuditLeadModal({
             </>
           ) : (
             <>
-              <TextInput editable={false} value={form.name} onChangeText={(name) => setForm((v) => ({ ...v, name }))} placeholder="Имя" placeholderTextColor="#60688d" style={styles.modalInput} />
-              <TextInput editable={false} value={form.clinic} onChangeText={(clinic) => setForm((v) => ({ ...v, clinic }))} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.modalInput} />
-              <TextInput editable={false} value={form.contact} onChangeText={(contact) => setForm((v) => ({ ...v, contact }))} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.modalInput} />
-              <Pressable onPress={() => {}} disabled={status === "sending"} style={({ pressed }) => [styles.btn, styles.btnLime, pressed && styles.pressed]}>
-                <Text style={[styles.btnText, styles.btnTextNavy]}>{status === "sending" ? "Отправляем…" : "Отправить заявку"}</Text>
+              <TextInput value={form.name} editable={false} placeholder="Имя" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <TextInput value={form.clinic} editable={false} placeholder="Клиника / должность" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <TextInput value={form.contact} editable={false} placeholder="Телефон или Telegram" placeholderTextColor="#60688d" style={styles.modalInput} />
+              <LeadConsentCheckboxes
+                marketingAccepted={consents.marketing}
+                personalDataAccepted={consents.personalData}
+                onMarketingChange={() => undefined}
+                onPersonalDataChange={() => undefined}
+                tone="light"
+              />
+              <Pressable onPress={submit} disabled style={({ pressed }) => [styles.btn, styles.btnLime, pressed && styles.pressed]}>
+                <Text style={[styles.btnText, styles.btnTextNavy]}>Отправить заявку</Text>
               </Pressable>
               {status === "error" && error ? <Text style={styles.modalErr}>{error}</Text> : null}
             </>

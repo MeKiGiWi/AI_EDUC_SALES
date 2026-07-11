@@ -8,16 +8,26 @@ export const legalContent = {
   },
   pages: {
     privacyPolicy: "/legal/privacy-policy.html",
-    personalDataAgreement: "/legal/personal-data-processing-agreement.html"
+    personalDataPolicy: "/legal/personal-data-policy.html",
+    cookiesConsent: "/legal/cookies-consent.html",
+    personalDataConsent: "/legal/personal-data-consent.html"
   },
   documents: {
     privacyPolicy: {
       label: "Политика конфиденциальности",
       href: "/legal/privacy-policy.docx"
     },
-    personalDataAgreement: {
+    personalDataPolicy: {
+      label: "Политика обработки персональных данных",
+      href: "/legal/personal-data-policy.docx"
+    },
+    personalDataConsent: {
       label: "Согласие на обработку персональных данных",
-      href: "/legal/personal-data-processing-agreement.docx"
+      href: "/legal/personal-data-consent.docx"
+    },
+    cookiesConsent: {
+      label: "Согласие на обработку данных Cookies",
+      href: "/legal/cookies-consent.docx"
     }
   }
 } as const;

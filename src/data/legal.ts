@@ -1,3 +1,5 @@
+const legalVersion = "20260727";
+
 export const legalContent = {
   company: {
     legalName: "Общество с ограниченной ответственностью «Цифровая методология»",
@@ -7,27 +9,27 @@ export const legalContent = {
     ogrn: "1235000008275"
   },
   pages: {
-    privacyPolicy: "/legal/privacy-policy.html",
-    personalDataPolicy: "/legal/personal-data-policy.html",
-    cookiesConsent: "/legal/cookies-consent.html",
-    personalDataConsent: "/legal/personal-data-consent.html"
+    privacyPolicy: `/legal/privacy-policy.html?v=${legalVersion}`,
+    personalDataPolicy: `/legal/personal-data-policy.html?v=${legalVersion}`,
+    cookiesConsent: `/legal/cookies-consent.html?v=${legalVersion}`,
+    personalDataConsent: `/legal/personal-data-consent.html?v=${legalVersion}`
   },
   documents: {
     privacyPolicy: {
       label: "Политика конфиденциальности",
-      href: "/legal/privacy-policy.docx"
+      href: `/legal/privacy-policy.docx?v=${legalVersion}`
     },
     personalDataPolicy: {
       label: "Политика обработки персональных данных",
-      href: "/legal/personal-data-policy.docx"
+      href: `/legal/personal-data-policy.docx?v=${legalVersion}`
     },
     personalDataConsent: {
       label: "Согласие на обработку персональных данных",
-      href: "/legal/personal-data-consent.docx"
+      href: `/legal/personal-data-consent.docx?v=${legalVersion}`
     },
     cookiesConsent: {
       label: "Согласие на обработку данных Cookies",
-      href: "/legal/cookies-consent.docx"
+      href: `/legal/cookies-consent.docx?v=${legalVersion}`
     }
   }
 } as const;

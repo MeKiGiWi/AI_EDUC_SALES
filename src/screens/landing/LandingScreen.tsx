@@ -949,24 +949,24 @@ function Reveal({
 function LegalLink({
   children,
   href,
-  docxHref,
   variant = "inline"
 }: {
   children: ReactNode;
   href: string;
-  docxHref?: string;
   variant?: "inline" | "footer";
 }) {
+  function openLegalPage() {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.location.assign(href);
+      return;
+    }
+    void Linking.openURL(href);
+  }
+
   return (
     <Text
       accessibilityRole="link"
-      {...(Platform.OS === "web"
-        ? ({ href } as object)
-        : null)}
-      {...({ dataSet: { legalHref: href, legalDocxHref: docxHref ?? "" } } as object)}
-      onPress={() => {
-        void Linking.openURL(href);
-      }}
+      onPress={openLegalPage}
       style={variant === "footer" ? styles.footerLegalLink : styles.legalInlineLink}
     >
       {children}
@@ -1643,21 +1643,18 @@ export function LandingScreen({ onOpenAudit }: LandingScreenProps) {
                 <View style={styles.footerLegalList}>
                   <LegalLink
                     href={legalContent.pages.personalDataPolicy}
-                    docxHref={legalContent.documents.personalDataPolicy.href}
                     variant="footer"
                   >
                     Политика обработки персональных данных
                   </LegalLink>
                   <LegalLink
                     href={legalContent.pages.personalDataConsent}
-                    docxHref={legalContent.documents.personalDataConsent.href}
                     variant="footer"
                   >
                     {legalContent.documents.personalDataConsent.label}
                   </LegalLink>
                   <LegalLink
                     href={legalContent.pages.cookiesConsent}
-                    docxHref={legalContent.documents.cookiesConsent.href}
                     variant="footer"
                   >
                     {legalContent.documents.cookiesConsent.label}

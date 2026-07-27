@@ -12,13 +12,18 @@ interface LeadConsentCheckboxesProps {
 }
 
 function LegalLink({ href, children, tone }: { href: string; children: string; tone: "dark" | "light" }) {
+  function openLegalPage() {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.location.assign(href);
+      return;
+    }
+    void Linking.openURL(href);
+  }
+
   return (
     <Text
       accessibilityRole="link"
-      {...(Platform.OS === "web" ? ({ href } as object) : null)}
-      onPress={() => {
-        void Linking.openURL(href);
-      }}
+      onPress={openLegalPage}
       style={[styles.link, tone === "dark" ? styles.linkDark : styles.linkLight]}
     >
       {children}
